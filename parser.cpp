@@ -1,3 +1,4 @@
+#include "ast.hpp"
 #include "parsley/parser.hpp"
 #include "parsley/pratt.hpp"
 
@@ -26,13 +27,39 @@ constexpr auto whitespace = ignore(sequence(
 
 constexpr auto identifier = sequence(alphabetic_char, zero_or_more(alphanumeric_char));
 
-struct Expression;
-constexpr auto expression = reference<Expression>();
-struct Expression {
-	static constexpr auto parser = pratt<IgnoreCallback>(
+class IntCollector {
+	std::int32_t value = 0;
+public:
+	void push(char c) {
+		value *= 10;
+		value += c - '0';
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(make_expr<IntLiteral>(value));
+	}
+};
+
+constexpr auto int_literal = collect<IntCollector>(one_or_more(numeric_char));
+
+class ExpressionCollector {
+	Reference<Expression> expression;
+public:
+	void push(Reference<Expression>&& expression) {
+		this->expression = std::move(expression);
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(std::move(expression));
+	}
+};
+
+struct expression;
+constexpr auto expression = reference<struct expression>();
+struct expression {
+	static constexpr auto parser = pratt<ExpressionCollector>(
 		pratt_level(
 			terminal(choice(
-				identifier,
+				int_literal,
+				ignore(identifier),
 				error("expected an expression")
 			))
 		)
@@ -57,7 +84,8 @@ int main(int argc, const char** argv) {
 	const char* path = argv[1];
 	auto source = read_file(path);
 	parser::Context context(source);
-	const Result result = parse_impl(program, context, IgnoreCallback());
+	Reference<Expression> expression;
+	const Result result = parse_impl(program, context, GetValueCallback<Reference<Expression>>(expression));
 	if (result == ERROR) {
 		print_error(path, context.get_source(), context.get_position(), context.get_error());
 		return 1;
@@ -67,4 +95,7 @@ int main(int argc, const char** argv) {
 		return 1;
 	}
 	print(ln(bold(green("success"))));
+	if (IntLiteral* int_literal = expr_cast<IntLiteral>(expression)) {
+		print(ln(print_number(int_literal->get_value())));
+	}
 }
