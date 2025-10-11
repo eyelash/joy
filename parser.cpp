@@ -1,5 +1,4 @@
-#include "ast.hpp"
-#include "parsley/parser.hpp"
+#include "parser.hpp"
 #include "parsley/pratt.hpp"
 
 using namespace parser;
@@ -99,26 +98,6 @@ constexpr auto program = sequence(
 	)
 );
 
-int main(int argc, const char** argv) {
-	using namespace printer;
-	if (argc <= 1) {
-		return 1;
-	}
-	const char* path = argv[1];
-	auto source = read_file(path);
-	parser::Context context(source);
-	Reference<Expression> expression;
-	const Result result = parse_impl(program, context, GetValueCallback<Reference<Expression>>(expression));
-	if (result == ERROR) {
-		print_error(path, context.get_source(), context.get_position(), context.get_error());
-		return 1;
-	}
-	if (result == FAILURE) {
-		print(ln(bold(yellow("failure"))));
-		return 1;
-	}
-	print(ln(bold(green("success"))));
-	if (IntLiteral* int_literal = expr_cast<IntLiteral>(expression)) {
-		print(ln(print_number(int_literal->get_value())));
-	}
+Result parse_program(Context& context, Reference<Expression>& expression) {
+	return parse_impl(program, context, GetValueCallback<Reference<Expression>>(expression));
 }
