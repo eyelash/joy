@@ -3,7 +3,8 @@
 #include "parsley/common.hpp"
 
 enum class ExpressionType {
-	INT_LITERAL
+	INT_LITERAL,
+	BINARY_EXPRESSION
 };
 
 class Expression {
@@ -35,5 +36,34 @@ public:
 	}
 	std::int32_t get_value() const {
 		return value;
+	}
+};
+
+enum class BinaryOperation {
+	ADD,
+	SUB,
+	MUL,
+	DIV,
+	REM
+};
+
+class BinaryExpression final: public Expression {
+	BinaryOperation operation;
+	Reference<Expression> left;
+	Reference<Expression> right;
+public:
+	BinaryExpression(BinaryOperation operation, Reference<Expression>&& left, Reference<Expression>&& right): operation(operation), left(std::move(left)), right(std::move(right)) {}
+	static constexpr ExpressionType TYPE = ExpressionType::BINARY_EXPRESSION;
+	ExpressionType get_type() const override {
+		return TYPE;
+	}
+	BinaryOperation get_operation() const {
+		return operation;
+	}
+	const Expression* get_left() const {
+		return left;
+	}
+	const Expression* get_right() const {
+		return right;
 	}
 };

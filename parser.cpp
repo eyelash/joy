@@ -25,6 +25,10 @@ constexpr auto whitespace = ignore(sequence(
 	))
 ));
 
+template <class P> constexpr auto operator_(P p) {
+	return sequence(whitespace, ignore(p), whitespace);
+}
+
 constexpr auto identifier = sequence(alphabetic_char, zero_or_more(alphanumeric_char));
 
 class IntCollector {
@@ -47,8 +51,18 @@ public:
 	void push(Reference<Expression>&& expression) {
 		this->expression = std::move(expression);
 	}
+	void push(Reference<Expression>&& right, BinaryOperation operation) {
+		expression = make_expr<BinaryExpression>(operation, std::move(expression), std::move(right));
+	}
 	template <class C> void retrieve(const C& callback) {
 		callback.push(std::move(expression));
+	}
+};
+
+template <BinaryOperation operation> class OperationMapper {
+public:
+	template <class C, class... A> static void map(const C& callback, A&&... a) {
+		callback.push(std::forward<A>(a)..., operation);
 	}
 };
 
@@ -56,6 +70,15 @@ struct expression;
 constexpr auto expression = reference<struct expression>();
 struct expression {
 	static constexpr auto parser = pratt<ExpressionCollector>(
+		pratt_level(
+			infix_ltr<OperationMapper<BinaryOperation::ADD>>(operator_('+')),
+			infix_ltr<OperationMapper<BinaryOperation::SUB>>(operator_('-'))
+		),
+		pratt_level(
+			infix_ltr<OperationMapper<BinaryOperation::MUL>>(operator_('*')),
+			infix_ltr<OperationMapper<BinaryOperation::DIV>>(operator_('/')),
+			infix_ltr<OperationMapper<BinaryOperation::REM>>(operator_('%'))
+		),
 		pratt_level(
 			terminal(choice(
 				int_literal,
