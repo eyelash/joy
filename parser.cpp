@@ -65,8 +65,6 @@ public:
 	}
 };
 
-struct expression;
-constexpr auto expression = reference<struct expression>();
 struct expression {
 	static constexpr auto parser = pratt<ExpressionCollector>(
 		pratt_level(
@@ -80,6 +78,7 @@ struct expression {
 		),
 		pratt_level(
 			terminal(choice(
+				sequence(ignore('('), whitespace, reference<expression>(), whitespace, expect(")")),
 				int_literal,
 				ignore(identifier),
 				error("expected an expression")
@@ -90,7 +89,7 @@ struct expression {
 
 constexpr auto program = sequence(
 	whitespace,
-	expression,
+	reference<expression>(),
 	whitespace,
 	choice(
 		end(),
