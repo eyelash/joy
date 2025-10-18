@@ -93,6 +93,18 @@ struct expression {
 
 constexpr auto statement = sequence(
 	choice(
+		sequence(
+			keyword("let"),
+			whitespace,
+			choice(
+				ignore(identifier),
+				error("expected an identifier")
+			),
+			whitespace,
+			expect("="),
+			whitespace,
+			reference<expression>()
+		),
 		reference<expression>()
 	),
 	whitespace,
