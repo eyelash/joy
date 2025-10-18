@@ -25,14 +25,14 @@ public:
 		if (expression == nullptr) {
 			return;
 		}
-		switch (expression->get_type()) {
-		case ExpressionType::INT_LITERAL:
+		switch (expression->get_type_id()) {
+		case TYPE_ID_INT_LITERAL:
 			{
 				const auto* e = static_cast<const IntLiteral*>(expression);
 				print_impl(print_number(e->get_value()), context);
 			}
 			break;
-		case ExpressionType::BINARY_EXPRESSION:
+		case TYPE_ID_BINARY_EXPRESSION:
 			{
 				const auto* e = static_cast<const BinaryExpression*>(expression);
 				print_impl(format("(% % %)", PrintExpression(e->get_left()), print_operation(e->get_operation()), PrintExpression(e->get_right())), context);

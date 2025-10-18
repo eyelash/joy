@@ -2,38 +2,30 @@
 
 #include "parsley/common.hpp"
 
+enum {
+	TYPE_ID_INT_LITERAL,
+	TYPE_ID_BINARY_EXPRESSION
+};
+
 enum class ExpressionType {
 	INT_LITERAL,
 	BINARY_EXPRESSION
 };
 
-class Expression {
+class Expression: public Dynamic {
 public:
-	virtual ~Expression() = default;
-	virtual ExpressionType get_type() const = 0;
+	Expression(int type_id): Dynamic(type_id) {}
 };
 
 template <class T, class... A> Reference<Expression> make_expr(A&&... a) {
 	return Reference<Expression>(new T(std::forward<A>(a)...));
 }
 
-template <class T> T* expr_cast(Expression* e) {
-	if (e && e->get_type() == T::TYPE) {
-		return static_cast<T*>(e);
-	}
-	else {
-		return nullptr;
-	}
-}
-
 class IntLiteral final: public Expression {
 	std::int32_t value;
 public:
-	IntLiteral(std::int32_t value): value(value) {}
-	static constexpr ExpressionType TYPE = ExpressionType::INT_LITERAL;
-	ExpressionType get_type() const override {
-		return TYPE;
-	}
+	static constexpr int TYPE_ID = TYPE_ID_INT_LITERAL;
+	IntLiteral(std::int32_t value): Expression(TYPE_ID), value(value) {}
 	std::int32_t get_value() const {
 		return value;
 	}
@@ -52,11 +44,8 @@ class BinaryExpression final: public Expression {
 	Reference<Expression> left;
 	Reference<Expression> right;
 public:
-	BinaryExpression(BinaryOperation operation, Reference<Expression>&& left, Reference<Expression>&& right): operation(operation), left(std::move(left)), right(std::move(right)) {}
-	static constexpr ExpressionType TYPE = ExpressionType::BINARY_EXPRESSION;
-	ExpressionType get_type() const override {
-		return TYPE;
-	}
+	static constexpr int TYPE_ID = TYPE_ID_BINARY_EXPRESSION;
+	BinaryExpression(BinaryOperation operation, Reference<Expression>&& left, Reference<Expression>&& right): Expression(TYPE_ID), operation(operation), left(std::move(left)), right(std::move(right)) {}
 	BinaryOperation get_operation() const {
 		return operation;
 	}
