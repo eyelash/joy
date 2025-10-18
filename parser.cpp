@@ -24,6 +24,10 @@ constexpr auto whitespace = ignore(sequence(
 	))
 ));
 
+constexpr auto keyword(const char* s) {
+	return sequence(ignore(s), not_(alphanumeric_char));
+}
+
 template <class P> constexpr auto operator_(P p) {
 	return sequence(whitespace, ignore(p), whitespace);
 }
@@ -87,14 +91,52 @@ struct expression {
 	);
 };
 
-constexpr auto program = sequence(
+constexpr auto statement = sequence(
+	choice(
+		reference<expression>()
+	),
 	whitespace,
-	reference<expression>(),
+	expect(";")
+);
+
+struct block {
+	static constexpr auto parser = sequence(
+		expect("{"),
+		whitespace,
+		zero_or_more(sequence(
+			not_('}'),
+			statement,
+			whitespace
+		)),
+		expect("}")
+	);
+};
+
+constexpr auto function = sequence(
+	keyword("func"),
 	whitespace,
 	choice(
-		end(),
-		error("unexpected character at end of program")
-	)
+		ignore(identifier),
+		error("expected an identifier")
+	),
+	whitespace,
+	expect("("),
+	whitespace,
+	expect(")"),
+	whitespace,
+	reference<block>()
+);
+
+constexpr auto program = sequence(
+	whitespace,
+	zero_or_more(sequence(
+		not_(end()),
+		choice(
+			function,
+			error("expected a function")
+		),
+		whitespace
+	))
 );
 
 Result parse_program(Context& context, Reference<Expression>& expression) {
