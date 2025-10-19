@@ -1,4 +1,5 @@
 #include "parser.hpp"
+#include "codegen_c.hpp"
 
 class PrintExpression {
 	static const char* print_operation(BinaryOperation operation) {
@@ -48,13 +49,13 @@ int main(int argc, const char** argv) {
 	if (argc <= 1) {
 		return 1;
 	}
-	const char* path = argv[1];
-	auto source = read_file(path);
+	std::string path = argv[1];
+	auto source = read_file(path.c_str());
 	parser::Context context(source);
 	Program program;
 	const Result result = parse_program(context, program);
 	if (result == ERROR) {
-		print_error(path, context.get_source(), context.get_position(), context.get_error());
+		print_error(path.c_str(), context.get_source(), context.get_position(), context.get_error());
 		return 1;
 	}
 	if (result == FAILURE) {
@@ -62,5 +63,6 @@ int main(int argc, const char** argv) {
 		return 1;
 	}
 	print(ln(bold(green("success"))));
-	//print(ln(PrintExpression(expression)));
+	std::ofstream output(path + ".c");
+	codegen_c(output, program);
 }
