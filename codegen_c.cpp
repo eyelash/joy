@@ -25,6 +25,13 @@ public:
 	}
 };
 
+class PrintStatement {
+	const Statement* statement;
+public:
+	PrintStatement(const Statement* statement): statement(statement) {}
+	void print(Context& context) const;
+};
+
 class PrintBlock {
 	const Block* block;
 public:
@@ -33,23 +40,36 @@ public:
 		print_impl(ln('{'), context);
 		context.increase_indentation();
 		for (const Statement* statement: block->get_statements()) {
-			if (auto* block_statement = as<BlockStatement>(statement)) {
-				print_impl(ln(PrintBlock(&block_statement->get_block())), context);
-			}
-			else if (auto* empty_statement = as<EmptyStatement>(statement)) {
-				print_impl(ln(';'), context);
-			}
-			else if (auto* let_statement = as<LetStatement>(statement)) {
-				print_impl(ln(format("int % = %;", let_statement->get_name(), PrintExpression(let_statement->get_expression()))), context);
-			}
-			else if (auto* expression_statement = as<ExpressionStatement>(statement)) {
-				print_impl(ln(format("%;", PrintExpression(expression_statement->get_expression()))), context);
-			}
+			print_impl(ln(PrintStatement(statement)), context);
 		}
 		context.decrease_indentation();
 		print_impl('}', context);
 	}
 };
+
+void PrintStatement::print(Context& context) const {
+	if (auto* block_statement = as<BlockStatement>(statement)) {
+		print_impl(PrintBlock(&block_statement->get_block()), context);
+	}
+	else if (auto* empty_statement = as<EmptyStatement>(statement)) {
+		print_impl(';', context);
+	}
+	else if (auto* let_statement = as<LetStatement>(statement)) {
+		print_impl(format("int % = %;", let_statement->get_name(), PrintExpression(let_statement->get_expression())), context);
+	}
+	else if (auto* if_statement = as<IfStatement>(statement)) {
+		print_impl(format("if (%) %", PrintExpression(if_statement->get_condition()), PrintStatement(if_statement->get_then_statement())), context);
+		if (auto* else_statement = if_statement->get_else_statement()) {
+			print_impl(format(" else %", PrintStatement(else_statement)), context);
+		}
+	}
+	else if (auto* while_statement = as<WhileStatement>(statement)) {
+		print_impl(ln(format("while (%) %", PrintExpression(while_statement->get_condition()), PrintStatement(while_statement->get_statement()))), context);
+	}
+	else if (auto* expression_statement = as<ExpressionStatement>(statement)) {
+		print_impl(ln(format("%;", PrintExpression(expression_statement->get_expression()))), context);
+	}
+}
 
 class PrintFunction {
 	const Function* function;
