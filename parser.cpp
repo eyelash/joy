@@ -91,29 +91,35 @@ struct expression {
 	);
 };
 
-constexpr auto statement = sequence(
-	choice(
-		sequence(
-			keyword("let"),
-			whitespace,
-			choice(
-				ignore(identifier),
-				error("expected an identifier")
-			),
-			whitespace,
-			expect("="),
-			whitespace,
-			reference<expression>()
+struct block;
+
+constexpr auto statement = choice(
+	reference<block>(),
+	ignore(';'),
+	sequence(
+		keyword("let"),
+		whitespace,
+		choice(
+			ignore(identifier),
+			error("expected an identifier")
 		),
-		reference<expression>()
+		whitespace,
+		expect("="),
+		whitespace,
+		reference<expression>(),
+		whitespace,
+		expect(";")
 	),
-	whitespace,
-	expect(";")
+	sequence(
+		reference<expression>(),
+		whitespace,
+		expect(";")
+	)
 );
 
 struct block {
 	static constexpr auto parser = sequence(
-		expect("{"),
+		ignore('{'),
 		whitespace,
 		zero_or_more(sequence(
 			not_('}'),
@@ -136,7 +142,10 @@ constexpr auto function = sequence(
 	whitespace,
 	expect(")"),
 	whitespace,
-	reference<block>()
+	choice(
+		reference<block>(),
+		error("expected a block")
+	)
 );
 
 constexpr auto program = sequence(
