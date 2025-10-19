@@ -4,7 +4,10 @@
 
 enum {
 	TYPE_ID_INT_LITERAL,
-	TYPE_ID_BINARY_EXPRESSION
+	TYPE_ID_BINARY_EXPRESSION,
+	TYPE_ID_BLOCK_STATEMENT,
+	TYPE_ID_EMPTY_STATEMENT,
+	TYPE_ID_EXPRESSION_STATEMENT
 };
 
 enum class ExpressionType {
@@ -54,5 +57,42 @@ public:
 	}
 	const Expression* get_right() const {
 		return right;
+	}
+};
+
+class Statement: public Dynamic {
+public:
+	Statement(int type_id): Dynamic(type_id) {}
+};
+
+class Block {
+	std::vector<Reference<Statement>> statements;
+public:
+	Block(std::vector<Reference<Statement>>&& statements): statements(std::move(statements)) {}
+	const std::vector<Reference<Statement>>& get_statements() const {
+		return statements;
+	}
+};
+
+class BlockStatement final: public Statement {
+	Block block;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_BLOCK_STATEMENT;
+	BlockStatement(Block&& block): Statement(TYPE_ID), block(std::move(block)) {}
+};
+
+class EmptyStatement final: public Statement {
+public:
+	static constexpr int TYPE_ID = TYPE_ID_EMPTY_STATEMENT;
+	EmptyStatement(): Statement(TYPE_ID) {}
+};
+
+class ExpressionStatement final: public Statement {
+	Reference<Expression> expression;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_EXPRESSION_STATEMENT;
+	ExpressionStatement(Reference<Expression>&& expression): Statement(TYPE_ID), expression(std::move(expression)) {}
+	const Expression* get_expression() const {
+		return expression;
 	}
 };

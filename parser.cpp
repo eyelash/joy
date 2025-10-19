@@ -91,9 +91,34 @@ struct expression {
 	);
 };
 
+class StatementCollector {
+	Reference<Statement> statement;
+public:
+	void push(Block&& block) {
+		statement = new BlockStatement(std::move(block));
+	}
+	void push(Reference<Expression>&& expression) {
+		statement = new ExpressionStatement(std::move(expression));
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(std::move(statement));
+	}
+};
+
+class BlockCollector {
+	std::vector<Reference<Statement>> statements;
+public:
+	void push(Reference<Statement>&& statement) {
+		statements.push_back(std::move(statement));
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(Block(std::move(statements)));
+	}
+};
+
 struct block;
 
-constexpr auto statement = choice(
+constexpr auto statement = collect<StatementCollector>(choice(
 	reference<block>(),
 	ignore(';'),
 	sequence(
@@ -115,10 +140,10 @@ constexpr auto statement = choice(
 		whitespace,
 		expect(";")
 	)
-);
+));
 
 struct block {
-	static constexpr auto parser = sequence(
+	static constexpr auto parser = collect<BlockCollector>(sequence(
 		ignore('{'),
 		whitespace,
 		zero_or_more(sequence(
@@ -127,7 +152,7 @@ struct block {
 			whitespace
 		)),
 		expect("}")
-	);
+	));
 };
 
 constexpr auto function = sequence(
@@ -161,5 +186,5 @@ constexpr auto program = sequence(
 );
 
 Result parse_program(Context& context, Reference<Expression>& expression) {
-	return parse_impl(program, context, GetValueCallback<Reference<Expression>>(expression));
+	return parse_impl(program, context, IgnoreCallback());
 }

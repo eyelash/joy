@@ -62,5 +62,5 @@ int main(int argc, const char** argv) {
 		return 1;
 	}
 	print(ln(bold(green("success"))));
-	print(ln(PrintExpression(expression)));
+	//print(ln(PrintExpression(expression)));
 }
