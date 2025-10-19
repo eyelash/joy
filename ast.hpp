@@ -68,6 +68,7 @@ public:
 class Block {
 	std::vector<Reference<Statement>> statements;
 public:
+	Block() {}
 	Block(std::vector<Reference<Statement>>&& statements): statements(std::move(statements)) {}
 	const std::vector<Reference<Statement>>& get_statements() const {
 		return statements;
@@ -94,5 +95,24 @@ public:
 	ExpressionStatement(Reference<Expression>&& expression): Statement(TYPE_ID), expression(std::move(expression)) {}
 	const Expression* get_expression() const {
 		return expression;
+	}
+};
+
+class Function {
+	Block block;
+public:
+	Function(Block&& block): block(std::move(block)) {}
+	const Block& get_block() const {
+		return block;
+	}
+};
+
+class Program {
+	std::vector<Function> functions;
+public:
+	Program() {}
+	Program(std::vector<Function>&& functions): functions(std::move(functions)) {}
+	const std::vector<Function>& get_functions() const {
+		return functions;
 	}
 };

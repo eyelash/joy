@@ -116,6 +116,28 @@ public:
 	}
 };
 
+class FunctionCollector {
+	Block block;
+public:
+	void push(Block&& block) {
+		this->block = std::move(block);
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(Function(std::move(block)));
+	}
+};
+
+class ProgramCollector {
+	std::vector<Function> functions;
+public:
+	void push(Function&& function) {
+		functions.push_back(std::move(function));
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(Program(std::move(functions)));
+	}
+};
+
 struct block;
 
 constexpr auto statement = collect<StatementCollector>(choice(
@@ -155,7 +177,7 @@ struct block {
 	));
 };
 
-constexpr auto function = sequence(
+constexpr auto function = collect<FunctionCollector>(sequence(
 	keyword("func"),
 	whitespace,
 	choice(
@@ -171,9 +193,9 @@ constexpr auto function = sequence(
 		reference<block>(),
 		error("expected a block")
 	)
-);
+));
 
-constexpr auto program = sequence(
+constexpr auto program = collect<ProgramCollector>(sequence(
 	whitespace,
 	zero_or_more(sequence(
 		not_(end()),
@@ -183,8 +205,8 @@ constexpr auto program = sequence(
 		),
 		whitespace
 	))
-);
+));
 
-Result parse_program(Context& context, Reference<Expression>& expression) {
-	return parse_impl(program, context, IgnoreCallback());
+Result parse_program(Context& context, Program& program_) {
+	return parse_impl(program, context, GetValueCallback<Program>(program_));
 }

@@ -51,8 +51,8 @@ int main(int argc, const char** argv) {
 	const char* path = argv[1];
 	auto source = read_file(path);
 	parser::Context context(source);
-	Reference<Expression> expression;
-	const Result result = parse_program(context, expression);
+	Program program;
+	const Result result = parse_program(context, program);
 	if (result == ERROR) {
 		print_error(path, context.get_source(), context.get_position(), context.get_error());
 		return 1;
