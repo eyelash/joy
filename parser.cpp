@@ -32,7 +32,18 @@ template <class P> constexpr auto operator_(P p) {
 	return sequence(whitespace, ignore(p), whitespace);
 }
 
-constexpr auto identifier = sequence(alphabetic_char, zero_or_more(alphanumeric_char));
+class NameCollector {
+	std::string name;
+public:
+	void push(char c) {
+		name.push_back(c);
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(std::move(name));
+	}
+};
+
+constexpr auto identifier = collect<NameCollector>(sequence(alphabetic_char, zero_or_more(alphanumeric_char)));
 
 class IntCollector {
 	std::int32_t value = 0;
@@ -117,13 +128,17 @@ public:
 };
 
 class FunctionCollector {
+	std::string name;
 	Block block;
 public:
+	void push(std::string&& name) {
+		this->name = std::move(name);
+	}
 	void push(Block&& block) {
 		this->block = std::move(block);
 	}
 	template <class C> void retrieve(const C& callback) {
-		callback.push(Function(std::move(block)));
+		callback.push(Function(std::move(name), std::move(block)));
 	}
 };
 
@@ -181,7 +196,7 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 	keyword("func"),
 	whitespace,
 	choice(
-		ignore(identifier),
+		identifier,
 		error("expected an identifier")
 	),
 	whitespace,

@@ -99,9 +99,13 @@ public:
 };
 
 class Function {
+	std::string name;
 	Block block;
 public:
-	Function(Block&& block): block(std::move(block)) {}
+	Function(std::string&& name, Block&& block): name(std::move(name)), block(std::move(block)) {}
+	const std::string& get_name() const {
+		return name;
+	}
 	const Block& get_block() const {
 		return block;
 	}
