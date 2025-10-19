@@ -8,6 +8,8 @@ enum {
 	TYPE_ID_BLOCK_STATEMENT,
 	TYPE_ID_EMPTY_STATEMENT,
 	TYPE_ID_LET_STATEMENT,
+	TYPE_ID_IF_STATEMENT,
+	TYPE_ID_WHILE_STATEMENT,
 	TYPE_ID_EXPRESSION_STATEMENT
 };
 
@@ -103,6 +105,38 @@ public:
 	}
 	const Expression* get_expression() const {
 		return expression;
+	}
+};
+
+class IfStatement final: public Statement {
+	Reference<Expression> condition;
+	Reference<Statement> then_statement;
+	Reference<Statement> else_statement;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_IF_STATEMENT;
+	IfStatement(Reference<Expression>&& condition, Reference<Statement>&& then_statement, Reference<Statement>&& else_statement): Statement(TYPE_ID), condition(std::move(condition)), then_statement(std::move(then_statement)), else_statement(std::move(else_statement)) {}
+	const Expression* get_condition() const {
+		return condition;
+	}
+	const Statement* get_then_statement() const {
+		return then_statement;
+	}
+	const Statement* get_else_statement() const {
+		return else_statement;
+	}
+};
+
+class WhileStatement final: public Statement {
+	Reference<Expression> condition;
+	Reference<Statement> statement;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_WHILE_STATEMENT;
+	WhileStatement(Reference<Expression>&& condition, Reference<Statement>&& statement): Statement(TYPE_ID), condition(std::move(condition)), statement(std::move(statement)) {}
+	const Expression* get_condition() const {
+		return condition;
+	}
+	const Statement* get_statement() const {
+		return statement;
 	}
 };
 

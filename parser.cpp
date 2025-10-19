@@ -90,6 +90,42 @@ public:
 	}
 };
 
+class IfStatementCollector {
+	Reference<Expression> condition;
+	Reference<Statement> then_statement;
+	Reference<Statement> else_statement;
+public:
+	struct ThenTag {};
+	struct ElseTag {};
+	void push(Reference<Expression>&& condition) {
+		this->condition = std::move(condition);
+	}
+	void push(Reference<Statement>&& statement, ThenTag) {
+		then_statement = std::move(statement);
+	}
+	void push(Reference<Statement>&& statement, ElseTag) {
+		else_statement = std::move(statement);
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(new IfStatement(std::move(condition), std::move(then_statement), std::move(else_statement)));
+	}
+};
+
+class WhileStatementCollector {
+	Reference<Expression> condition;
+	Reference<Statement> statement;
+public:
+	void push(Reference<Expression>&& condition) {
+		this->condition = std::move(condition);
+	}
+	void push(Reference<Statement>&& statement) {
+		this->statement = std::move(statement);
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(new WhileStatement(std::move(condition), std::move(statement)));
+	}
+};
+
 class FunctionCollector {
 	std::string name;
 	Block block;
@@ -178,31 +214,7 @@ struct expression {
 	);
 };
 
-struct block;
-
-constexpr auto statement = collect<StatementCollector>(choice(
-	reference<block>(),
-	collect<EmptyStatementCollector>(ignore(';')),
-	collect<LetStatementCollector>(sequence(
-		keyword("let"),
-		whitespace,
-		choice(
-			identifier,
-			error("expected an identifier")
-		),
-		whitespace,
-		expect("="),
-		whitespace,
-		reference<expression>(),
-		whitespace,
-		expect(";")
-	)),
-	sequence(
-		reference<expression>(),
-		whitespace,
-		expect(";")
-	)
-));
+struct statement;
 
 struct block {
 	static constexpr auto parser = collect<BlockCollector>(sequence(
@@ -210,10 +222,64 @@ struct block {
 		whitespace,
 		zero_or_more(sequence(
 			not_('}'),
-			statement,
+			reference<statement>(),
 			whitespace
 		)),
 		expect("}")
+	));
+};
+
+struct statement {
+	static constexpr auto parser = collect<StatementCollector>(choice(
+		reference<block>(),
+		collect<EmptyStatementCollector>(ignore(';')),
+		collect<LetStatementCollector>(sequence(
+			keyword("let"),
+			whitespace,
+			choice(
+				identifier,
+				error("expected an identifier")
+			),
+			whitespace,
+			expect("="),
+			whitespace,
+			reference<expression>(),
+			whitespace,
+			expect(";")
+		)),
+		collect<IfStatementCollector>(sequence(
+			keyword("if"),
+			whitespace,
+			expect("("),
+			whitespace,
+			reference<expression>(),
+			whitespace,
+			expect(")"),
+			whitespace,
+			tag<IfStatementCollector::ThenTag>(reference<statement>()),
+			whitespace,
+			optional(sequence(
+				keyword("else"),
+				whitespace,
+				tag<IfStatementCollector::ElseTag>(reference<statement>())
+			))
+		)),
+		collect<WhileStatementCollector>(sequence(
+			keyword("while"),
+			whitespace,
+			expect("("),
+			whitespace,
+			reference<expression>(),
+			whitespace,
+			expect(")"),
+			whitespace,
+			reference<statement>()
+		)),
+		sequence(
+			reference<expression>(),
+			whitespace,
+			expect(";")
+		)
 	));
 };
 
