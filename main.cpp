@@ -1,48 +1,6 @@
 #include "parser.hpp"
 #include "codegen_c.hpp"
 
-class PrintExpression {
-	static const char* print_operation(BinaryOperation operation) {
-		switch (operation) {
-		case BinaryOperation::ADD:
-			return "+";
-		case BinaryOperation::SUB:
-			return "-";
-		case BinaryOperation::MUL:
-			return "*";
-		case BinaryOperation::DIV:
-			return "/";
-		case BinaryOperation::REM:
-			return "%";
-		default:
-			return "";
-		}
-	}
-	const Expression* expression;
-public:
-	PrintExpression(const Expression* expression): expression(expression) {}
-	void print(printer::Context& context) const {
-		using namespace printer;
-		if (expression == nullptr) {
-			return;
-		}
-		switch (expression->get_type_id()) {
-		case TYPE_ID_INT_LITERAL:
-			{
-				const auto* e = static_cast<const IntLiteral*>(expression);
-				print_impl(print_number(e->get_value()), context);
-			}
-			break;
-		case TYPE_ID_BINARY_EXPRESSION:
-			{
-				const auto* e = static_cast<const BinaryExpression*>(expression);
-				print_impl(format("(% % %)", PrintExpression(e->get_left()), print_operation(e->get_operation()), PrintExpression(e->get_right())), context);
-			}
-			break;
-		}
-	}
-};
-
 int main(int argc, const char** argv) {
 	using namespace parser;
 	using namespace printer;
