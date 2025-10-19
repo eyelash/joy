@@ -81,6 +81,9 @@ class BlockStatement final: public Statement {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_BLOCK_STATEMENT;
 	BlockStatement(Block&& block): Statement(TYPE_ID), block(std::move(block)) {}
+	const Block& get_block() const {
+		return block;
+	}
 };
 
 class EmptyStatement final: public Statement {

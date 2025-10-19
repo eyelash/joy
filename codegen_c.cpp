@@ -25,20 +25,38 @@ public:
 	}
 };
 
+class PrintBlock {
+	const Block* block;
+public:
+	PrintBlock(const Block* block): block(block) {}
+	void print(Context& context) const {
+		print_impl(ln('{'), context);
+		context.increase_indentation();
+		for (const Statement* statement: block->get_statements()) {
+			if (auto* block_statement = as<BlockStatement>(statement)) {
+				print_impl(ln(PrintBlock(&block_statement->get_block())), context);
+			}
+			else if (auto* empty_statement = as<EmptyStatement>(statement)) {
+				print_impl(ln(';'), context);
+			}
+			else if (auto* let_statement = as<LetStatement>(statement)) {
+				print_impl(ln(format("int % = %;", let_statement->get_name(), PrintExpression(let_statement->get_expression()))), context);
+			}
+			else if (auto* expression_statement = as<ExpressionStatement>(statement)) {
+				print_impl(ln(format("%;", PrintExpression(expression_statement->get_expression()))), context);
+			}
+		}
+		context.decrease_indentation();
+		print_impl('}', context);
+	}
+};
+
 class PrintFunction {
 	const Function* function;
 public:
 	PrintFunction(const Function* function): function(function) {}
 	void print(Context& context) const {
-		print_impl(ln(format("void %(void) {", function->get_name())), context);
-		context.increase_indentation();
-		for (const Statement* statement: function->get_block().get_statements()) {
-			if (auto* expression_statement = as<ExpressionStatement>(statement)) {
-				print_impl(ln(format("%;", PrintExpression(expression_statement->get_expression()))), context);
-			}
-		}
-		context.decrease_indentation();
-		print_impl(ln('}'), context);
+		print_impl(ln(format("void %(void) %", function->get_name(), PrintBlock(&function->get_block()))), context);
 	}
 };
 
