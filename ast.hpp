@@ -7,6 +7,7 @@ enum {
 	TYPE_ID_BINARY_EXPRESSION,
 	TYPE_ID_BLOCK_STATEMENT,
 	TYPE_ID_EMPTY_STATEMENT,
+	TYPE_ID_LET_STATEMENT,
 	TYPE_ID_EXPRESSION_STATEMENT
 };
 
@@ -86,6 +87,20 @@ class EmptyStatement final: public Statement {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_EMPTY_STATEMENT;
 	EmptyStatement(): Statement(TYPE_ID) {}
+};
+
+class LetStatement final: public Statement {
+	std::string name;
+	Reference<Expression> expression;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_LET_STATEMENT;
+	LetStatement(std::string&& name, Reference<Expression>&& expression): Statement(TYPE_ID), name(std::move(name)), expression(std::move(expression)) {}
+	const std::string& get_name() const {
+		return name;
+	}
+	const Expression* get_expression() const {
+		return expression;
+	}
 };
 
 class ExpressionStatement final: public Statement {

@@ -105,6 +105,9 @@ struct expression {
 class StatementCollector {
 	Reference<Statement> statement;
 public:
+	void push(Reference<Statement>&& statement) {
+		this->statement = std::move(statement);
+	}
 	void push(Block&& block) {
 		statement = new BlockStatement(std::move(block));
 	}
@@ -124,6 +127,28 @@ public:
 	}
 	template <class C> void retrieve(const C& callback) {
 		callback.push(Block(std::move(statements)));
+	}
+};
+
+class EmptyStatementCollector {
+public:
+	template <class C> void retrieve(const C& callback) {
+		callback.push(new EmptyStatement());
+	}
+};
+
+class LetStatementCollector {
+	std::string name;
+	Reference<Expression> expression;
+public:
+	void push(std::string&& name) {
+		this->name = std::move(name);
+	}
+	void push(Reference<Expression>&& expression) {
+		this->expression = std::move(expression);
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(new LetStatement(std::move(name), std::move(expression)));
 	}
 };
 
@@ -157,12 +182,12 @@ struct block;
 
 constexpr auto statement = collect<StatementCollector>(choice(
 	reference<block>(),
-	ignore(';'),
-	sequence(
+	collect<EmptyStatementCollector>(ignore(';')),
+	collect<LetStatementCollector>(sequence(
 		keyword("let"),
 		whitespace,
 		choice(
-			ignore(identifier),
+			identifier,
 			error("expected an identifier")
 		),
 		whitespace,
@@ -171,7 +196,7 @@ constexpr auto statement = collect<StatementCollector>(choice(
 		reference<expression>(),
 		whitespace,
 		expect(";")
-	),
+	)),
 	sequence(
 		reference<expression>(),
 		whitespace,
