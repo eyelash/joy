@@ -35,6 +35,9 @@ public:
 	void push(std::int32_t value) {
 		expression = new IntLiteral(value);
 	}
+	void push(std::string&& name) {
+		expression = new Name(std::move(name));
+	}
 	void push(Reference<Expression>&& right, BinaryOperation operation) {
 		expression = new BinaryExpression(operation, std::move(expression), std::move(right));
 	}
@@ -210,7 +213,7 @@ struct expression {
 			terminal(choice(
 				sequence(ignore('('), whitespace, reference<expression>(), whitespace, expect(")")),
 				int_literal,
-				ignore(identifier),
+				identifier,
 				error("expected an expression")
 			))
 		)

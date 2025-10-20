@@ -4,6 +4,7 @@
 
 enum {
 	TYPE_ID_INT_LITERAL,
+	TYPE_ID_NAME,
 	TYPE_ID_BINARY_EXPRESSION,
 	TYPE_ID_BLOCK_STATEMENT,
 	TYPE_ID_EMPTY_STATEMENT,
@@ -25,6 +26,16 @@ public:
 	IntLiteral(std::int32_t value): Expression(TYPE_ID), value(value) {}
 	std::int32_t get_value() const {
 		return value;
+	}
+};
+
+class Name final: public Expression {
+	std::string name;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_NAME;
+	Name(std::string&& name): Expression(TYPE_ID), name(std::move(name)) {}
+	const std::string& get_name() const {
+		return name;
 	}
 };
 
