@@ -26,6 +26,20 @@ public:
 	}
 };
 
+class FalseCollector {
+public:
+	template <class C> void retrieve(const C& callback) {
+		callback.push(0);
+	}
+};
+
+class TrueCollector {
+public:
+	template <class C> void retrieve(const C& callback) {
+		callback.push(1);
+	}
+};
+
 class ExpressionCollector {
 	Reference<Expression> expression;
 public:
@@ -212,6 +226,8 @@ struct expression {
 		pratt_level(
 			terminal(choice(
 				sequence(ignore('('), whitespace, reference<expression>(), whitespace, expect(")")),
+				collect<FalseCollector>(keyword("false")),
+				collect<TrueCollector>(keyword("true")),
 				int_literal,
 				identifier,
 				error("expected an expression")
