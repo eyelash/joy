@@ -13,19 +13,10 @@ enum {
 	TYPE_ID_EXPRESSION_STATEMENT
 };
 
-enum class ExpressionType {
-	INT_LITERAL,
-	BINARY_EXPRESSION
-};
-
 class Expression: public Dynamic {
 public:
 	Expression(int type_id): Dynamic(type_id) {}
 };
-
-template <class T, class... A> Reference<Expression> make_expr(A&&... a) {
-	return Reference<Expression>(new T(std::forward<A>(a)...));
-}
 
 class IntLiteral final: public Expression {
 	std::int32_t value;

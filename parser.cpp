@@ -22,7 +22,7 @@ public:
 		value += c - '0';
 	}
 	template <class C> void retrieve(const C& callback) {
-		callback.push(make_expr<IntLiteral>(value));
+		callback.push(value);
 	}
 };
 
@@ -32,11 +32,32 @@ public:
 	void push(Reference<Expression>&& expression) {
 		this->expression = std::move(expression);
 	}
+	void push(std::int32_t value) {
+		expression = new IntLiteral(value);
+	}
 	void push(Reference<Expression>&& right, BinaryOperation operation) {
-		expression = make_expr<BinaryExpression>(operation, std::move(expression), std::move(right));
+		expression = new BinaryExpression(operation, std::move(expression), std::move(right));
 	}
 	template <class C> void retrieve(const C& callback) {
 		callback.push(std::move(expression));
+	}
+};
+
+template <BinaryOperation operation> class OperationMapper {
+public:
+	template <class C, class... A> static void map(const C& callback, A&&... a) {
+		callback.push(std::forward<A>(a)..., operation);
+	}
+};
+
+class BlockCollector {
+	std::vector<Reference<Statement>> statements;
+public:
+	void push(Reference<Statement>&& statement) {
+		statements.push_back(std::move(statement));
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(Block(std::move(statements)));
 	}
 };
 
@@ -54,17 +75,6 @@ public:
 	}
 	template <class C> void retrieve(const C& callback) {
 		callback.push(std::move(statement));
-	}
-};
-
-class BlockCollector {
-	std::vector<Reference<Statement>> statements;
-public:
-	void push(Reference<Statement>&& statement) {
-		statements.push_back(std::move(statement));
-	}
-	template <class C> void retrieve(const C& callback) {
-		callback.push(Block(std::move(statements)));
 	}
 };
 
@@ -185,13 +195,6 @@ constexpr auto identifier = collect<NameCollector>(sequence(alphabetic_char, zer
 
 constexpr auto int_literal = collect<IntCollector>(one_or_more(numeric_char));
 
-template <BinaryOperation operation> class OperationMapper {
-public:
-	template <class C, class... A> static void map(const C& callback, A&&... a) {
-		callback.push(std::forward<A>(a)..., operation);
-	}
-};
-
 struct expression {
 	static constexpr auto parser = pratt<ExpressionCollector>(
 		pratt_level(
@@ -222,6 +225,7 @@ struct block {
 		whitespace,
 		zero_or_more(sequence(
 			not_('}'),
+			not_(end()),
 			reference<statement>(),
 			whitespace
 		)),

@@ -64,10 +64,10 @@ void PrintStatement::print(Context& context) const {
 		}
 	}
 	else if (auto* while_statement = as<WhileStatement>(statement)) {
-		print_impl(ln(format("while (%) %", PrintExpression(while_statement->get_condition()), PrintStatement(while_statement->get_statement()))), context);
+		print_impl(format("while (%) %", PrintExpression(while_statement->get_condition()), PrintStatement(while_statement->get_statement())), context);
 	}
 	else if (auto* expression_statement = as<ExpressionStatement>(statement)) {
-		print_impl(ln(format("%;", PrintExpression(expression_statement->get_expression()))), context);
+		print_impl(format("%;", PrintExpression(expression_statement->get_expression())), context);
 	}
 }
 
