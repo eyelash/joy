@@ -10,6 +10,12 @@ class PrintExpression {
 		if (operation == BinaryOperation::MUL) return "*";
 		if (operation == BinaryOperation::DIV) return "/";
 		if (operation == BinaryOperation::REM) return "%";
+		if (operation == BinaryOperation::EQ) return "==";
+		if (operation == BinaryOperation::NE) return "!=";
+		if (operation == BinaryOperation::LT) return "<";
+		if (operation == BinaryOperation::LE) return "<=";
+		if (operation == BinaryOperation::GT) return ">";
+		if (operation == BinaryOperation::GE) return ">=";
 		return "";
 	}
 	const Expression* expression;

@@ -215,6 +215,16 @@ constexpr auto int_literal = collect<IntCollector>(one_or_more(numeric_char));
 struct expression {
 	static constexpr auto parser = pratt<ExpressionCollector>(
 		pratt_level(
+			infix_ltr<OperationMapper<BinaryOperation::EQ>>(operator_("==")),
+			infix_ltr<OperationMapper<BinaryOperation::NE>>(operator_("!="))
+		),
+		pratt_level(
+			infix_ltr<OperationMapper<BinaryOperation::LT>>(operator_(sequence('<', not_('=')))),
+			infix_ltr<OperationMapper<BinaryOperation::LE>>(operator_("<=")),
+			infix_ltr<OperationMapper<BinaryOperation::GT>>(operator_(sequence('>', not_('=')))),
+			infix_ltr<OperationMapper<BinaryOperation::GE>>(operator_(">="))
+		),
+		pratt_level(
 			infix_ltr<OperationMapper<BinaryOperation::ADD>>(operator_('+')),
 			infix_ltr<OperationMapper<BinaryOperation::SUB>>(operator_('-'))
 		),
