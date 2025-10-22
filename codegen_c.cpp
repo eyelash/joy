@@ -31,6 +31,9 @@ public:
 		else if (auto* binary_expression = as<BinaryExpression>(expression)) {
 			print_impl(format("(% % %)", PrintExpression(binary_expression->get_left()), print_operation(binary_expression->get_operation()), PrintExpression(binary_expression->get_right())), context);
 		}
+		else if (auto* assignment = as<Assignment>(expression)) {
+			print_impl(format("(% = %)", PrintExpression(assignment->get_left()), PrintExpression(assignment->get_right())), context);
+		}
 	}
 };
 

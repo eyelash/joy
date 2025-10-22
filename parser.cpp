@@ -55,6 +55,9 @@ public:
 	void push(Reference<Expression>&& right, BinaryOperation operation) {
 		expression = new BinaryExpression(operation, std::move(expression), std::move(right));
 	}
+	void push(Reference<Expression>&& right, Tag<Assignment>) {
+		expression = new Assignment(std::move(expression), std::move(right));
+	}
 	template <class C> void retrieve(const C& callback) {
 		callback.push(std::move(expression));
 	}
@@ -214,6 +217,9 @@ constexpr auto int_literal = collect<IntCollector>(one_or_more(numeric_char));
 
 struct expression {
 	static constexpr auto parser = pratt<ExpressionCollector>(
+		pratt_level(
+			infix_rtl<TagMapper<Tag<Assignment>>>(operator_(sequence('=', not_('='))))
+		),
 		pratt_level(
 			infix_ltr<OperationMapper<BinaryOperation::EQ>>(operator_("==")),
 			infix_ltr<OperationMapper<BinaryOperation::NE>>(operator_("!="))

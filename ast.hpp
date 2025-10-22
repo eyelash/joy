@@ -6,6 +6,7 @@ enum {
 	TYPE_ID_INT_LITERAL,
 	TYPE_ID_NAME,
 	TYPE_ID_BINARY_EXPRESSION,
+	TYPE_ID_ASSIGNMENT,
 	TYPE_ID_BLOCK_STATEMENT,
 	TYPE_ID_EMPTY_STATEMENT,
 	TYPE_ID_LET_STATEMENT,
@@ -63,6 +64,20 @@ public:
 	BinaryOperation get_operation() const {
 		return operation;
 	}
+	const Expression* get_left() const {
+		return left;
+	}
+	const Expression* get_right() const {
+		return right;
+	}
+};
+
+class Assignment final: public Expression {
+	Reference<Expression> left;
+	Reference<Expression> right;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_ASSIGNMENT;
+	Assignment(Reference<Expression>&& left, Reference<Expression>&& right): Expression(TYPE_ID), left(std::move(left)), right(std::move(right)) {}
 	const Expression* get_left() const {
 		return left;
 	}
