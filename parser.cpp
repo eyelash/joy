@@ -58,6 +58,9 @@ public:
 	void push(Reference<Expression>&& right, Tag<Assignment>) {
 		expression = new Assignment(std::move(expression), std::move(right));
 	}
+	void set_location(const SourceLocation& location) {
+		expression->set_location(location);
+	}
 	template <class C> void retrieve(const C& callback) {
 		callback.push(std::move(expression));
 	}
@@ -352,6 +355,19 @@ constexpr auto program = collect<ProgramCollector>(sequence(
 	))
 ));
 
-Result parse_program(Context& context, Program& program_) {
-	return parse_impl(program, context, GetValueCallback<Program>(program_));
+void parse_program(const char* path, Program& program_, Errors& errors) {
+	auto source = read_file(path);
+	Context context(source);
+	const Result result = parse_impl(program, context, GetValueCallback<Program>(program_));
+	if (result == ERROR) {
+		errors.add_error(path, context.get_location(), context.get_error());
+		return;
+	}
+#ifndef NDEBUG
+	if (result == FAILURE) {
+		errors.add_error(path, context.get_location(), "failure");
+		return;
+	}
+#endif
+	program_.set_path(path);
 }

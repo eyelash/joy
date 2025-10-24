@@ -1,6 +1,5 @@
 #pragma once
 
 #include "ast.hpp"
-#include "parsley/parser.hpp"
 
-parser::Result parse_program(parser::Context& context, Program& program);
+void parse_program(const char* path, Program& program, Errors& errors);

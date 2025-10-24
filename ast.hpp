@@ -1,6 +1,45 @@
 #pragma once
 
 #include "parsley/common.hpp"
+#include "parsley/printer.hpp"
+
+class Error {
+	std::string path;
+	SourceLocation location;
+	std::string message;
+public:
+	Error(const char* path, const SourceLocation& location, const std::string& message): path(path), location(location), message(message) {}
+	template <class C> void print(const C& color, const char* severity) const {
+		using namespace printer;
+		Context context(std::cerr);
+		auto source = read_file(path.c_str());
+		print_message(context, path.c_str(), StringView(source.data(), source.size()), location, color, severity, get_printer(message));
+		context.print('\n');
+	}
+};
+
+class Errors {
+	std::vector<Error> errors;
+	std::vector<Error> warnings;
+public:
+	explicit operator bool() const {
+		return !errors.empty();
+	}
+	void add_error(const char* path, const SourceLocation& location, const std::string& message) {
+		errors.emplace_back(path, location, message);
+	}
+	void add_warning(const char* path, const SourceLocation& location, const std::string& message) {
+		warnings.emplace_back(path, location, message);
+	}
+	void print() {
+		for (const Error& error: warnings) {
+			error.print(printer::yellow, "warning");
+		}
+		for (const Error& error: errors) {
+			error.print(printer::red, "error");
+		}
+	}
+};
 
 enum {
 	TYPE_ID_INT_LITERAL,
@@ -16,8 +55,15 @@ enum {
 };
 
 class Expression: public Dynamic {
+	SourceLocation location;
 public:
-	Expression(int type_id): Dynamic(type_id) {}
+	Expression(int type_id): Dynamic(type_id), location(0, 0) {}
+	void set_location(const SourceLocation& location) {
+		this->location = location;
+	}
+	const SourceLocation& get_location() const {
+		return location;
+	}
 };
 
 class IntLiteral final: public Expression {
@@ -187,10 +233,17 @@ public:
 };
 
 class Program {
+	std::string path;
 	std::vector<Function> functions;
 public:
 	Program() {}
 	Program(std::vector<Function>&& functions): functions(std::move(functions)) {}
+	void set_path(const char* path) {
+		this->path = path;
+	}
+	const std::string& get_path() const {
+		return path;
+	}
 	const std::vector<Function>& get_functions() const {
 		return functions;
 	}

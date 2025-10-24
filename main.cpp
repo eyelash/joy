@@ -1,26 +1,26 @@
 #include "parser.hpp"
 #include "codegen_c.hpp"
 
+static void compile(const std::string& path, Errors& errors) {
+	Program program;
+	parse_program(path.c_str(), program, errors);
+	if (errors) {
+		return;
+	}
+	std::ofstream output(path + ".c");
+	codegen_c(output, program);
+}
+
 int main(int argc, const char** argv) {
-	using namespace parser;
 	using namespace printer;
 	if (argc <= 1) {
 		return 1;
 	}
-	std::string path = argv[1];
-	auto source = read_file(path.c_str());
-	parser::Context context(source);
-	Program program;
-	const Result result = parse_program(context, program);
-	if (result == ERROR) {
-		print_error(path.c_str(), context.get_source(), context.get_position(), context.get_error());
-		return 1;
-	}
-	if (result == FAILURE) {
-		print(ln(bold(yellow("failure"))));
+	Errors errors;
+	compile(argv[1], errors);
+	errors.print();
+	if (errors) {
 		return 1;
 	}
 	print(ln(bold(green("success"))));
-	std::ofstream output(path + ".c");
-	codegen_c(output, program);
 }
