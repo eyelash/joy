@@ -34,6 +34,9 @@ public:
 		else if (auto* assignment = as<Assignment>(expression)) {
 			print_impl(format("(% = %)", PrintExpression(assignment->get_left()), PrintExpression(assignment->get_right())), context);
 		}
+		else if (auto* call = as<Call>(expression)) {
+			print_impl(format("%()", PrintExpression(call->get_expression())), context);
+		}
 	}
 };
 

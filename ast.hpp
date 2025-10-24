@@ -46,6 +46,7 @@ enum {
 	TYPE_ID_NAME,
 	TYPE_ID_BINARY_EXPRESSION,
 	TYPE_ID_ASSIGNMENT,
+	TYPE_ID_CALL,
 	TYPE_ID_BLOCK_STATEMENT,
 	TYPE_ID_EMPTY_STATEMENT,
 	TYPE_ID_LET_STATEMENT,
@@ -129,6 +130,16 @@ public:
 	}
 	const Expression* get_right() const {
 		return right;
+	}
+};
+
+class Call final: public Expression {
+	Reference<Expression> expression;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_CALL;
+	Call(Reference<Expression>&& expression): Expression(TYPE_ID), expression(std::move(expression)) {}
+	const Expression* get_expression() const {
+		return expression;
 	}
 };
 

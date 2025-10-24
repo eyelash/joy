@@ -58,6 +58,9 @@ public:
 	void push(Reference<Expression>&& right, Tag<Assignment>) {
 		expression = new Assignment(std::move(expression), std::move(right));
 	}
+	void push(Tag<Call>) {
+		expression = new Call(std::move(expression));
+	}
 	void set_location(const SourceLocation& location) {
 		expression->set_location(location);
 	}
@@ -70,6 +73,13 @@ template <BinaryOperation operation> class OperationMapper {
 public:
 	template <class C, class... A> static void map(const C& callback, A&&... a) {
 		callback.push(std::forward<A>(a)..., operation);
+	}
+};
+
+class CallCollector {
+public:
+	template <class C> void retrieve(const C& callback) {
+		callback.push(Tag<Call>());
 	}
 };
 
@@ -241,6 +251,9 @@ struct expression {
 			infix_ltr<OperationMapper<BinaryOperation::MUL>>(operator_('*')),
 			infix_ltr<OperationMapper<BinaryOperation::DIV>>(operator_('/')),
 			infix_ltr<OperationMapper<BinaryOperation::REM>>(operator_('%'))
+		),
+		pratt_level(
+			postfix<IgnoreCallback>(collect<CallCollector>(sequence(ignore('('), whitespace, expect(")"))))
 		),
 		pratt_level(
 			terminal(choice(
