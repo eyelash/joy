@@ -58,8 +58,8 @@ public:
 	void push(Reference<Expression>&& right, Tag<Assignment>) {
 		expression = new Assignment(std::move(expression), std::move(right));
 	}
-	void push(Tag<Call>) {
-		expression = new Call(std::move(expression));
+	void push(Tag<Call>, std::vector<Reference<Expression>>&& arguments) {
+		expression = new Call(std::move(expression), std::move(arguments));
 	}
 	void set_location(const SourceLocation& location) {
 		expression->set_location(location);
@@ -77,9 +77,13 @@ public:
 };
 
 class CallCollector {
+	std::vector<Reference<Expression>> arguments;
 public:
+	void push(Reference<Expression>&& expression) {
+		arguments.push_back(std::move(expression));
+	}
 	template <class C> void retrieve(const C& callback) {
-		callback.push(Tag<Call>());
+		callback.push(Tag<Call>(), std::move(arguments));
 	}
 };
 
@@ -176,16 +180,35 @@ public:
 
 class FunctionCollector {
 	std::string name;
+	std::vector<Function::Argument> arguments;
 	Block block;
 public:
 	void push(std::string&& name) {
 		this->name = std::move(name);
 	}
+	void push(std::string&& name, Reference<Expression>&& type) {
+		arguments.emplace_back(std::move(name), std::move(type));
+	}
 	void push(Block&& block) {
 		this->block = std::move(block);
 	}
 	template <class C> void retrieve(const C& callback) {
-		callback.push(Function(std::move(name), std::move(block)));
+		callback.push(Function(std::move(name), std::move(arguments), std::move(block)));
+	}
+};
+
+class ArgumentCollector {
+	std::string name;
+	Reference<Expression> type;
+public:
+	void push(std::string&& name) {
+		this->name = std::move(name);
+	}
+	void push(Reference<Expression>&& expression) {
+		type = std::move(expression);
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(std::move(name), std::move(type));
 	}
 };
 
@@ -229,6 +252,10 @@ template <class P> constexpr auto operator_(P p) {
 	return sequence(whitespace, ignore(p), whitespace);
 }
 
+template <class P> constexpr auto comma_separated(P p) {
+	return optional(sequence(p, whitespace, zero_or_more(sequence(ignore(','), whitespace, p, whitespace))));
+}
+
 constexpr auto identifier = collect<NameCollector>(sequence(alphabetic_char, zero_or_more(alphanumeric_char)));
 
 constexpr auto int_literal = collect<IntCollector>(one_or_more(numeric_char));
@@ -269,7 +296,17 @@ struct expression {
 			infix_ltr<OperationMapper<BinaryOperation::REM>>(operator_('%'))
 		),
 		pratt_level(
-			postfix<IgnoreCallback>(collect<CallCollector>(sequence(ignore('('), whitespace, expect(")"))))
+			postfix<IgnoreCallback>(collect<CallCollector>(sequence(
+				ignore('('),
+				whitespace,
+				comma_separated(sequence(
+					not_(')'),
+					not_(end()),
+					reference<expression>()
+				)),
+				whitespace,
+				expect(")")
+			)))
 		),
 		pratt_level(
 			terminal(choice(
@@ -369,6 +406,22 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 	),
 	whitespace,
 	expect("("),
+	whitespace,
+	comma_separated(collect<ArgumentCollector>(sequence(
+		not_(')'),
+		not_(end()),
+		choice(
+			identifier,
+			error("expected an identifier")
+		),
+		whitespace,
+		optional(sequence(
+			ignore(':'),
+			whitespace,
+			reference<type>(),
+			whitespace
+		))
+	))),
 	whitespace,
 	expect(")"),
 	whitespace,

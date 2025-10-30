@@ -65,6 +65,9 @@ class NameResolution {
 			else {
 				add_error(e->get_expression(), "invalid call");
 			}
+			for (const Expression* argument: e->get_arguments()) {
+				handle_expression(argument);
+			}
 		}
 	}
 	void handle_block(const Block& block) {
@@ -105,6 +108,11 @@ public:
 			functions.add_variable(function.get_name());
 		}
 		for (const Function& function: program->get_functions()) {
+			Scope scope;
+			this->scope = &scope;
+			for (const Function::Argument& argument: function.get_arguments()) {
+				scope.add_variable(argument.get_name());
+			}
 			handle_block(function.get_block());
 		}
 	}

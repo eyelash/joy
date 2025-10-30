@@ -135,11 +135,15 @@ public:
 
 class Call final: public Expression {
 	Reference<Expression> expression;
+	std::vector<Reference<Expression>> arguments;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_CALL;
-	Call(Reference<Expression>&& expression): Expression(TYPE_ID), expression(std::move(expression)) {}
+	Call(Reference<Expression>&& expression, std::vector<Reference<Expression>>&& arguments): Expression(TYPE_ID), expression(std::move(expression)), arguments(std::move(arguments)) {}
 	const Expression* get_expression() const {
 		return expression;
+	}
+	const std::vector<Reference<Expression>>& get_arguments() const {
+		return arguments;
 	}
 };
 
@@ -235,12 +239,30 @@ public:
 };
 
 class Function {
+public:
+	class Argument {
+		std::string name;
+		Reference<Expression> type;
+	public:
+		Argument(std::string&& name, Reference<Expression>&& type): name(std::move(name)), type(std::move(type)) {}
+		const std::string& get_name() const {
+			return name;
+		}
+		const Expression* get_type() const {
+			return type;
+		}
+	};
+private:
 	std::string name;
+	std::vector<Argument> arguments;
 	Block block;
 public:
-	Function(std::string&& name, Block&& block): name(std::move(name)), block(std::move(block)) {}
+	Function(std::string&& name, std::vector<Argument>&& arguments, Block&& block): name(std::move(name)), arguments(std::move(arguments)), block(std::move(block)) {}
 	const std::string& get_name() const {
 		return name;
+	}
+	const std::vector<Argument>& get_arguments() const {
+		return arguments;
 	}
 	const Block& get_block() const {
 		return block;
