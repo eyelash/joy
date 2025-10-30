@@ -176,12 +176,16 @@ public:
 
 class LetStatement final: public Statement {
 	std::string name;
+	Reference<Expression> type;
 	Reference<Expression> expression;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_LET_STATEMENT;
-	LetStatement(std::string&& name, Reference<Expression>&& expression): Statement(TYPE_ID), name(std::move(name)), expression(std::move(expression)) {}
+	LetStatement(std::string&& name, Reference<Expression>&& type, Reference<Expression>&& expression): Statement(TYPE_ID), name(std::move(name)), type(std::move(type)), expression(std::move(expression)) {}
 	const std::string& get_name() const {
 		return name;
+	}
+	const Expression* get_type() const {
+		return type;
 	}
 	const Expression* get_expression() const {
 		return expression;

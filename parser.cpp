@@ -120,16 +120,21 @@ public:
 
 class LetStatementCollector {
 	std::string name;
+	Reference<Expression> type;
 	Reference<Expression> expression;
 public:
+	struct TypeTag {};
 	void push(std::string&& name) {
 		this->name = std::move(name);
+	}
+	void push(Reference<Expression>&& expression, TypeTag) {
+		type = std::move(expression);
 	}
 	void push(Reference<Expression>&& expression) {
 		this->expression = std::move(expression);
 	}
 	template <class C> void retrieve(const C& callback) {
-		callback.push(new LetStatement(std::move(name), std::move(expression)));
+		callback.push(new LetStatement(std::move(name), std::move(type), std::move(expression)));
 	}
 };
 
@@ -228,6 +233,17 @@ constexpr auto identifier = collect<NameCollector>(sequence(alphabetic_char, zer
 
 constexpr auto int_literal = collect<IntCollector>(one_or_more(numeric_char));
 
+struct type {
+	static constexpr auto parser = pratt<ExpressionCollector>(
+		pratt_level(
+			terminal(choice(
+				identifier,
+				error("expected a type")
+			))
+		)
+	);
+};
+
 struct expression {
 	static constexpr auto parser = pratt<ExpressionCollector>(
 		pratt_level(
@@ -296,6 +312,12 @@ struct statement {
 				error("expected an identifier")
 			),
 			whitespace,
+			optional(sequence(
+				ignore(':'),
+				whitespace,
+				tag<LetStatementCollector::TypeTag>(reference<type>()),
+				whitespace
+			)),
 			expect("="),
 			whitespace,
 			reference<expression>(),
