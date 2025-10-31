@@ -28,9 +28,18 @@ class NameResolution {
 	const Program* program;
 	Errors* errors;
 	Scope* functions;
+	Scope* types;
 	Scope* scope;
 	template <class P> void add_error(const Expression* expression, P&& p) {
 		errors->add_error(program->get_path().c_str(), expression->get_location(), print_to_string(std::forward<P>(p)));
+	}
+	void handle_type(const Expression* type) {
+		if (auto* e = as<Name>(type)) {
+			if (!types->look_up(e->get_name())) {
+				using namespace printer;
+				add_error(type, format("undefined type \"%\"", e->get_name()));
+			}
+		}
 	}
 	void handle_expression(const Expression* expression) {
 		if (auto* e = as<Name>(expression)) {
@@ -84,6 +93,9 @@ class NameResolution {
 		}
 		else if (auto* s = as<LetStatement>(statement)) {
 			scope->add_variable(s->get_name());
+			if (const Expression* type = s->get_type()) {
+				handle_type(type);
+			}
 			handle_expression(s->get_expression());
 		}
 		else if (auto* s = as<IfStatement>(statement)) {
@@ -103,17 +115,30 @@ public:
 	NameResolution(const Program* program, Errors* errors): program(program), errors(errors), functions(nullptr), scope(nullptr) {}
 	void run() {
 		Scope functions;
+		Scope types;
 		this->functions = &functions;
+		this->types = &types;
 		for (const Function& function: program->get_functions()) {
 			functions.add_variable(function.get_name());
+		}
+		types.add_variable("Int");
+		for (const Structure& structure: program->get_structures()) {
+			types.add_variable(structure.get_name());
 		}
 		for (const Function& function: program->get_functions()) {
 			Scope scope;
 			this->scope = &scope;
 			for (const Function::Argument& argument: function.get_arguments()) {
 				scope.add_variable(argument.get_name());
+				handle_type(argument.get_type());
 			}
+			handle_type(function.get_return_type());
 			handle_block(function.get_block());
+		}
+		for (const Structure& structure: program->get_structures()) {
+			for (const Structure::Member& member: structure.get_members()) {
+				handle_type(member.get_type());
+			}
 		}
 	}
 };
