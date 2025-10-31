@@ -288,6 +288,20 @@ constexpr auto int_literal = collect<IntCollector>(one_or_more(numeric_char));
 struct type {
 	static constexpr auto parser = pratt<ExpressionCollector>(
 		pratt_level(
+			postfix<IgnoreCallback>(collect<CallCollector>(sequence(
+				whitespace,
+				ignore('<'),
+				whitespace,
+				comma_separated(sequence(
+					not_('>'),
+					not_(end()),
+					reference<type>()
+				)),
+				whitespace,
+				expect(">")
+			)))
+		),
+		pratt_level(
 			terminal(choice(
 				identifier,
 				error("expected a type")
@@ -322,6 +336,7 @@ struct expression {
 		),
 		pratt_level(
 			postfix<IgnoreCallback>(collect<CallCollector>(sequence(
+				whitespace,
 				ignore('('),
 				whitespace,
 				comma_separated(sequence(
