@@ -440,12 +440,9 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 			error("expected an identifier")
 		),
 		whitespace,
-		optional(sequence(
-			ignore(':'),
-			whitespace,
-			reference<type>(),
-			whitespace
-		))
+		expect(":"),
+		whitespace,
+		reference<type>()
 	))),
 	whitespace,
 	expect(")"),
@@ -477,12 +474,9 @@ constexpr auto structure = collect<StructureCollector>(sequence(
 			error("expected an identifier")
 		),
 		whitespace,
-		optional(sequence(
-			ignore(':'),
-			whitespace,
-			reference<type>(),
-			whitespace
-		))
+		expect(":"),
+		whitespace,
+		reference<type>()
 	))),
 	whitespace,
 	expect("}")
