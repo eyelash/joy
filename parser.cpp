@@ -197,6 +197,9 @@ public:
 		this->block = std::move(block);
 	}
 	template <class C> void retrieve(const C& callback) {
+		if (return_type == nullptr) {
+			return_type = new Name("Void");
+		}
 		callback.push(Function(std::move(name), std::move(arguments), std::move(return_type), std::move(block)));
 	}
 };

@@ -8,7 +8,7 @@ static void compile(const std::string& path, Errors& errors) {
 	if (errors) {
 		return;
 	}
-	name_resolution(program, errors);
+	type_checking(program, errors);
 	if (errors) {
 		return;
 	}

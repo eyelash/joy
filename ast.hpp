@@ -42,6 +42,9 @@ public:
 };
 
 enum {
+	TYPE_ID_VOID_TYPE,
+	TYPE_ID_INT_TYPE,
+	TYPE_ID_STRUCT_TYPE,
 	TYPE_ID_INT_LITERAL,
 	TYPE_ID_NAME,
 	TYPE_ID_BINARY_EXPRESSION,
@@ -53,6 +56,50 @@ enum {
 	TYPE_ID_IF_STATEMENT,
 	TYPE_ID_WHILE_STATEMENT,
 	TYPE_ID_EXPRESSION_STATEMENT
+};
+
+class Type: public Dynamic {
+public:
+	Type(int type_id): Dynamic(type_id) {}
+};
+
+class VoidType final: public Type {
+public:
+	static constexpr int TYPE_ID = TYPE_ID_VOID_TYPE;
+	VoidType(): Type(TYPE_ID) {}
+};
+
+class IntType final: public Type {
+public:
+	static constexpr int TYPE_ID = TYPE_ID_INT_TYPE;
+	IntType(): Type(TYPE_ID) {}
+};
+
+class StructType final: public Type {
+public:
+	class Member {
+		StringView name;
+		const Type* type;
+	public:
+		Member(const StringView& name, const Type* type): name(name), type(type) {}
+		StringView get_name() const {
+			return name;
+		}
+		const Type* get_type() const {
+			return type;
+		}
+	};
+private:
+	std::vector<Member> members;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_STRUCT_TYPE;
+	StructType(): Type(TYPE_ID) {}
+	void add_member(const StringView& name, const Type* type) {
+		members.emplace_back(name, type);
+	}
+	const std::vector<Member>& get_members() const {
+		return members;
+	}
 };
 
 class Expression: public Dynamic {
@@ -304,6 +351,7 @@ class Program {
 	std::string path;
 	std::vector<Function> functions;
 	std::vector<Structure> structures;
+	std::vector<Reference<Type>> types;
 public:
 	Program() {}
 	Program(std::vector<Function>&& functions, std::vector<Structure>&& structures): functions(std::move(functions)), structures(std::move(structures)) {}
@@ -318,5 +366,13 @@ public:
 	}
 	const std::vector<Structure>& get_structures() const {
 		return structures;
+	}
+	template <class T, class... A> T* add_type(A&&... a) {
+		T* type = new T(std::forward<A>(a)...);
+		types.emplace_back(type);
+		return type;
+	}
+	const std::vector<Reference<Type>>& get_types() const {
+		return types;
 	}
 };
