@@ -3,6 +3,28 @@
 
 using namespace printer;
 
+template <class P, class T> class CommaSeparated {
+	const std::vector<T>& v;
+public:
+	constexpr CommaSeparated(const std::vector<T>& v): v(v) {}
+	void print(Context& context) const {
+		auto i = v.begin();
+		auto end = v.end();
+		if (i != end) {
+			print_impl(P(*i), context);
+			++i;
+			while (i != end) {
+				print_impl(", ", context);
+				print_impl(P(*i), context);
+				++i;
+			}
+		}
+	}
+};
+template <class P, class T> constexpr CommaSeparated<P, T> comma_separated(const std::vector<T>& v) {
+	return CommaSeparated<P, T>(v);
+}
+
 class PrintExpression {
 	static const char* print_operation(BinaryOperation operation) {
 		if (operation == BinaryOperation::ADD) return "+";
@@ -35,7 +57,7 @@ public:
 			print_impl(format("(% = %)", PrintExpression(assignment->get_left()), PrintExpression(assignment->get_right())), context);
 		}
 		else if (auto* call = as<Call>(expression)) {
-			print_impl(format("%()", PrintExpression(call->get_expression())), context);
+			print_impl(format("%(%)", PrintExpression(call->get_expression()), comma_separated<PrintExpression>(call->get_arguments())), context);
 		}
 	}
 };
@@ -51,6 +73,7 @@ class PrintBlock {
 	const Block* block;
 public:
 	PrintBlock(const Block* block): block(block) {}
+	PrintBlock(const Block& block): block(&block) {}
 	void print(Context& context) const {
 		print_impl(ln('{'), context);
 		context.increase_indentation();
@@ -64,7 +87,7 @@ public:
 
 void PrintStatement::print(Context& context) const {
 	if (auto* block_statement = as<BlockStatement>(statement)) {
-		print_impl(PrintBlock(&block_statement->get_block()), context);
+		print_impl(PrintBlock(block_statement->get_block()), context);
 	}
 	else if (auto* empty_statement = as<EmptyStatement>(statement)) {
 		print_impl(';', context);
@@ -86,18 +109,63 @@ void PrintStatement::print(Context& context) const {
 	}
 }
 
-class PrintFunction {
+class PrintFunctionArgument {
+	const Function::Argument* argument;
+public:
+	PrintFunctionArgument(const Function::Argument& argument): argument(&argument) {}
+	void print(Context& context) const {
+		print_impl(format("int %", argument->get_name()), context);
+	}
+};
+
+class PrintFunctionArguments {
 	const Function* function;
 public:
-	PrintFunction(const Function* function): function(function) {}
+	PrintFunctionArguments(const Function* function): function(function) {}
+	PrintFunctionArguments(const Function& function): function(&function) {}
 	void print(Context& context) const {
-		print_impl(ln(format("void %(void) %", function->get_name(), PrintBlock(&function->get_block()))), context);
+		if (function->get_arguments().empty()) {
+			print_impl("void", context);
+		}
+		else {
+			print_impl(comma_separated<PrintFunctionArgument>(function->get_arguments()), context);
+		}
+	}
+};
+
+class PrintFunctionDeclaration {
+	const Function* function;
+public:
+	PrintFunctionDeclaration(const Function& function): function(&function) {}
+	void print(Context& context) const {
+		print_impl(format("void %(%);", function->get_name(), PrintFunctionArguments(function)), context);
+	}
+};
+
+class PrintFunctionDefinition {
+	const Function* function;
+public:
+	PrintFunctionDefinition(const Function& function): function(&function) {}
+	void print(Context& context) const {
+		print_impl(format("void %(%) %", function->get_name(), PrintFunctionArguments(function), PrintBlock(function->get_block())), context);
+	}
+};
+
+class PrintProgram {
+	const Program* program;
+public:
+	PrintProgram(const Program& program): program(&program) {}
+	void print(Context& context) const {
+		for (const Function& function: program->get_functions()) {
+			print_impl(ln(PrintFunctionDeclaration(function)), context);
+		}
+		for (const Function& function: program->get_functions()) {
+			print_impl(ln(PrintFunctionDefinition(function)), context);
+		}
 	}
 };
 
 void codegen_c(std::ostream& ostream, const Program& program) {
 	Context context(ostream);
-	for (const Function& function: program.get_functions()) {
-		print(context, PrintFunction(&function));
-	}
+	print(context, PrintProgram(program));
 }
