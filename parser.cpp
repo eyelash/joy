@@ -181,6 +181,7 @@ public:
 class FunctionCollector {
 	std::string name;
 	std::vector<Function::Argument> arguments;
+	Reference<Expression> return_type;
 	Block block;
 public:
 	void push(std::string&& name) {
@@ -189,11 +190,14 @@ public:
 	void push(std::string&& name, Reference<Expression>&& type) {
 		arguments.emplace_back(std::move(name), std::move(type));
 	}
+	void push(Reference<Expression>&& expression) {
+		return_type = std::move(expression);
+	}
 	void push(Block&& block) {
 		this->block = std::move(block);
 	}
 	template <class C> void retrieve(const C& callback) {
-		callback.push(Function(std::move(name), std::move(arguments), std::move(block)));
+		callback.push(Function(std::move(name), std::move(arguments), std::move(return_type), std::move(block)));
 	}
 };
 
@@ -446,6 +450,12 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 	whitespace,
 	expect(")"),
 	whitespace,
+	optional(sequence(
+		ignore(':'),
+		whitespace,
+		reference<type>(),
+		whitespace
+	)),
 	choice(
 		reference<block>(),
 		error("expected a block")

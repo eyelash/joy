@@ -255,14 +255,18 @@ public:
 private:
 	std::string name;
 	std::vector<Argument> arguments;
+	Reference<Expression> return_type;
 	Block block;
 public:
-	Function(std::string&& name, std::vector<Argument>&& arguments, Block&& block): name(std::move(name)), arguments(std::move(arguments)), block(std::move(block)) {}
+	Function(std::string&& name, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): name(std::move(name)), arguments(std::move(arguments)), return_type(std::move(return_type)), block(std::move(block)) {}
 	const std::string& get_name() const {
 		return name;
 	}
 	const std::vector<Argument>& get_arguments() const {
 		return arguments;
+	}
+	const Expression* get_return_type() const {
+		return return_type;
 	}
 	const Block& get_block() const {
 		return block;
