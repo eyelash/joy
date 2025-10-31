@@ -212,14 +212,35 @@ public:
 	}
 };
 
+class StructureCollector {
+	std::string name;
+	std::vector<Structure::Member> members;
+public:
+	void push(std::string&& name) {
+		this->name = std::move(name);
+	}
+	void push(std::string&& name, Reference<Expression>&& type) {
+		members.emplace_back(std::move(name), std::move(type));
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(Structure(std::move(name), std::move(members)));
+	}
+};
+
+using MemberCollector = ArgumentCollector;
+
 class ProgramCollector {
 	std::vector<Function> functions;
+	std::vector<Structure> structures;
 public:
 	void push(Function&& function) {
 		functions.push_back(std::move(function));
 	}
+	void push(Structure&& structure) {
+		structures.push_back(std::move(structure));
+	}
 	template <class C> void retrieve(const C& callback) {
-		callback.push(Program(std::move(functions)));
+		callback.push(Program(std::move(functions), std::move(structures)));
 	}
 };
 
@@ -431,13 +452,40 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 	)
 ));
 
+constexpr auto structure = collect<StructureCollector>(sequence(
+	keyword("struct"),
+	whitespace,
+	identifier,
+	whitespace,
+	expect("{"),
+	whitespace,
+	comma_separated(collect<MemberCollector>(sequence(
+		not_('}'),
+		not_(end()),
+		choice(
+			identifier,
+			error("expected an identifier")
+		),
+		whitespace,
+		optional(sequence(
+			ignore(':'),
+			whitespace,
+			reference<type>(),
+			whitespace
+		))
+	))),
+	whitespace,
+	expect("}")
+));
+
 constexpr auto program = collect<ProgramCollector>(sequence(
 	whitespace,
 	zero_or_more(sequence(
 		not_(end()),
 		choice(
 			function,
-			error("expected a function")
+			structure,
+			error("expected a toplevel declaration")
 		),
 		whitespace
 	))

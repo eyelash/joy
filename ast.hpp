@@ -269,12 +269,40 @@ public:
 	}
 };
 
+class Structure {
+public:
+	class Member {
+		std::string name;
+		Reference<Expression> type;
+	public:
+		Member(std::string&& name, Reference<Expression>&& type): name(std::move(name)), type(std::move(type)) {}
+		const std::string& get_name() const {
+			return name;
+		}
+		const Expression* get_type() const {
+			return type;
+		}
+	};
+private:
+	std::string name;
+	std::vector<Member> members;
+public:
+	Structure(std::string&& name, std::vector<Member>&& members): name(std::move(name)), members(std::move(members)) {}
+	const std::string& get_name() const {
+		return name;
+	}
+	const std::vector<Member>& get_members() const {
+		return members;
+	}
+};
+
 class Program {
 	std::string path;
 	std::vector<Function> functions;
+	std::vector<Structure> structures;
 public:
 	Program() {}
-	Program(std::vector<Function>&& functions): functions(std::move(functions)) {}
+	Program(std::vector<Function>&& functions, std::vector<Structure>&& structures): functions(std::move(functions)), structures(std::move(structures)) {}
 	void set_path(const char* path) {
 		this->path = path;
 	}
@@ -283,5 +311,8 @@ public:
 	}
 	const std::vector<Function>& get_functions() const {
 		return functions;
+	}
+	const std::vector<Structure>& get_structures() const {
+		return structures;
 	}
 };
