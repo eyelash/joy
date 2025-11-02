@@ -1,3 +1,7 @@
+## Design
+
+See [design.md](design.md).
+
 ## Roadmap
 
 - [ ] basics: functions, calls, statemenets, expressions, integers
