@@ -222,10 +222,10 @@ class TypeChecking {
 		}
 		return nullptr;
 	}
-	void handle_block(const Block& block) {
+	void handle_block(const Block* block) {
 		ScopeMap new_scope(scope);
 		scope = &new_scope;
-		for (const Statement* statement: block.get_statements()) {
+		for (const Statement* statement: block->get_statements()) {
 			handle_statement(statement);
 		}
 		scope = scope->get_parent();
@@ -278,35 +278,35 @@ public:
 	void run() {
 		FlatMap<Function> functions;
 		FlatMap<Structure> structures;
-		for (const Function& function: program->get_functions()) {
-			functions.add_entry(function.get_name(), &function);
+		for (const Function* function: program->get_functions()) {
+			functions.add_entry(function->get_name(), function);
 		}
 		functions.sort();
 		this->functions = &functions;
-		for (const Structure& structure: program->get_structures()) {
-			structures.add_entry(structure.get_name(), &structure);
+		for (const Structure* structure: program->get_structures()) {
+			structures.add_entry(structure->get_name(), structure);
 		}
 		structures.sort();
 		this->structures = &structures;
 		Interner type_interner;
 		this->type_interner = &type_interner;
-		for (const Function& function: program->get_functions()) {
+		for (const Function* function: program->get_functions()) {
 			ScopeMap scope;
 			this->scope = &scope;
-			for (const Function::Argument& argument: function.get_arguments()) {
+			for (const Function::Argument& argument: function->get_arguments()) {
 				scope.insert(argument.get_name(), handle_type(argument.get_type()));
 			}
-			handle_type(function.get_return_type());
-			handle_block(function.get_block());
+			handle_type(function->get_return_type());
+			handle_block(function->get_block());
 		}
-		for (const Structure& structure: program->get_structures()) {
-			for (const Structure::Member& member: structure.get_members()) {
+		for (const Structure* structure: program->get_structures()) {
+			for (const Structure::Member& member: structure->get_members()) {
 				handle_type(member.get_type());
 			}
 		}
 	}
 };
 
-void type_checking(Program& program, Errors& errors) {
-	TypeChecking(&program, &errors).run();
+void type_checking(Program* program, Errors& errors) {
+	TypeChecking(program, &errors).run();
 }

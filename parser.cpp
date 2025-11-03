@@ -200,7 +200,7 @@ public:
 		if (return_type == nullptr) {
 			return_type = new Name("Void");
 		}
-		callback.push(Function(std::move(name), std::move(arguments), std::move(return_type), std::move(block)));
+		callback.push(new Function(std::move(name), std::move(arguments), std::move(return_type), std::move(block)));
 	}
 };
 
@@ -230,24 +230,24 @@ public:
 		members.emplace_back(std::move(name), std::move(type));
 	}
 	template <class C> void retrieve(const C& callback) {
-		callback.push(Structure(std::move(name), std::move(members)));
+		callback.push(new Structure(std::move(name), std::move(members)));
 	}
 };
 
 using MemberCollector = ArgumentCollector;
 
 class ProgramCollector {
-	std::vector<Function> functions;
-	std::vector<Structure> structures;
+	std::vector<Reference<Function>> functions;
+	std::vector<Reference<Structure>> structures;
 public:
-	void push(Function&& function) {
+	void push(Reference<Function>&& function) {
 		functions.push_back(std::move(function));
 	}
-	void push(Structure&& structure) {
+	void push(Reference<Structure>&& structure) {
 		structures.push_back(std::move(structure));
 	}
 	template <class C> void retrieve(const C& callback) {
-		callback.push(Program(std::move(functions), std::move(structures)));
+		callback.push(new Program(std::move(functions), std::move(structures)));
 	}
 };
 
@@ -503,10 +503,10 @@ constexpr auto program = collect<ProgramCollector>(sequence(
 	))
 ));
 
-void parse_program(const char* path, Program& program_, Errors& errors) {
+void parse_program(const char* path, Reference<Program>& program_, Errors& errors) {
 	auto source = read_file(path);
 	Context context(source);
-	const Result result = parse_impl(program, context, GetValueCallback<Program>(program_));
+	const Result result = parse_impl(program, context, GetValueCallback<Reference<Program>>(program_));
 	if (result == ERROR) {
 		errors.add_error(path, context.get_location(), context.get_error());
 		return;
@@ -517,5 +517,5 @@ void parse_program(const char* path, Program& program_, Errors& errors) {
 		return;
 	}
 #endif
-	program_.set_path(path);
+	program_->set_path(path);
 }

@@ -55,7 +55,10 @@ enum {
 	TYPE_ID_LET_STATEMENT,
 	TYPE_ID_IF_STATEMENT,
 	TYPE_ID_WHILE_STATEMENT,
-	TYPE_ID_EXPRESSION_STATEMENT
+	TYPE_ID_EXPRESSION_STATEMENT,
+	TYPE_ID_FUNCTION,
+	TYPE_ID_STRUCTURE,
+	TYPE_ID_PROGRAM
 };
 
 class Type: public Dynamic {
@@ -214,8 +217,8 @@ class BlockStatement final: public Statement {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_BLOCK_STATEMENT;
 	BlockStatement(Block&& block): Statement(TYPE_ID), block(std::move(block)) {}
-	const Block& get_block() const {
-		return block;
+	const Block* get_block() const {
+		return &block;
 	}
 };
 
@@ -285,7 +288,7 @@ public:
 	}
 };
 
-class Function {
+class Function final: public Dynamic {
 public:
 	class Argument {
 		std::string name;
@@ -305,7 +308,8 @@ private:
 	Reference<Expression> return_type;
 	Block block;
 public:
-	Function(std::string&& name, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): name(std::move(name)), arguments(std::move(arguments)), return_type(std::move(return_type)), block(std::move(block)) {}
+	static constexpr int TYPE_ID = TYPE_ID_FUNCTION;
+	Function(std::string&& name, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): Dynamic(TYPE_ID), name(std::move(name)), arguments(std::move(arguments)), return_type(std::move(return_type)), block(std::move(block)) {}
 	const std::string& get_name() const {
 		return name;
 	}
@@ -315,12 +319,12 @@ public:
 	const Expression* get_return_type() const {
 		return return_type;
 	}
-	const Block& get_block() const {
-		return block;
+	const Block* get_block() const {
+		return &block;
 	}
 };
 
-class Structure {
+class Structure final: public Type {
 public:
 	class Member {
 		std::string name;
@@ -338,7 +342,8 @@ private:
 	std::string name;
 	std::vector<Member> members;
 public:
-	Structure(std::string&& name, std::vector<Member>&& members): name(std::move(name)), members(std::move(members)) {}
+	static constexpr int TYPE_ID = TYPE_ID_STRUCTURE;
+	Structure(std::string&& name, std::vector<Member>&& members): Type(TYPE_ID), name(std::move(name)), members(std::move(members)) {}
 	const std::string& get_name() const {
 		return name;
 	}
@@ -347,24 +352,24 @@ public:
 	}
 };
 
-class Program {
+class Program final: public Dynamic {
 	std::string path;
-	std::vector<Function> functions;
-	std::vector<Structure> structures;
+	std::vector<Reference<Function>> functions;
+	std::vector<Reference<Structure>> structures;
 	std::vector<Reference<Type>> types;
 public:
-	Program() {}
-	Program(std::vector<Function>&& functions, std::vector<Structure>&& structures): functions(std::move(functions)), structures(std::move(structures)) {}
+	static constexpr int TYPE_ID = TYPE_ID_PROGRAM;
+	Program(std::vector<Reference<Function>>&& functions, std::vector<Reference<Structure>>&& structures): Dynamic(TYPE_ID), functions(std::move(functions)), structures(std::move(structures)) {}
 	void set_path(const char* path) {
 		this->path = path;
 	}
 	const std::string& get_path() const {
 		return path;
 	}
-	const std::vector<Function>& get_functions() const {
+	const std::vector<Reference<Function>>& get_functions() const {
 		return functions;
 	}
-	const std::vector<Structure>& get_structures() const {
+	const std::vector<Reference<Structure>>& get_structures() const {
 		return structures;
 	}
 	template <class T, class... A> T* add_type(A&&... a) {

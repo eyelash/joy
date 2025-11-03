@@ -73,7 +73,6 @@ class PrintBlock {
 	const Block* block;
 public:
 	PrintBlock(const Block* block): block(block) {}
-	PrintBlock(const Block& block): block(&block) {}
 	void print(Context& context) const {
 		print_impl(ln('{'), context);
 		context.increase_indentation();
@@ -136,7 +135,7 @@ public:
 class PrintFunctionDeclaration {
 	const Function* function;
 public:
-	PrintFunctionDeclaration(const Function& function): function(&function) {}
+	PrintFunctionDeclaration(const Function* function): function(function) {}
 	void print(Context& context) const {
 		print_impl(format("void %(%);", function->get_name(), PrintFunctionArguments(function)), context);
 	}
@@ -145,7 +144,7 @@ public:
 class PrintFunctionDefinition {
 	const Function* function;
 public:
-	PrintFunctionDefinition(const Function& function): function(&function) {}
+	PrintFunctionDefinition(const Function* function): function(function) {}
 	void print(Context& context) const {
 		print_impl(format("void %(%) %", function->get_name(), PrintFunctionArguments(function), PrintBlock(function->get_block())), context);
 	}
@@ -154,18 +153,18 @@ public:
 class PrintProgram {
 	const Program* program;
 public:
-	PrintProgram(const Program& program): program(&program) {}
+	PrintProgram(const Program* program): program(program) {}
 	void print(Context& context) const {
-		for (const Function& function: program->get_functions()) {
+		for (const Function* function: program->get_functions()) {
 			print_impl(ln(PrintFunctionDeclaration(function)), context);
 		}
-		for (const Function& function: program->get_functions()) {
+		for (const Function* function: program->get_functions()) {
 			print_impl(ln(PrintFunctionDefinition(function)), context);
 		}
 	}
 };
 
-void codegen_c(std::ostream& ostream, const Program& program) {
+void codegen_c(std::ostream& ostream, const Program* program) {
 	Context context(ostream);
 	print(context, PrintProgram(program));
 }

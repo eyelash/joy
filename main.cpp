@@ -3,7 +3,7 @@
 #include "codegen_c.hpp"
 
 static void compile(const std::string& path, Errors& errors) {
-	Program program;
+	Reference<Program> program;
 	parse_program(path.c_str(), program, errors);
 	if (errors) {
 		return;
