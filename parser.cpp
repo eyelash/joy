@@ -286,6 +286,8 @@ template <class P> constexpr auto comma_separated(P p) {
 
 constexpr auto identifier = collect<NameCollector>(sequence(alphabetic_char, zero_or_more(alphanumeric_char)));
 
+constexpr auto expect_identifier = choice(identifier, error("expected an identifier"));
+
 constexpr auto int_literal = collect<IntCollector>(one_or_more(numeric_char));
 
 struct type {
@@ -387,10 +389,7 @@ struct statement {
 		collect<LetStatementCollector>(sequence(
 			keyword("let"),
 			whitespace,
-			choice(
-				identifier,
-				error("expected an identifier")
-			),
+			expect_identifier,
 			whitespace,
 			optional(sequence(
 				ignore(':'),
@@ -443,20 +442,14 @@ struct statement {
 constexpr auto function = collect<FunctionCollector>(sequence(
 	keyword("func"),
 	whitespace,
-	choice(
-		identifier,
-		error("expected an identifier")
-	),
+	expect_identifier,
 	whitespace,
 	expect("("),
 	whitespace,
 	comma_separated(collect<ArgumentCollector>(sequence(
 		not_(')'),
 		not_(end()),
-		choice(
-			identifier,
-			error("expected an identifier")
-		),
+		expect_identifier,
 		whitespace,
 		expect(":"),
 		whitespace,
@@ -480,17 +473,14 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 constexpr auto structure = collect<StructureCollector>(sequence(
 	keyword("struct"),
 	whitespace,
-	identifier,
+	expect_identifier,
 	whitespace,
 	expect("{"),
 	whitespace,
 	comma_separated(collect<MemberCollector>(sequence(
 		not_('}'),
 		not_(end()),
-		choice(
-			identifier,
-			error("expected an identifier")
-		),
+		expect_identifier,
 		whitespace,
 		expect(":"),
 		whitespace,
