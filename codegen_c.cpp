@@ -25,6 +25,25 @@ template <class P, class T> constexpr CommaSeparated<P, T> comma_separated(const
 	return CommaSeparated<P, T>(v);
 }
 
+class PrintType {
+	const Type* type;
+public:
+	PrintType(const Type* type): type(type) {}
+	PrintType(const Expression* expression): type(expression->get_type()) {}
+	void print(Context& context) const {
+		if (type == nullptr) {
+			print_impl("terr", context);
+			return;
+		}
+		if (auto* structure = as<Structure>(type)) {
+			print_impl(format("struct t%", print_number(type->get_id())), context);
+		}
+		else {
+			print_impl(format("t%", print_number(type->get_id())), context);
+		}
+	}
+};
+
 class PrintExpression {
 	static const char* print_operation(BinaryOperation operation) {
 		if (operation == BinaryOperation::ADD) return "+";
@@ -57,7 +76,7 @@ public:
 			print_impl(format("(% = %)", PrintExpression(assignment->get_left()), PrintExpression(assignment->get_right())), context);
 		}
 		else if (auto* call = as<Call>(expression)) {
-			print_impl(format("%(%)", PrintExpression(call->get_expression()), comma_separated<PrintExpression>(call->get_arguments())), context);
+			print_impl(format("f%(%)", print_number(call->get_function_id()), comma_separated<PrintExpression>(call->get_arguments())), context);
 		}
 	}
 };
@@ -92,7 +111,7 @@ void PrintStatement::print(Context& context) const {
 		print_impl(';', context);
 	}
 	else if (auto* let_statement = as<LetStatement>(statement)) {
-		print_impl(format("int % = %;", let_statement->get_name(), PrintExpression(let_statement->get_expression())), context);
+		print_impl(format("% % = %;", PrintType(let_statement->get_type()), let_statement->get_name(), PrintExpression(let_statement->get_expression())), context);
 	}
 	else if (auto* if_statement = as<IfStatement>(statement)) {
 		print_impl(format("if (%) %", PrintExpression(if_statement->get_condition()), PrintStatement(if_statement->get_then_statement())), context);
@@ -108,12 +127,35 @@ void PrintStatement::print(Context& context) const {
 	}
 }
 
+class PrintTypeDefinition {
+	const Type* type;
+public:
+	PrintTypeDefinition(const Type* type): type(type) {}
+	void print(Context& context) const {
+		if (as<VoidType>(type)) {
+			print_impl(format("typedef void t%;", print_number(type->get_id())), context);
+		}
+		else if (as<IntType>(type)) {
+			print_impl(format("typedef int t%;", print_number(type->get_id())), context);
+		}
+		else if (auto* structure = as<Structure>(type)) {
+			print_impl(ln(format("struct t% {", print_number(type->get_id()))), context);
+			context.increase_indentation();
+			for (const Structure::Member& member: structure->get_members()) {
+				print_impl(ln(format("% %;", PrintType(member.get_type()), member.get_name())), context);
+			}
+			context.decrease_indentation();
+			print_impl("};", context);
+		}
+	}
+};
+
 class PrintFunctionArgument {
 	const Function::Argument* argument;
 public:
 	PrintFunctionArgument(const Function::Argument& argument): argument(&argument) {}
 	void print(Context& context) const {
-		print_impl(format("int %", argument->get_name()), context);
+		print_impl(format("% %", PrintType(argument->get_type()), argument->get_name()), context);
 	}
 };
 
@@ -137,7 +179,7 @@ class PrintFunctionDeclaration {
 public:
 	PrintFunctionDeclaration(const Function* function): function(function) {}
 	void print(Context& context) const {
-		print_impl(format("void %(%);", function->get_name(), PrintFunctionArguments(function)), context);
+		print_impl(format("% f%(%);", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function)), context);
 	}
 };
 
@@ -146,7 +188,8 @@ class PrintFunctionDefinition {
 public:
 	PrintFunctionDefinition(const Function* function): function(function) {}
 	void print(Context& context) const {
-		print_impl(format("void %(%) %", function->get_name(), PrintFunctionArguments(function), PrintBlock(function->get_block())), context);
+		print_impl(ln(format("// %", function->get_name())), context);
+		print_impl(format("% f%(%) %", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function), PrintBlock(function->get_block())), context);
 	}
 };
 
@@ -155,6 +198,9 @@ class PrintProgram {
 public:
 	PrintProgram(const Program* program): program(program) {}
 	void print(Context& context) const {
+		for (const Type* type: program->get_types()) {
+			print_impl(ln(PrintTypeDefinition(type)), context);
+		}
 		for (const Function* function: program->get_functions()) {
 			print_impl(ln(PrintFunctionDeclaration(function)), context);
 		}

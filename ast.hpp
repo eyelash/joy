@@ -45,6 +45,7 @@ enum {
 	TYPE_ID_VOID_TYPE,
 	TYPE_ID_INT_TYPE,
 	TYPE_ID_STRUCT_TYPE,
+	TYPE_ID_EXPRESSION,
 	TYPE_ID_INT_LITERAL,
 	TYPE_ID_NAME,
 	TYPE_ID_BINARY_EXPRESSION,
@@ -62,8 +63,15 @@ enum {
 };
 
 class Type: public Dynamic {
+	unsigned int id = 0;
 public:
 	Type(int type_id): Dynamic(type_id) {}
+	void set_id(unsigned int id) {
+		this->id = id;
+	}
+	unsigned int get_id() const {
+		return id;
+	}
 };
 
 class VoidType final: public Type {
@@ -107,13 +115,22 @@ public:
 
 class Expression: public Dynamic {
 	SourceLocation location;
+	const Type* type;
 public:
-	Expression(int type_id): Dynamic(type_id), location(0, 0) {}
+	static constexpr int TYPE_ID = TYPE_ID_EXPRESSION;
+	Expression(int type_id): Dynamic(type_id), location(0, 0), type(nullptr) {}
+	Expression(const Type* type): Dynamic(TYPE_ID), location(0, 0), type(type) {}
 	void set_location(const SourceLocation& location) {
 		this->location = location;
 	}
 	const SourceLocation& get_location() const {
 		return location;
+	}
+	void set_type(const Type* type) {
+		this->type = type;
+	}
+	const Type* get_type() const {
+		return type;
 	}
 };
 
@@ -186,14 +203,19 @@ public:
 class Call final: public Expression {
 	Reference<Expression> expression;
 	std::vector<Reference<Expression>> arguments;
+	unsigned int function_id;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_CALL;
-	Call(Reference<Expression>&& expression, std::vector<Reference<Expression>>&& arguments): Expression(TYPE_ID), expression(std::move(expression)), arguments(std::move(arguments)) {}
+	Call(Reference<Expression>&& expression, std::vector<Reference<Expression>>&& arguments): Expression(TYPE_ID), function_id(0), expression(std::move(expression)), arguments(std::move(arguments)) {}
+	Call(unsigned int function_id, std::vector<Reference<Expression>>&& arguments): Expression(TYPE_ID), function_id(function_id), arguments(std::move(arguments)) {}
 	const Expression* get_expression() const {
 		return expression;
 	}
 	const std::vector<Reference<Expression>>& get_arguments() const {
 		return arguments;
+	}
+	unsigned int get_function_id() const {
+		return function_id;
 	}
 };
 
@@ -207,6 +229,9 @@ class Block {
 public:
 	Block() {}
 	Block(std::vector<Reference<Statement>>&& statements): statements(std::move(statements)) {}
+	void add_statement(Reference<Statement>&& statement) {
+		statements.push_back(std::move(statement));
+	}
 	const std::vector<Reference<Statement>>& get_statements() const {
 		return statements;
 	}
@@ -308,23 +333,43 @@ private:
 	std::vector<Argument> arguments;
 	Reference<Expression> return_type;
 	Block block;
+	unsigned int id = 0;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_FUNCTION;
+	Function(): Dynamic(TYPE_ID) {}
 	Function(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): Dynamic(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), arguments(std::move(arguments)), return_type(std::move(return_type)), block(std::move(block)) {}
+	void set_name(const StringView& name) {
+		this->name = std::string(name.data(), name.size());
+	}
 	StringView get_name() const {
 		return name;
 	}
 	const std::vector<std::string>& get_template_arguments() const {
 		return template_arguments;
 	}
+	void add_argument(const StringView& name, const Type* type) {
+		arguments.emplace_back(std::string(name.data(), name.size()), new Expression(type));
+	}
 	const std::vector<Argument>& get_arguments() const {
 		return arguments;
+	}
+	void set_return_type(const Type* return_type) {
+		this->return_type = new Expression(return_type);
 	}
 	const Expression* get_return_type() const {
 		return return_type;
 	}
+	void set_block(Block&& block) {
+		this->block = std::move(block);
+	}
 	const Block* get_block() const {
 		return &block;
+	}
+	void set_id(unsigned int id) {
+		this->id = id;
+	}
+	unsigned int get_id() const {
+		return id;
 	}
 };
 
@@ -348,12 +393,19 @@ private:
 	std::vector<Member> members;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_STRUCTURE;
+	Structure(): Type(TYPE_ID) {}
 	Structure(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Member>&& members): Type(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), members(std::move(members)) {}
+	void set_name(const StringView& name) {
+		this->name = std::string(name.data(), name.size());
+	}
 	StringView get_name() const {
 		return name;
 	}
 	const std::vector<std::string>& get_template_arguments() const {
 		return template_arguments;
+	}
+	void add_member(const StringView& name, const Type* type) {
+		members.emplace_back(std::string(name.data(), name.size()), new Expression(type));
 	}
 	const std::vector<Member>& get_members() const {
 		return members;
@@ -367,12 +419,21 @@ class Program final: public Dynamic {
 	std::vector<Reference<Type>> types;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_PROGRAM;
+	Program(): Dynamic(TYPE_ID) {}
 	Program(std::vector<Reference<Function>>&& functions, std::vector<Reference<Structure>>&& structures): Dynamic(TYPE_ID), functions(std::move(functions)), structures(std::move(structures)) {}
 	void set_path(const char* path) {
 		this->path = path;
 	}
 	const std::string& get_path() const {
 		return path;
+	}
+	Function* add_function() {
+		Function* function = new Function();
+		functions.emplace_back(function);
+		return function;
+	}
+	void add_function(Reference<Function>&& function) {
+		functions.push_back(std::move(function));
 	}
 	const std::vector<Reference<Function>>& get_functions() const {
 		return functions;
@@ -384,6 +445,9 @@ public:
 		T* type = new T(std::forward<A>(a)...);
 		types.emplace_back(type);
 		return type;
+	}
+	void add_type(Reference<Type>&& type) {
+		types.push_back(std::move(type));
 	}
 	const std::vector<Reference<Type>>& get_types() const {
 		return types;
