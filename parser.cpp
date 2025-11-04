@@ -178,14 +178,20 @@ public:
 	}
 };
 
+struct TemplateArgument {};
+
 class FunctionCollector {
 	std::string name;
+	std::vector<std::string> template_arguments;
 	std::vector<Function::Argument> arguments;
 	Reference<Expression> return_type;
 	Block block;
 public:
 	void push(std::string&& name) {
 		this->name = std::move(name);
+	}
+	void push(std::string&& name, Tag<TemplateArgument>) {
+		template_arguments.push_back(std::move(name));
 	}
 	void push(std::string&& name, Reference<Expression>&& type) {
 		arguments.emplace_back(std::move(name), std::move(type));
@@ -200,7 +206,7 @@ public:
 		if (return_type == nullptr) {
 			return_type = new Name("Void");
 		}
-		callback.push(new Function(std::move(name), std::move(arguments), std::move(return_type), std::move(block)));
+		callback.push(new Function(std::move(name), std::move(template_arguments), std::move(arguments), std::move(return_type), std::move(block)));
 	}
 };
 
@@ -221,16 +227,20 @@ public:
 
 class StructureCollector {
 	std::string name;
+	std::vector<std::string> template_arguments;
 	std::vector<Structure::Member> members;
 public:
 	void push(std::string&& name) {
 		this->name = std::move(name);
 	}
+	void push(std::string&& name, Tag<TemplateArgument>) {
+		template_arguments.push_back(std::move(name));
+	}
 	void push(std::string&& name, Reference<Expression>&& type) {
 		members.emplace_back(std::move(name), std::move(type));
 	}
 	template <class C> void retrieve(const C& callback) {
-		callback.push(new Structure(std::move(name), std::move(members)));
+		callback.push(new Structure(std::move(name), std::move(template_arguments), std::move(members)));
 	}
 };
 
@@ -444,6 +454,18 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 	whitespace,
 	expect_identifier,
 	whitespace,
+	optional(sequence(
+		ignore('<'),
+		whitespace,
+		comma_separated(sequence(
+			not_('>'),
+			not_(end()),
+			tag<Tag<TemplateArgument>>(expect_identifier)
+		)),
+		whitespace,
+		expect(">"),
+		whitespace
+	)),
 	expect("("),
 	whitespace,
 	comma_separated(collect<ArgumentCollector>(sequence(
@@ -475,6 +497,18 @@ constexpr auto structure = collect<StructureCollector>(sequence(
 	whitespace,
 	expect_identifier,
 	whitespace,
+	optional(sequence(
+		ignore('<'),
+		whitespace,
+		comma_separated(sequence(
+			not_('>'),
+			not_(end()),
+			tag<Tag<TemplateArgument>>(expect_identifier)
+		)),
+		whitespace,
+		expect(">"),
+		whitespace
+	)),
 	expect("{"),
 	whitespace,
 	comma_separated(collect<MemberCollector>(sequence(

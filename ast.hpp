@@ -304,14 +304,18 @@ public:
 	};
 private:
 	std::string name;
+	std::vector<std::string> template_arguments;
 	std::vector<Argument> arguments;
 	Reference<Expression> return_type;
 	Block block;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_FUNCTION;
-	Function(std::string&& name, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): Dynamic(TYPE_ID), name(std::move(name)), arguments(std::move(arguments)), return_type(std::move(return_type)), block(std::move(block)) {}
+	Function(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): Dynamic(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), arguments(std::move(arguments)), return_type(std::move(return_type)), block(std::move(block)) {}
 	const std::string& get_name() const {
 		return name;
+	}
+	const std::vector<std::string>& get_template_arguments() const {
+		return template_arguments;
 	}
 	const std::vector<Argument>& get_arguments() const {
 		return arguments;
@@ -340,12 +344,16 @@ public:
 	};
 private:
 	std::string name;
+	std::vector<std::string> template_arguments;
 	std::vector<Member> members;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_STRUCTURE;
-	Structure(std::string&& name, std::vector<Member>&& members): Type(TYPE_ID), name(std::move(name)), members(std::move(members)) {}
+	Structure(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Member>&& members): Type(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), members(std::move(members)) {}
 	const std::string& get_name() const {
 		return name;
+	}
+	const std::vector<std::string>& get_template_arguments() const {
+		return template_arguments;
 	}
 	const std::vector<Member>& get_members() const {
 		return members;
