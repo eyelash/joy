@@ -13,7 +13,7 @@ public:
 		using namespace printer;
 		Context context(std::cerr);
 		auto source = read_file(path.c_str());
-		print_message(context, path.c_str(), StringView(source.data(), source.size()), location, color, severity, get_printer(message));
+		print_message(context, path.c_str(), StringView(source.data(), source.size()), location, color, severity, StringView(message));
 		context.print('\n');
 	}
 };
@@ -132,7 +132,7 @@ class Name final: public Expression {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_NAME;
 	Name(std::string&& name): Expression(TYPE_ID), name(std::move(name)) {}
-	const std::string& get_name() const {
+	StringView get_name() const {
 		return name;
 	}
 };
@@ -235,7 +235,7 @@ class LetStatement final: public Statement {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_LET_STATEMENT;
 	LetStatement(std::string&& name, Reference<Expression>&& type, Reference<Expression>&& expression): Statement(TYPE_ID), name(std::move(name)), type(std::move(type)), expression(std::move(expression)) {}
-	const std::string& get_name() const {
+	StringView get_name() const {
 		return name;
 	}
 	const Expression* get_type() const {
@@ -295,7 +295,7 @@ public:
 		Reference<Expression> type;
 	public:
 		Argument(std::string&& name, Reference<Expression>&& type): name(std::move(name)), type(std::move(type)) {}
-		const std::string& get_name() const {
+		StringView get_name() const {
 			return name;
 		}
 		const Expression* get_type() const {
@@ -311,7 +311,7 @@ private:
 public:
 	static constexpr int TYPE_ID = TYPE_ID_FUNCTION;
 	Function(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): Dynamic(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), arguments(std::move(arguments)), return_type(std::move(return_type)), block(std::move(block)) {}
-	const std::string& get_name() const {
+	StringView get_name() const {
 		return name;
 	}
 	const std::vector<std::string>& get_template_arguments() const {
@@ -335,7 +335,7 @@ public:
 		Reference<Expression> type;
 	public:
 		Member(std::string&& name, Reference<Expression>&& type): name(std::move(name)), type(std::move(type)) {}
-		const std::string& get_name() const {
+		StringView get_name() const {
 			return name;
 		}
 		const Expression* get_type() const {
@@ -349,7 +349,7 @@ private:
 public:
 	static constexpr int TYPE_ID = TYPE_ID_STRUCTURE;
 	Structure(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Member>&& members): Type(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), members(std::move(members)) {}
-	const std::string& get_name() const {
+	StringView get_name() const {
 		return name;
 	}
 	const std::vector<std::string>& get_template_arguments() const {

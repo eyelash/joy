@@ -48,7 +48,7 @@ public:
 			print_impl(print_number(int_literal->get_value()), context);
 		}
 		else if (auto* name = as<Name>(expression)) {
-			print_impl(get_printer(name->get_name()), context);
+			print_impl(name->get_name(), context);
 		}
 		else if (auto* binary_expression = as<BinaryExpression>(expression)) {
 			print_impl(format("(% % %)", PrintExpression(binary_expression->get_left()), print_operation(binary_expression->get_operation()), PrintExpression(binary_expression->get_right())), context);
