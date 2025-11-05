@@ -160,19 +160,19 @@ public:
 };
 
 class PrintFunctionArgument {
-	const Function::Argument* argument;
+	const FunctionInstantiation::Argument* argument;
 public:
-	PrintFunctionArgument(const Function::Argument& argument): argument(&argument) {}
+	PrintFunctionArgument(const FunctionInstantiation::Argument& argument): argument(&argument) {}
 	void print(Context& context) const {
 		print_impl(format("% %", PrintType(argument->get_type()), argument->get_name()), context);
 	}
 };
 
 class PrintFunctionArguments {
-	const Function* function;
+	const FunctionInstantiation* function;
 public:
-	PrintFunctionArguments(const Function* function): function(function) {}
-	PrintFunctionArguments(const Function& function): function(&function) {}
+	PrintFunctionArguments(const FunctionInstantiation* function): function(function) {}
+	PrintFunctionArguments(const FunctionInstantiation& function): function(&function) {}
 	void print(Context& context) const {
 		if (function->get_arguments().empty()) {
 			print_impl("void", context);
@@ -184,20 +184,20 @@ public:
 };
 
 class PrintFunctionDeclaration {
-	const Function* function;
+	const FunctionInstantiation* function;
 public:
-	PrintFunctionDeclaration(const Function* function): function(function) {}
+	PrintFunctionDeclaration(const FunctionInstantiation* function): function(function) {}
 	void print(Context& context) const {
 		print_impl(format("% f%(%);", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function)), context);
 	}
 };
 
 class PrintFunctionDefinition {
-	const Function* function;
+	const FunctionInstantiation* function;
 public:
-	PrintFunctionDefinition(const Function* function): function(function) {}
+	PrintFunctionDefinition(const FunctionInstantiation* function): function(function) {}
 	void print(Context& context) const {
-		print_impl(ln(format("// %", function->get_name())), context);
+		print_impl(ln(format("// %", function->get_function()->get_name())), context);
 		print_impl(format("% f%(%) %", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function), PrintBlock(function->get_block())), context);
 	}
 };
@@ -210,10 +210,10 @@ public:
 		for (const Type* type: program->get_types()) {
 			print_impl(ln(PrintTypeDefinition(type)), context);
 		}
-		for (const Function* function: program->get_functions()) {
+		for (const FunctionInstantiation* function: program->get_function_instantiations()) {
 			print_impl(ln(PrintFunctionDeclaration(function)), context);
 		}
-		for (const Function* function: program->get_functions()) {
+		for (const FunctionInstantiation* function: program->get_function_instantiations()) {
 			print_impl(ln(PrintFunctionDefinition(function)), context);
 		}
 	}

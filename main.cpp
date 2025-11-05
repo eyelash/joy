@@ -8,7 +8,7 @@ static void compile(const std::string& path, Errors& errors) {
 	if (errors) {
 		return;
 	}
-	program = pass1(program, errors);
+	pass1(program, errors);
 	if (errors) {
 		return;
 	}

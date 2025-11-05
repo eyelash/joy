@@ -420,22 +420,16 @@ class Pass1 {
 			return true;
 		}
 	};
-	const Program* program;
+	Program* program;
 	Errors* errors;
-	Program* new_program;
 	const Type* void_type = nullptr;
 	const Type* int_type = nullptr;
 	Instantiations<Structure, StructureInstantiation>* structure_instantiations;
-	Instantiations<Function>* function_instantiations;
+	Instantiations<Function, FunctionInstantiation>* function_instantiations;
 	ScopeMap* variables = nullptr;
 	ScopeMap* type_variables = nullptr;
-	unsigned int current_id = 0;
 	template <class P> void add_error(const Expression* expression, P&& p) {
 		errors->add_error(program->get_path().c_str(), expression->get_location(), print_to_string(std::forward<P>(p)));
-	}
-	unsigned int get_next_id() {
-		++current_id;
-		return current_id;
 	}
 	const Type* instantiate_structure(const Structure* structure, std::vector<const Type*>&& template_arguments) {
 		if (template_arguments.size() != structure->get_template_arguments().size()) {
@@ -446,7 +440,7 @@ class Pass1 {
 			return new_structure;
 		}
 		StructureInstantiation* new_structure = new StructureInstantiation(structure);
-		new_structure->set_id(get_next_id());
+		new_structure->set_id(program->get_next_id());
 		// template arguments
 		ScopeMap type_variables;
 		for (std::size_t i = 0; i < key.get_arguments().size(); ++i) {
@@ -461,23 +455,23 @@ class Pass1 {
 			new_structure->add_member(member.get_name(), handle_type(member.get_type()));
 		}
 		this->type_variables = previous_type_variables;
-		new_program->add_type(new_structure);
+		program->add_type(new_structure);
 		return new_structure;
 	}
-	const Function* instantiate_function(const Function* function, std::vector<const Type*>&& template_arguments) {
+	const FunctionInstantiation* instantiate_function(const Function* function, std::vector<const Type*>&& template_arguments) {
 		if (template_arguments.size() != function->get_template_arguments().size()) {
 			return nullptr;
 		}
-		Instantiations<Function>::Key key(function, std::move(template_arguments));
-		if (const Function* new_function = function_instantiations->look_up(key)) {
+		Instantiations<Function, FunctionInstantiation>::Key key(function, std::move(template_arguments));
+		if (const FunctionInstantiation* new_function = function_instantiations->look_up(key)) {
 			return new_function;
 		}
-		Function* new_function = new Function();
-		new_function->set_id(get_next_id());
-		new_function->set_name(function->get_name());
+		FunctionInstantiation* new_function = new FunctionInstantiation(function);
+		new_function->set_id(program->get_next_id());
 		// template arguments
 		ScopeMap type_variables;
 		for (std::size_t i = 0; i < key.get_arguments().size(); ++i) {
+			new_function->add_template_argument(key.get_arguments()[i]);
 			type_variables.insert(function->get_template_arguments()[i], key.get_arguments()[i]);
 		}
 		ScopeMap* previous_type_variables = this->type_variables;
@@ -498,14 +492,14 @@ class Pass1 {
 		new_function->set_block(handle_block(function->get_block()));
 		this->variables = previous_variables;
 		this->type_variables = previous_type_variables;
-		new_program->add_function(new_function);
+		program->add_function_instantiation(new_function);
 		return new_function;
 	}
 	template <class T> const Type* get_builtin_type(const Type*& type) {
 		if (type == nullptr) {
 			T* t = new T();
-			t->set_id(get_next_id());
-			new_program->add_type(t);
+			t->set_id(program->get_next_id());
+			program->add_type(t);
 			type = t;
 		}
 		return type;
@@ -531,7 +525,7 @@ class Pass1 {
 		}
 		return nullptr;
 	}
-	const Function* get_function(const StringView& name, std::vector<const Type*>&& arguments) {
+	const FunctionInstantiation* get_function(const StringView& name, std::vector<const Type*>&& arguments) {
 		// TODO: optimize
 		for (const Function* function: program->get_functions()) {
 			if (function->get_name() == name) {
@@ -543,7 +537,7 @@ class Pass1 {
 		}
 		return nullptr;
 	}
-	const Function* get_function(const StringView& name, const std::vector<Reference<Expression>>& arguments) {
+	const FunctionInstantiation* get_function(const StringView& name, const std::vector<Reference<Expression>>& arguments) {
 		std::vector<const Type*> argument_types;
 		for (const Expression* expression: arguments) {
 			if (expression == nullptr) {
@@ -614,12 +608,11 @@ class Pass1 {
 			for (const Expression* argument: e->get_arguments()) {
 				arguments.push_back(handle_expression(argument));
 			}
-			const Function* function = get_function(name, arguments);
+			const FunctionInstantiation* function = get_function(name, arguments);
 			if (function == nullptr) {
 				return Reference<Expression>();
 			}
-			const Type* type = function->get_return_type()->get_type();
-			return with_type(new Call(function->get_id(), std::move(arguments)), type);
+			return with_type(new Call(function->get_id(), std::move(arguments)), function->get_return_type());
 		}
 		return Reference<Expression>();
 	}
@@ -664,22 +657,19 @@ class Pass1 {
 		return Reference<Statement>();
 	}
 public:
-	Pass1(const Program* program, Errors* errors) {
+	Pass1(Program* program, Errors* errors) {
 		this->program = program;
 		this->errors = errors;
 	}
-	Reference<Program> run() {
-		Reference<Program> new_program = new Program();
-		this->new_program = new_program;
+	void run() {
 		Instantiations<Structure, StructureInstantiation> structure_instantiations;
 		this->structure_instantiations = &structure_instantiations;
-		Instantiations<Function> function_instantiations;
+		Instantiations<Function, FunctionInstantiation> function_instantiations;
 		this->function_instantiations = &function_instantiations;
 		get_function("main", std::vector<const Type*>());
-		return new_program;
 	}
 };
 
-Reference<Program> pass1(const Program* program, Errors& errors) {
-	return Pass1(program, &errors).run();
+void pass1(Program* program, Errors& errors) {
+	Pass1(program, &errors).run();
 }

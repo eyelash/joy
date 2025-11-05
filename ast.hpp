@@ -59,6 +59,7 @@ enum {
 	TYPE_ID_EXPRESSION_STATEMENT,
 	TYPE_ID_FUNCTION,
 	TYPE_ID_STRUCTURE,
+	TYPE_ID_FUNCTION_INSTANTIATION,
 	TYPE_ID_STRUCTURE_INSTANTIATION,
 	TYPE_ID_PROGRAM
 };
@@ -334,7 +335,6 @@ private:
 	std::vector<Argument> arguments;
 	Reference<Expression> return_type;
 	Block block;
-	unsigned int id = 0;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_FUNCTION;
 	Function(): Dynamic(TYPE_ID) {}
@@ -365,12 +365,6 @@ public:
 	}
 	const Block* get_block() const {
 		return &block;
-	}
-	void set_id(unsigned int id) {
-		this->id = id;
-	}
-	unsigned int get_id() const {
-		return id;
 	}
 };
 
@@ -413,14 +407,72 @@ public:
 	}
 };
 
+class FunctionInstantiation final: public Dynamic {
+public:
+	class Argument {
+		StringView name;
+		const Type* type;
+	public:
+		Argument(const StringView& name, const Type* type): name(name), type(type) {}
+		StringView get_name() const {
+			return name;
+		}
+		const Type* get_type() const {
+			return type;
+		}
+	};
+private:
+	const Function* function;
+	std::vector<const Type*> template_arguments;
+	std::vector<Argument> arguments;
+	const Type* return_type;
+	Block block;
+	unsigned int id = 0;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_FUNCTION_INSTANTIATION;
+	FunctionInstantiation(const Function* function): Dynamic(TYPE_ID), function(function) {}
+	const Function* get_function() const {
+		return function;
+	}
+	void add_template_argument(const Type* type) {
+		template_arguments.push_back(type);
+	}
+	const std::vector<const Type*>& get_template_arguments() const {
+		return template_arguments;
+	}
+	void add_argument(const StringView& name, const Type* type) {
+		arguments.emplace_back(name, type);
+	}
+	const std::vector<Argument>& get_arguments() const {
+		return arguments;
+	}
+	void set_return_type(const Type* return_type) {
+		this->return_type = return_type;
+	}
+	const Type* get_return_type() const {
+		return return_type;
+	}
+	void set_block(Block&& block) {
+		this->block = std::move(block);
+	}
+	const Block* get_block() const {
+		return &block;
+	}
+	void set_id(unsigned int id) {
+		this->id = id;
+	}
+	unsigned int get_id() const {
+		return id;
+	}
+};
+
 class StructureInstantiation final: public Type {
 public:
 	class Member {
-		//StringView name;
-		std::string name;
+		StringView name;
 		const Type* type;
 	public:
-		Member(const StringView& name, const Type* type): name(name.data(), name.size()), type(type) {}
+		Member(const StringView& name, const Type* type): name(name), type(type) {}
 		StringView get_name() const {
 			return name;
 		}
@@ -456,7 +508,9 @@ class Program final: public Dynamic {
 	std::string path;
 	std::vector<Reference<Function>> functions;
 	std::vector<Reference<Structure>> structures;
+	std::vector<Reference<FunctionInstantiation>> function_instantiations;
 	std::vector<Reference<Type>> types;
+	unsigned int current_id = 0;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_PROGRAM;
 	Program(): Dynamic(TYPE_ID) {}
@@ -467,19 +521,17 @@ public:
 	const std::string& get_path() const {
 		return path;
 	}
-	Function* add_function() {
-		Function* function = new Function();
-		functions.emplace_back(function);
-		return function;
-	}
-	void add_function(Reference<Function>&& function) {
-		functions.push_back(std::move(function));
-	}
 	const std::vector<Reference<Function>>& get_functions() const {
 		return functions;
 	}
 	const std::vector<Reference<Structure>>& get_structures() const {
 		return structures;
+	}
+	void add_function_instantiation(Reference<FunctionInstantiation>&& function_instantiation) {
+		function_instantiations.push_back(std::move(function_instantiation));
+	}
+	const std::vector<Reference<FunctionInstantiation>>& get_function_instantiations() const {
+		return function_instantiations;
 	}
 	template <class T, class... A> T* add_type(A&&... a) {
 		T* type = new T(std::forward<A>(a)...);
@@ -491,5 +543,9 @@ public:
 	}
 	const std::vector<Reference<Type>>& get_types() const {
 		return types;
+	}
+	unsigned int get_next_id() {
+		++current_id;
+		return current_id;
 	}
 };
