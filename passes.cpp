@@ -90,7 +90,7 @@ public:
 	}
 };
 
-template <class T> class Instantiations {
+template <class T, class TI = T> class Instantiations {
 public:
 	class Key {
 		std::pair<const T*, std::vector<const Type*>> key;
@@ -105,13 +105,13 @@ public:
 		}
 	};
 private:
-	std::map<Key, const T*> instantiations;
+	std::map<Key, const TI*> instantiations;
 public:
-	void insert(Key&& key, const T* t) {
+	void insert(Key&& key, const TI* t) {
 		// TODO: does this move actually work?
 		instantiations.emplace(std::move(key), t);
 	}
-	const T* look_up(const Key& key) const {
+	const TI* look_up(const Key& key) const {
 		auto iterator = instantiations.find(key);
 		if (iterator != instantiations.end()) {
 			return iterator->second;
@@ -347,7 +347,7 @@ class Pass1 {
 	Program* new_program;
 	const Type* void_type = nullptr;
 	const Type* int_type = nullptr;
-	Instantiations<Structure>* structure_instantiations;
+	Instantiations<Structure, StructureInstantiation>* structure_instantiations;
 	Instantiations<Function>* function_instantiations;
 	ScopeMap* variables = nullptr;
 	ScopeMap* type_variables = nullptr;
@@ -359,20 +359,20 @@ class Pass1 {
 		++current_id;
 		return current_id;
 	}
-	const Structure* instantiate_structure(const Structure* structure, std::vector<const Type*>&& template_arguments) {
+	const Type* instantiate_structure(const Structure* structure, std::vector<const Type*>&& template_arguments) {
 		if (template_arguments.size() != structure->get_template_arguments().size()) {
 			return nullptr;
 		}
-		Instantiations<Structure>::Key key(structure, std::move(template_arguments));
-		if (const Structure* new_structure = structure_instantiations->look_up(key)) {
+		Instantiations<Structure, StructureInstantiation>::Key key(structure, std::move(template_arguments));
+		if (const StructureInstantiation* new_structure = structure_instantiations->look_up(key)) {
 			return new_structure;
 		}
-		Structure* new_structure = new Structure();
+		StructureInstantiation* new_structure = new StructureInstantiation(structure);
 		new_structure->set_id(get_next_id());
-		new_structure->set_name(structure->get_name());
 		// template arguments
 		ScopeMap type_variables;
 		for (std::size_t i = 0; i < key.get_arguments().size(); ++i) {
+			new_structure->add_template_argument(key.get_arguments()[i]);
 			type_variables.insert(structure->get_template_arguments()[i], key.get_arguments()[i]);
 		}
 		ScopeMap* previous_type_variables = this->type_variables;
@@ -590,7 +590,7 @@ public:
 	Reference<Program> run() {
 		Reference<Program> new_program = new Program();
 		this->new_program = new_program;
-		Instantiations<Structure> structure_instantiations;
+		Instantiations<Structure, StructureInstantiation> structure_instantiations;
 		this->structure_instantiations = &structure_instantiations;
 		Instantiations<Function> function_instantiations;
 		this->function_instantiations = &function_instantiations;

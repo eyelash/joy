@@ -59,6 +59,7 @@ enum {
 	TYPE_ID_EXPRESSION_STATEMENT,
 	TYPE_ID_FUNCTION,
 	TYPE_ID_STRUCTURE,
+	TYPE_ID_STRUCTURE_INSTANTIATION,
 	TYPE_ID_PROGRAM
 };
 
@@ -406,6 +407,45 @@ public:
 	}
 	void add_member(const StringView& name, const Type* type) {
 		members.emplace_back(std::string(name.data(), name.size()), new Expression(type));
+	}
+	const std::vector<Member>& get_members() const {
+		return members;
+	}
+};
+
+class StructureInstantiation final: public Type {
+public:
+	class Member {
+		//StringView name;
+		std::string name;
+		const Type* type;
+	public:
+		Member(const StringView& name, const Type* type): name(name.data(), name.size()), type(type) {}
+		StringView get_name() const {
+			return name;
+		}
+		const Type* get_type() const {
+			return type;
+		}
+	};
+private:
+	const Structure* structure;
+	std::vector<const Type*> template_arguments;
+	std::vector<Member> members;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_STRUCTURE_INSTANTIATION;
+	StructureInstantiation(const Structure* structure): Type(TYPE_ID), structure(structure) {}
+	const Structure* get_structure() const {
+		return structure;
+	}
+	void add_template_argument(const Type* type) {
+		template_arguments.push_back(type);
+	}
+	const std::vector<const Type*>& get_template_arguments() const {
+		return template_arguments;
+	}
+	void add_member(const StringView& name, const Type* type) {
+		members.emplace_back(name, type);
 	}
 	const std::vector<Member>& get_members() const {
 		return members;

@@ -35,7 +35,7 @@ public:
 			print_impl("terr", context);
 			return;
 		}
-		if (auto* structure = as<Structure>(type)) {
+		if (as<Structure>(type) || as<StructureInstantiation>(type)) {
 			print_impl(format("struct t%", print_number(type->get_id())), context);
 		}
 		else {
@@ -142,6 +142,15 @@ public:
 			print_impl(ln(format("struct t% {", print_number(type->get_id()))), context);
 			context.increase_indentation();
 			for (const Structure::Member& member: structure->get_members()) {
+				print_impl(ln(format("% %;", PrintType(member.get_type()), member.get_name())), context);
+			}
+			context.decrease_indentation();
+			print_impl("};", context);
+		}
+		else if (auto* structure = as<StructureInstantiation>(type)) {
+			print_impl(ln(format("struct t% {", print_number(type->get_id()))), context);
+			context.increase_indentation();
+			for (const StructureInstantiation::Member& member: structure->get_members()) {
 				print_impl(ln(format("% %;", PrintType(member.get_type()), member.get_name())), context);
 			}
 			context.decrease_indentation();
