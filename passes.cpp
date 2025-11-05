@@ -342,6 +342,84 @@ void type_checking(Program* program, Errors& errors) {
 }
 
 class Pass1 {
+	class Unification {
+		Pass1* pass1;
+		const Function* function;
+		const std::vector<const Type*>& arguments;
+		std::vector<const Type*>& template_arguments;
+		bool is_variable(const StringView& name) {
+			for (StringView template_argument_name: function->get_template_arguments()) {
+				if (name == template_argument_name) {
+					return true;
+				}
+			}
+			return false;
+		}
+		bool set_variable(const StringView& name, const Type* type) {
+			for (std::size_t i = 0; i < template_arguments.size(); ++i) {
+				if (name == function->get_template_arguments()[i]) {
+					if (template_arguments[i]) {
+						// variable already set
+						return template_arguments[i] == type;
+					}
+					template_arguments[i] = type;
+					return true;
+				}
+			}
+			return false;
+		}
+		bool match(const Expression* function_argument, const Type* argument) {
+			if (auto* e = as<Name>(function_argument)) {
+				if (is_variable(e->get_name())) {
+					return set_variable(e->get_name(), argument);
+				}
+				else {
+					const Type* type = pass1->get_type(e->get_name(), std::vector<const Type*>());
+					return type && type == argument;
+				}
+			}
+			else if (auto* e = as<Call>(function_argument)) {
+				StringView name = pass1->get_name(e->get_expression());
+				if (auto* s = as<StructureInstantiation>(argument)) {
+					if (name != s->get_structure()->get_name()) {
+						return false;
+					}
+					if (e->get_arguments().size() != s->get_template_arguments().size()) {
+						return false;
+					}
+					for (std::size_t i = 0; i < e->get_arguments().size(); ++i) {
+						if (!match(e->get_arguments()[i], s->get_template_arguments()[i])) {
+							return false;
+						}
+					}
+					return true;
+				}
+			}
+			return false;
+		}
+	public:
+		Unification(Pass1* pass1, const Function* function, const std::vector<const Type*>& arguments, std::vector<const Type*>& template_arguments): pass1(pass1), function(function), arguments(arguments), template_arguments(template_arguments) {}
+		bool run() {
+			if (function->get_arguments().size() != arguments.size()) {
+				return false;
+			}
+			template_arguments.resize(function->get_template_arguments().size());
+			std::fill(template_arguments.begin(), template_arguments.end(), nullptr);
+			for (std::size_t i = 0; i < arguments.size(); ++i) {
+				const Expression* function_argument = function->get_arguments()[i].get_type();
+				if (!match(function_argument, arguments[i])) {
+					return false;
+				}
+			}
+			for (const Type* argument: template_arguments) {
+				if (argument == nullptr) {
+					// not all arguments could be determined
+					return false;
+				}
+			}
+			return true;
+		}
+	};
 	const Program* program;
 	Errors* errors;
 	Program* new_program;
@@ -456,9 +534,11 @@ class Pass1 {
 	const Function* get_function(const StringView& name, std::vector<const Type*>&& arguments) {
 		// TODO: optimize
 		for (const Function* function: program->get_functions()) {
-			// TODO: unification
-			if (function->get_name() == name && function->get_arguments().size() == arguments.size()) {
-				return instantiate_function(function, std::vector<const Type*>());
+			if (function->get_name() == name) {
+				std::vector<const Type*> template_arguments;
+				if (Unification(this, function, arguments, template_arguments).run()) {
+					return instantiate_function(function, std::move(template_arguments));
+				}
 			}
 		}
 		return nullptr;
@@ -538,7 +618,8 @@ class Pass1 {
 			if (function == nullptr) {
 				return Reference<Expression>();
 			}
-			return new Call(function->get_id(), std::move(arguments));
+			const Type* type = function->get_return_type()->get_type();
+			return with_type(new Call(function->get_id(), std::move(arguments)), type);
 		}
 		return Reference<Expression>();
 	}
