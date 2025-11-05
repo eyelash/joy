@@ -31,16 +31,7 @@ public:
 	PrintType(const Type* type): type(type) {}
 	PrintType(const Expression* expression): type(expression->get_type()) {}
 	void print(Context& context) const {
-		if (type == nullptr) {
-			print_impl("terr", context);
-			return;
-		}
-		if (as<StructureInstantiation>(type)) {
-			print_impl(format("struct t%", print_number(type->get_id())), context);
-		}
-		else {
-			print_impl(format("t%", print_number(type->get_id())), context);
-		}
+		print_impl(format("t%", print_number(type->get_id())), context);
 	}
 };
 
@@ -139,6 +130,7 @@ public:
 			print_impl(format("typedef int t%;", print_number(type->get_id())), context);
 		}
 		else if (auto* structure = as<StructureInstantiation>(type)) {
+			print_impl(ln(format("typedef struct t% t%;", print_number(type->get_id()), print_number(type->get_id()))), context);
 			print_impl(ln(format("struct t% {", print_number(type->get_id()))), context);
 			context.increase_indentation();
 			for (const StructureInstantiation::Member& member: structure->get_members()) {
@@ -179,7 +171,7 @@ class PrintFunctionDeclaration {
 public:
 	PrintFunctionDeclaration(const FunctionInstantiation* function): function(function) {}
 	void print(Context& context) const {
-		print_impl(format("% f%(%);", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function)), context);
+		print_impl(format("static % f%(%);", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function)), context);
 	}
 };
 
@@ -189,7 +181,7 @@ public:
 	PrintFunctionDefinition(const FunctionInstantiation* function): function(function) {}
 	void print(Context& context) const {
 		print_impl(ln(format("// %", function->get_function()->get_name())), context);
-		print_impl(format("% f%(%) %", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function), PrintBlock(function->get_block())), context);
+		print_impl(format("static % f%(%) %", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function), PrintBlock(function->get_block())), context);
 	}
 };
 
