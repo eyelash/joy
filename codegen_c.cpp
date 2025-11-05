@@ -199,6 +199,12 @@ public:
 		for (const FunctionInstantiation* function: program->get_function_instantiations()) {
 			print_impl(ln(PrintFunctionDefinition(function)), context);
 		}
+		print_impl(ln("int main(void) {"), context);
+		context.increase_indentation();
+		print_impl(ln(format("f%();", print_number(program->get_main_function_id()))), context);
+		print_impl(ln("return 0;"), context);
+		context.decrease_indentation();
+		print_impl(ln('}'), context);
 	}
 };
 

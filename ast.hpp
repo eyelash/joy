@@ -488,6 +488,7 @@ class Program final: public Dynamic {
 	std::vector<Reference<FunctionInstantiation>> function_instantiations;
 	std::vector<Reference<Type>> types;
 	unsigned int current_id = 0;
+	unsigned int main_function_id = 0;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_PROGRAM;
 	Program(): Dynamic(TYPE_ID) {}
@@ -524,5 +525,11 @@ public:
 	unsigned int get_next_id() {
 		++current_id;
 		return current_id;
+	}
+	void set_main_function_id(unsigned int id) {
+		main_function_id = id;
+	}
+	unsigned int get_main_function_id() const {
+		return main_function_id;
 	}
 };

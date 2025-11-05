@@ -676,7 +676,8 @@ public:
 		this->structure_instantiations = &structure_instantiations;
 		Instantiations<Function, FunctionInstantiation> function_instantiations;
 		this->function_instantiations = &function_instantiations;
-		get_function("main", std::vector<const Type*>());
+		const FunctionInstantiation* main_function = get_function("main", std::vector<const Type*>());
+		program->set_main_function_id(main_function->get_id());
 	}
 };
 
