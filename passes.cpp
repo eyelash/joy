@@ -597,7 +597,17 @@ class Pass1 {
 			return with_type(new Name(to_string(e->get_name())), type);
 		}
 		else if (auto* e = as<BinaryExpression>(expression)) {
-			// TODO
+			Reference<Expression> left = handle_expression(e->get_left());
+			Reference<Expression> right = handle_expression(e->get_right());
+			if (left == nullptr || right == nullptr) {
+				return Reference<Expression>();
+			}
+			if (left->get_type() != right->get_type()) {
+				add_error(expression, "invalid binary expression");
+				return Reference<Expression>();
+			}
+			const Type* type = left->get_type();
+			return with_type(new BinaryExpression(e->get_operation(), std::move(left), std::move(right)), type);
 		}
 		else if (auto* e = as<Assignment>(expression)) {
 			// TODO
