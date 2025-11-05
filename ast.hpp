@@ -231,9 +231,6 @@ class Block {
 public:
 	Block() {}
 	Block(std::vector<Reference<Statement>>&& statements): statements(std::move(statements)) {}
-	void add_statement(Reference<Statement>&& statement) {
-		statements.push_back(std::move(statement));
-	}
 	const std::vector<Reference<Statement>>& get_statements() const {
 		return statements;
 	}
@@ -337,38 +334,25 @@ private:
 	Block block;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_FUNCTION;
-	Function(): Dynamic(TYPE_ID) {}
 	Function(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): Dynamic(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), arguments(std::move(arguments)), return_type(std::move(return_type)), block(std::move(block)) {}
-	void set_name(const StringView& name) {
-		this->name = std::string(name.data(), name.size());
-	}
 	StringView get_name() const {
 		return name;
 	}
 	const std::vector<std::string>& get_template_arguments() const {
 		return template_arguments;
 	}
-	void add_argument(const StringView& name, const Type* type) {
-		arguments.emplace_back(std::string(name.data(), name.size()), new Expression(type));
-	}
 	const std::vector<Argument>& get_arguments() const {
 		return arguments;
 	}
-	void set_return_type(const Type* return_type) {
-		this->return_type = new Expression(return_type);
-	}
 	const Expression* get_return_type() const {
 		return return_type;
-	}
-	void set_block(Block&& block) {
-		this->block = std::move(block);
 	}
 	const Block* get_block() const {
 		return &block;
 	}
 };
 
-class Structure final: public Type {
+class Structure final: public Dynamic {
 public:
 	class Member {
 		std::string name;
@@ -388,19 +372,12 @@ private:
 	std::vector<Member> members;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_STRUCTURE;
-	Structure(): Type(TYPE_ID) {}
-	Structure(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Member>&& members): Type(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), members(std::move(members)) {}
-	void set_name(const StringView& name) {
-		this->name = std::string(name.data(), name.size());
-	}
+	Structure(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Member>&& members): Dynamic(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), members(std::move(members)) {}
 	StringView get_name() const {
 		return name;
 	}
 	const std::vector<std::string>& get_template_arguments() const {
 		return template_arguments;
-	}
-	void add_member(const StringView& name, const Type* type) {
-		members.emplace_back(std::string(name.data(), name.size()), new Expression(type));
 	}
 	const std::vector<Member>& get_members() const {
 		return members;
