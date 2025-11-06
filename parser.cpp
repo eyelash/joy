@@ -159,6 +159,9 @@ public:
 		else_statement = std::move(statement);
 	}
 	template <class C> void retrieve(const C& callback) {
+		if (else_statement == nullptr) {
+			else_statement = new EmptyStatement();
+		}
 		callback.push(new IfStatement(std::move(condition), std::move(then_statement), std::move(else_statement)));
 	}
 };

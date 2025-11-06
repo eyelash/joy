@@ -3,28 +3,6 @@
 
 using namespace printer;
 
-template <class P, class T> class CommaSeparated {
-	const std::vector<T>& v;
-public:
-	constexpr CommaSeparated(const std::vector<T>& v): v(v) {}
-	void print(Context& context) const {
-		auto i = v.begin();
-		auto end = v.end();
-		if (i != end) {
-			print_impl(P(*i), context);
-			++i;
-			while (i != end) {
-				print_impl(", ", context);
-				print_impl(P(*i), context);
-				++i;
-			}
-		}
-	}
-};
-template <class P, class T> constexpr CommaSeparated<P, T> comma_separated(const std::vector<T>& v) {
-	return CommaSeparated<P, T>(v);
-}
-
 class PrintType {
 	const Type* type;
 public:

@@ -11,7 +11,9 @@ public:
 		return parent;
 	}
 	void insert(const StringView& name, const Type* value) {
-		map.emplace(name, value);
+		if (value) {
+			map.emplace(name, value);
+		}
 	}
 	const Type* look_up(const StringView& name) const {
 		auto iterator = map.find(name);
@@ -149,6 +151,9 @@ class Pass1 {
 			return false;
 		}
 		bool match(const Expression* function_argument, const Type* argument) {
+			if (argument == nullptr) {
+				return false;
+			}
 			if (auto* e = as<Name>(function_argument)) {
 				if (is_variable(e->get_name())) {
 					return set_variable(e->get_name(), argument);
@@ -213,8 +218,14 @@ class Pass1 {
 	Instantiations<Function, FunctionInstantiation>* function_instantiations;
 	ScopeMap* variables = nullptr;
 	ScopeMap* type_variables = nullptr;
-	template <class P> void add_error(const Expression* expression, P&& p) {
-		errors->add_error(program->get_path().c_str(), expression->get_location(), std::forward<P>(p));
+	static SourceLocation get_location(const Expression* expression) {
+		if (expression == nullptr) {
+			return SourceLocation(0, 0);
+		}
+		return expression->get_location();
+	}
+	template <class... T> void add_error(const Expression* expression, const char* s, T... t) {
+		errors->add_error(program->get_path().c_str(), get_location(expression), printer::format(s, t...));
 	}
 	const Type* instantiate_structure(const Structure* structure, std::vector<const Type*>&& template_arguments) {
 		if (template_arguments.size() != structure->get_template_arguments().size()) {
@@ -296,6 +307,9 @@ class Pass1 {
 		return get_builtin_type<IntType>(int_type);
 	}
 	const Type* get_type(const StringView& name, std::vector<const Type*>&& arguments) {
+		if (!name) {
+			return nullptr;
+		}
 		if (name == "Void" && arguments.empty()) {
 			return get_void_type();
 		}
@@ -310,36 +324,52 @@ class Pass1 {
 		}
 		return nullptr;
 	}
-	const FunctionInstantiation* get_function(const StringView& name, std::vector<const Type*>&& arguments) {
+	const FunctionInstantiation* get_function(const StringView& name, std::vector<const Type*>&& arguments, const Expression* expression = nullptr) {
+		if (!name) {
+			return nullptr;
+		}
+		const Function* match_function = nullptr;
+		std::vector<const Type*> match_template_arguments;
+		unsigned int match_count = 0;
 		// TODO: optimize
 		for (const Function* function: program->get_functions()) {
 			if (function->get_name() == name) {
 				std::vector<const Type*> template_arguments;
 				if (Unification(this, function, arguments, nullptr, template_arguments).run()) {
-					return instantiate_function(function, std::move(template_arguments));
+					match_function = function;
+					match_template_arguments = std::move(template_arguments);
+					++match_count;
 				}
 			}
 		}
-		return nullptr;
-	}
-	const FunctionInstantiation* get_function(const StringView& name, const std::vector<Reference<Expression>>& arguments) {
-		std::vector<const Type*> argument_types;
-		for (const Expression* expression: arguments) {
-			if (expression == nullptr) {
-				return nullptr;
-			}
-			argument_types.push_back(expression->get_type());
+		if (match_count == 1) {
+			return instantiate_function(match_function, std::move(match_template_arguments));
 		}
-		return get_function(name, std::move(argument_types));
-	}
-	StringView get_name(const Expression* expression) {
-		if (auto* e = as<Name>(expression)) {
-			return e->get_name();
+		if (match_count == 0) {
+			add_error(expression, "no matching function \"%\" found", name);
 		}
 		else {
+			add_error(expression, "% matching functions \"%\" found", printer::print_number(match_count), name);
+		}
+		return nullptr;
+	}
+	const FunctionInstantiation* get_function(const StringView& name, const std::vector<Reference<Expression>>& arguments, const Expression* expression = nullptr) {
+		std::vector<const Type*> argument_types;
+		for (const Expression* expression: arguments) {
+			argument_types.push_back(get_type(expression));
+		}
+		return get_function(name, std::move(argument_types), expression);
+	}
+	StringView get_name(const Expression* expression) {
+		if (expression == nullptr) {
+			return StringView();
+		}
+		const Name* name = as<Name>(expression);
+		if (name == nullptr) {
 			add_error(expression, "invalid expression, expected a name");
 			return StringView();
 		}
+		return name->get_name();
 	}
 	const Type* handle_type(const Expression* expression) {
 		if (expression == nullptr) {
@@ -365,30 +395,47 @@ class Pass1 {
 		expression->set_type(type);
 		return std::move(expression);
 	}
-	Reference<Expression> handle_expression(const Expression* expression, const Type* expected_type = nullptr) {
+	static const Type* get_type(const Expression* expression) {
+		if (expression == nullptr) {
+			return nullptr;
+		}
+		return expression->get_type();
+	}
+	void check_type(const Expression* expression, const Type* expected_type, bool& error) {
+		if (expression && expected_type) {
+			if (expression->get_type() != expected_type) {
+				add_error(expression, "invalid type %, expected type %", PrintTypeName(expression->get_type()), PrintTypeName(expected_type));
+				error = true;
+			}
+		}
+	}
+	Reference<Expression> handle_expression_(const Expression* expression, const Type* expected_type) {
 		if (auto* e = as<IntLiteral>(expression)) {
 			return with_type(new IntLiteral(e->get_value()), get_int_type());
 		}
-		if (auto* e = as<Name>(expression)) {
-			const Type* type = variables->look_up(e->get_name());
+		else if (auto* e = as<Name>(expression)) {
+			StringView name = e->get_name();
+			const Type* type = variables->look_up(name);
 			if (type == nullptr) {
-				using namespace printer;
-				add_error(expression, format("undefined variable \"%\"", e->get_name()));
-				return nullptr;
+				add_error(expression, "undefined variable \"%\"", name);
+				return Reference<Expression>();
 			}
-			return with_type(new Name(e->get_name().to_string()), type);
+			return with_type(new Name(name.to_string()), type);
 		}
 		else if (auto* e = as<BinaryExpression>(expression)) {
 			Reference<Expression> left = handle_expression(e->get_left());
 			Reference<Expression> right = handle_expression(e->get_right());
-			if (left == nullptr || right == nullptr) {
+			bool error = left == nullptr || right == nullptr;
+			if (left && right) {
+				if (!(left->get_type() == get_int_type() && right->get_type() == get_int_type())) {
+					add_error(expression, "invalid binary expression");
+					error = true;
+				}
+			}
+			if (error) {
 				return Reference<Expression>();
 			}
-			if (left->get_type() != right->get_type()) {
-				add_error(expression, "invalid binary expression");
-				return Reference<Expression>();
-			}
-			const Type* type = left->get_type();
+			const Type* type = get_type(left);
 			return with_type(new BinaryExpression(e->get_operation(), std::move(left), std::move(right)), type);
 		}
 		else if (auto* e = as<Assignment>(expression)) {
@@ -400,13 +447,20 @@ class Pass1 {
 			for (const Expression* argument: e->get_arguments()) {
 				arguments.push_back(handle_expression(argument));
 			}
-			const FunctionInstantiation* function = get_function(name, arguments);
+			const FunctionInstantiation* function = get_function(name, arguments, expression);
 			if (function == nullptr) {
 				return Reference<Expression>();
 			}
 			return with_type(new Call(function->get_id(), std::move(arguments)), function->get_return_type());
 		}
 		return Reference<Expression>();
+	}
+	Reference<Expression> handle_expression(const Expression* expression, const Type* expected_type = nullptr) {
+		Reference<Expression> new_expression = handle_expression_(expression, expected_type);
+		if (new_expression) {
+			new_expression->set_location(expression->get_location());
+		}
+		return new_expression;
 	}
 	Block handle_block(const Block* block) {
 		std::vector<Reference<Statement>> statements;
@@ -425,31 +479,51 @@ class Pass1 {
 		if (auto* s = as<BlockStatement>(statement)) {
 			return new BlockStatement(handle_block(s->get_block()));
 		}
+		else if (auto* s = as<EmptyStatement>(statement)) {
+			return new EmptyStatement();
+		}
 		else if (auto* s = as<LetStatement>(statement)) {
 			const Type* type = handle_type(s->get_type());
 			Reference<Expression> expression = handle_expression(s->get_expression());
-			if (expression == nullptr) {
+			if (type == nullptr) {
+				type = get_type(expression);
+			}
+			bool error = type == nullptr || expression == nullptr;
+			check_type(expression, type, error);
+			variables->insert(s->get_name(), type);
+			if (error) {
 				return Reference<Statement>();
 			}
-			if (type == nullptr) {
-				type = expression->get_type();
-			}
-			variables->insert(s->get_name(), type);
 			return new LetStatement(s->get_name().to_string(), new Expression(type), std::move(expression));
 		}
 		else if (auto* s = as<IfStatement>(statement)) {
 			Reference<Expression> condition = handle_expression(s->get_condition());
 			Reference<Statement> then_statement = handle_statement(s->get_then_statement());
 			Reference<Statement> else_statement = handle_statement(s->get_else_statement());
+			bool error = condition == nullptr || then_statement == nullptr || else_statement == nullptr;
+			check_type(condition, get_int_type(), error);
+			if (error) {
+				return Reference<Statement>();
+			}
 			return new IfStatement(std::move(condition), std::move(then_statement), std::move(else_statement));
 		}
 		else if (auto* s = as<WhileStatement>(statement)) {
 			Reference<Expression> condition = handle_expression(s->get_condition());
 			Reference<Statement> statement = handle_statement(s->get_statement());
+			bool error = condition == nullptr || statement == nullptr;
+			check_type(condition, get_int_type(), error);
+			if (error) {
+				return Reference<Statement>();
+			}
 			return new WhileStatement(std::move(condition), std::move(statement));
 		}
 		else if (auto* s = as<ExpressionStatement>(statement)) {
-			return new ExpressionStatement(handle_expression(s->get_expression()));
+			Reference<Expression> expression = handle_expression(s->get_expression());
+			bool error = expression == nullptr;
+			if (error) {
+				return Reference<Statement>();
+			}
+			return new ExpressionStatement(std::move(expression));
 		}
 		return Reference<Statement>();
 	}
@@ -464,6 +538,9 @@ public:
 		Instantiations<Function, FunctionInstantiation> function_instantiations;
 		this->function_instantiations = &function_instantiations;
 		const FunctionInstantiation* main_function = get_function("main", std::vector<const Type*>());
+		if (main_function == nullptr) {
+			return;
+		}
 		program->set_main_function_id(main_function->get_id());
 	}
 };

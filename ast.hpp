@@ -12,8 +12,14 @@ public:
 	template <class C> void print(const C& color, const char* severity) const {
 		using namespace printer;
 		Context context(std::cerr);
-		auto source = read_file(path.c_str());
-		print_message(context, path.c_str(), StringView(source.data(), source.size()), location, color, severity, StringView(message));
+		if (location.begin == 0 && location.end == 0) {
+			print_message(context, color, severity, StringView(message));
+			print_impl(ln(format("--> %", StringView(path))), context);
+		}
+		else {
+			auto source = read_file(path.c_str());
+			print_message(context, path.c_str(), StringView(source.data(), source.size()), location, color, severity, StringView(message));
+		}
 		context.print('\n');
 	}
 };
@@ -498,5 +504,44 @@ public:
 	}
 	unsigned int get_main_function_id() const {
 		return main_function_id;
+	}
+};
+
+template <class P, class T> class PrintCommaSeparated {
+	const std::vector<T>& v;
+public:
+	constexpr PrintCommaSeparated(const std::vector<T>& v): v(v) {}
+	void print(printer::Context& context) const {
+		auto i = v.begin();
+		auto end = v.end();
+		if (i != end) {
+			print_impl(P(*i), context);
+			++i;
+			while (i != end) {
+				print_impl(", ", context);
+				print_impl(P(*i), context);
+				++i;
+			}
+		}
+	}
+};
+template <class P, class T> constexpr PrintCommaSeparated<P, T> comma_separated(const std::vector<T>& v) {
+	return PrintCommaSeparated<P, T>(v);
+}
+
+class PrintTypeName {
+	const Type* type;
+public:
+	constexpr PrintTypeName(const Type* type): type(type) {}
+	void print(printer::Context& context) const {
+		if (as<VoidType>(type)) {
+			print_impl("Void", context);
+		}
+		else if (as<IntType>(type)) {
+			print_impl("Int", context);
+		}
+		else if (auto* s = as<StructureInstantiation>(type)) {
+			print_impl(printer::format("%<%>", s->get_structure()->get_name(), comma_separated<PrintTypeName>(s->get_template_arguments())), context);
+		}
 	}
 };
