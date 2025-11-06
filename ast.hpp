@@ -44,7 +44,6 @@ public:
 enum {
 	TYPE_ID_VOID_TYPE,
 	TYPE_ID_INT_TYPE,
-	TYPE_ID_STRUCT_TYPE,
 	TYPE_ID_EXPRESSION,
 	TYPE_ID_INT_LITERAL,
 	TYPE_ID_NAME,
@@ -86,33 +85,6 @@ class IntType final: public Type {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_INT_TYPE;
 	IntType(): Type(TYPE_ID) {}
-};
-
-class StructType final: public Type {
-public:
-	class Member {
-		StringView name;
-		const Type* type;
-	public:
-		Member(const StringView& name, const Type* type): name(name), type(type) {}
-		StringView get_name() const {
-			return name;
-		}
-		const Type* get_type() const {
-			return type;
-		}
-	};
-private:
-	std::vector<Member> members;
-public:
-	static constexpr int TYPE_ID = TYPE_ID_STRUCT_TYPE;
-	StructType(): Type(TYPE_ID) {}
-	void add_member(const StringView& name, const Type* type) {
-		members.emplace_back(name, type);
-	}
-	const std::vector<Member>& get_members() const {
-		return members;
-	}
 };
 
 class Expression: public Dynamic {
@@ -510,11 +482,6 @@ public:
 	}
 	const std::vector<Reference<FunctionInstantiation>>& get_function_instantiations() const {
 		return function_instantiations;
-	}
-	template <class T, class... A> T* add_type(A&&... a) {
-		T* type = new T(std::forward<A>(a)...);
-		types.emplace_back(type);
-		return type;
 	}
 	void add_type(Reference<Type>&& type) {
 		types.push_back(std::move(type));
