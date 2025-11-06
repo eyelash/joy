@@ -346,6 +346,7 @@ class Pass1 {
 		Pass1* pass1;
 		const Function* function;
 		const std::vector<const Type*>& arguments;
+		const Type* return_type;
 		std::vector<const Type*>& template_arguments;
 		bool is_variable(const StringView& name) {
 			for (StringView template_argument_name: function->get_template_arguments()) {
@@ -398,7 +399,7 @@ class Pass1 {
 			return false;
 		}
 	public:
-		Unification(Pass1* pass1, const Function* function, const std::vector<const Type*>& arguments, std::vector<const Type*>& template_arguments): pass1(pass1), function(function), arguments(arguments), template_arguments(template_arguments) {}
+		Unification(Pass1* pass1, const Function* function, const std::vector<const Type*>& arguments, const Type* return_type, std::vector<const Type*>& template_arguments): pass1(pass1), function(function), arguments(arguments), return_type(return_type), template_arguments(template_arguments) {}
 		bool run() {
 			if (function->get_arguments().size() != arguments.size()) {
 				return false;
@@ -408,6 +409,11 @@ class Pass1 {
 			for (std::size_t i = 0; i < arguments.size(); ++i) {
 				const Expression* function_argument = function->get_arguments()[i].get_type();
 				if (!match(function_argument, arguments[i])) {
+					return false;
+				}
+			}
+			if (return_type) {
+				if (!match(function->get_return_type(), return_type)) {
 					return false;
 				}
 			}
@@ -530,7 +536,7 @@ class Pass1 {
 		for (const Function* function: program->get_functions()) {
 			if (function->get_name() == name) {
 				std::vector<const Type*> template_arguments;
-				if (Unification(this, function, arguments, template_arguments).run()) {
+				if (Unification(this, function, arguments, nullptr, template_arguments).run()) {
 					return instantiate_function(function, std::move(template_arguments));
 				}
 			}
