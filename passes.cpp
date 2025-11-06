@@ -659,10 +659,15 @@ class Pass1 {
 			return new LetStatement(s->get_name().to_string(), new Expression(type), std::move(expression));
 		}
 		else if (auto* s = as<IfStatement>(statement)) {
-			// TODO
+			Reference<Expression> condition = handle_expression(s->get_condition());
+			Reference<Statement> then_statement = handle_statement(s->get_then_statement());
+			Reference<Statement> else_statement = handle_statement(s->get_else_statement());
+			return new IfStatement(std::move(condition), std::move(then_statement), std::move(else_statement));
 		}
 		else if (auto* s = as<WhileStatement>(statement)) {
-			// TODO
+			Reference<Expression> condition = handle_expression(s->get_condition());
+			Reference<Statement> statement = handle_statement(s->get_statement());
+			return new WhileStatement(std::move(condition), std::move(statement));
 		}
 		else if (auto* s = as<ExpressionStatement>(statement)) {
 			return new ExpressionStatement(handle_expression(s->get_expression()));
