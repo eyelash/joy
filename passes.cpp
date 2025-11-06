@@ -128,7 +128,7 @@ class TypeChecking {
 	Interner* type_interner;
 	ScopeMap* scope;
 	template <class P> void add_error(const Expression* expression, P&& p) {
-		errors->add_error(program->get_path().c_str(), expression->get_location(), print_to_string(std::forward<P>(p)));
+		errors->add_error(program->get_path().c_str(), expression->get_location(), std::forward<P>(p));
 	}
 	const Type* get_type(Interner::Key key, const Expression* expression = nullptr) {
 		if (const Type* type = type_interner->look_up(key)) {
@@ -435,7 +435,7 @@ class Pass1 {
 	ScopeMap* variables = nullptr;
 	ScopeMap* type_variables = nullptr;
 	template <class P> void add_error(const Expression* expression, P&& p) {
-		errors->add_error(program->get_path().c_str(), expression->get_location(), print_to_string(std::forward<P>(p)));
+		errors->add_error(program->get_path().c_str(), expression->get_location(), std::forward<P>(p));
 	}
 	const Type* instantiate_structure(const Structure* structure, std::vector<const Type*>&& template_arguments) {
 		if (template_arguments.size() != structure->get_template_arguments().size()) {
@@ -582,9 +582,6 @@ class Pass1 {
 		}
 		return nullptr;
 	}
-	static std::string to_string(const StringView& s) {
-		return std::string(s.data(), s.size());
-	}
 	static Reference<Expression> with_type(Reference<Expression>&& expression, const Type* type) {
 		expression->set_type(type);
 		return std::move(expression);
@@ -600,7 +597,7 @@ class Pass1 {
 				add_error(expression, format("undefined variable \"%\"", e->get_name()));
 				return nullptr;
 			}
-			return with_type(new Name(to_string(e->get_name())), type);
+			return with_type(new Name(e->get_name().to_string()), type);
 		}
 		else if (auto* e = as<BinaryExpression>(expression)) {
 			Reference<Expression> left = handle_expression(e->get_left());
@@ -659,7 +656,7 @@ class Pass1 {
 				type = expression->get_type();
 			}
 			variables->insert(s->get_name(), type);
-			return new LetStatement(to_string(s->get_name()), new Expression(type), std::move(expression));
+			return new LetStatement(s->get_name().to_string(), new Expression(type), std::move(expression));
 		}
 		else if (auto* s = as<IfStatement>(statement)) {
 			// TODO

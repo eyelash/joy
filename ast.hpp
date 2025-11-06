@@ -8,7 +8,7 @@ class Error {
 	SourceLocation location;
 	std::string message;
 public:
-	Error(const char* path, const SourceLocation& location, const std::string& message): path(path), location(location), message(message) {}
+	Error(const char* path, const SourceLocation& location, std::string&& message): path(path), location(location), message(std::move(message)) {}
 	template <class C> void print(const C& color, const char* severity) const {
 		using namespace printer;
 		Context context(std::cerr);
@@ -25,11 +25,11 @@ public:
 	explicit operator bool() const {
 		return !errors.empty();
 	}
-	void add_error(const char* path, const SourceLocation& location, const std::string& message) {
-		errors.emplace_back(path, location, message);
+	template <class P> void add_error(const char* path, const SourceLocation& location, P&& p) {
+		errors.emplace_back(path, location, print_to_string(std::forward<P>(p)));
 	}
-	void add_warning(const char* path, const SourceLocation& location, const std::string& message) {
-		warnings.emplace_back(path, location, message);
+	template <class P> void add_warning(const char* path, const SourceLocation& location, P&& p) {
+		warnings.emplace_back(path, location, print_to_string(std::forward<P>(p)));
 	}
 	void print() {
 		for (const Error& error: warnings) {
