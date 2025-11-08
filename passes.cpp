@@ -123,10 +123,22 @@ public:
 };
 
 class Pass1 {
+	static SourceLocation get_location(const Expression* expression) {
+		if (expression == nullptr) {
+			return SourceLocation(0, 0);
+		}
+		return expression->get_location();
+	}
+	static const Type* get_type(const Expression* expression) {
+		if (expression == nullptr) {
+			return nullptr;
+		}
+		return expression->get_type();
+	}
 	class Unification {
 		Pass1* pass1;
 		const Function* function;
-		const std::vector<const Type*>& arguments;
+		const std::vector<Reference<Expression>>& arguments;
 		const Type* return_type;
 		std::vector<const Type*>& template_arguments;
 		bool is_variable(const StringView& name) {
@@ -183,7 +195,7 @@ class Pass1 {
 			return false;
 		}
 	public:
-		Unification(Pass1* pass1, const Function* function, const std::vector<const Type*>& arguments, const Type* return_type, std::vector<const Type*>& template_arguments): pass1(pass1), function(function), arguments(arguments), return_type(return_type), template_arguments(template_arguments) {}
+		Unification(Pass1* pass1, const Function* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, std::vector<const Type*>& template_arguments): pass1(pass1), function(function), arguments(arguments), return_type(return_type), template_arguments(template_arguments) {}
 		bool run() {
 			if (function->get_arguments().size() != arguments.size()) {
 				return false;
@@ -192,7 +204,7 @@ class Pass1 {
 			std::fill(template_arguments.begin(), template_arguments.end(), nullptr);
 			for (std::size_t i = 0; i < arguments.size(); ++i) {
 				const Expression* function_argument = function->get_arguments()[i].get_type();
-				if (!match(function_argument, arguments[i])) {
+				if (!match(function_argument, get_type(arguments[i]))) {
 					return false;
 				}
 			}
@@ -218,12 +230,6 @@ class Pass1 {
 	Instantiations<Function, FunctionInstantiation>* function_instantiations;
 	ScopeMap* variables = nullptr;
 	ScopeMap* type_variables = nullptr;
-	static SourceLocation get_location(const Expression* expression) {
-		if (expression == nullptr) {
-			return SourceLocation(0, 0);
-		}
-		return expression->get_location();
-	}
 	template <class... T> void add_error(const Expression* expression, const char* s, T... t) {
 		errors->add_error(program->get_path().c_str(), get_location(expression), printer::format(s, t...));
 	}
@@ -324,7 +330,7 @@ class Pass1 {
 		}
 		return nullptr;
 	}
-	const FunctionInstantiation* get_function(const StringView& name, std::vector<const Type*>&& arguments, const Expression* expression = nullptr) {
+	const FunctionInstantiation* get_function(const StringView& name, const std::vector<Reference<Expression>>& arguments, const Expression* expression = nullptr) {
 		if (!name) {
 			return nullptr;
 		}
@@ -352,13 +358,6 @@ class Pass1 {
 			add_error(expression, "% matching functions \"%\" found", printer::print_number(match_count), name);
 		}
 		return nullptr;
-	}
-	const FunctionInstantiation* get_function(const StringView& name, const std::vector<Reference<Expression>>& arguments, const Expression* expression = nullptr) {
-		std::vector<const Type*> argument_types;
-		for (const Expression* expression: arguments) {
-			argument_types.push_back(get_type(expression));
-		}
-		return get_function(name, std::move(argument_types), expression);
 	}
 	StringView get_name(const Expression* expression) {
 		if (expression == nullptr) {
@@ -394,12 +393,6 @@ class Pass1 {
 	static Reference<Expression> with_type(Reference<Expression>&& expression, const Type* type) {
 		expression->set_type(type);
 		return std::move(expression);
-	}
-	static const Type* get_type(const Expression* expression) {
-		if (expression == nullptr) {
-			return nullptr;
-		}
-		return expression->get_type();
 	}
 	void check_type(const Expression* expression, const Type* expected_type, bool& error) {
 		if (expression && expected_type) {
@@ -537,7 +530,7 @@ public:
 		this->structure_instantiations = &structure_instantiations;
 		Instantiations<Function, FunctionInstantiation> function_instantiations;
 		this->function_instantiations = &function_instantiations;
-		const FunctionInstantiation* main_function = get_function("main", std::vector<const Type*>());
+		const FunctionInstantiation* main_function = get_function("main", std::vector<Reference<Expression>>());
 		if (main_function == nullptr) {
 			return;
 		}
