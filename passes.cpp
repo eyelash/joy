@@ -122,6 +122,72 @@ public:
 	}
 };
 
+class Copy {
+public:
+	static Reference<Expression> copy_expression_(const Expression* expression) {
+		if (auto* e = as<IntLiteral>(expression)) {
+			return new IntLiteral(e->get_value());
+		}
+		else if (auto* e = as<Name>(expression)) {
+			return new Name(e->get_name().to_string());
+		}
+		else if (auto* e = as<BinaryExpression>(expression)) {
+			return new BinaryExpression(e->get_operation(), copy_expression(e->get_left()), copy_expression(e->get_right()));
+		}
+		else if (auto* e = as<Assignment>(expression)) {
+			return new Assignment(copy_expression(e->get_left()), copy_expression(e->get_right()));
+		}
+		else if (auto* e = as<Call>(expression)) {
+			return new Call(copy_expression(e->get_expression()), copy_expressions(e->get_arguments()));
+		}
+	}
+	static Reference<Expression> copy_expression(const Expression* expression) {
+		Reference<Expression> new_expression = copy_expression_(expression);
+		new_expression->set_location(expression->get_location());
+		new_expression->set_type(expression->get_type());
+		return new_expression;
+	}
+	static std::vector<Reference<Expression>> copy_expressions(const std::vector<Reference<Expression>>& expressions) {
+		std::vector<Reference<Expression>> new_expressions;
+		for (const Expression* expression: expressions) {
+			new_expressions.push_back(copy_expression(expression));
+		}
+		return new_expressions;
+	}
+	static Block copy_block(const Block* block) {
+		std::vector<Reference<Statement>> statements;
+		for (const Statement* statement: block->get_statements()) {
+			statements.push_back(copy_statement(statement));
+		}
+		return Block(std::move(statements));
+	}
+	static Reference<Statement> copy_statement(const Statement* statement) {
+		if (auto* s = as<BlockStatement>(statement)) {
+			return new BlockStatement(copy_block(s->get_block()));
+		}
+		else if (auto* s = as<EmptyStatement>(statement)) {
+			return new EmptyStatement();
+		}
+		else if (auto* s = as<LetStatement>(statement)) {
+			return new LetStatement(s->get_name().to_string(), copy_expression(s->get_type()), copy_expression(s->get_expression()));
+		}
+		else if (auto* s = as<IfStatement>(statement)) {
+			Reference<Expression> condition = copy_expression(s->get_condition());
+			Reference<Statement> then_statement = copy_statement(s->get_then_statement());
+			Reference<Statement> else_statement = copy_statement(s->get_else_statement());
+			return new IfStatement(std::move(condition), std::move(then_statement), std::move(else_statement));
+		}
+		else if (auto* s = as<WhileStatement>(statement)) {
+			Reference<Expression> condition = copy_expression(s->get_condition());
+			Reference<Statement> statement = copy_statement(s->get_statement());
+			return new WhileStatement(std::move(condition), std::move(statement));
+		}
+		else if (auto* s = as<ExpressionStatement>(statement)) {
+			return new ExpressionStatement(copy_expression(s->get_expression()));
+		}
+	}
+};
+
 class Pass1 {
 	static SourceLocation get_location(const Expression* expression) {
 		if (expression == nullptr) {
