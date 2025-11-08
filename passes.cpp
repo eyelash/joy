@@ -330,7 +330,7 @@ class Pass1 {
 		}
 		return nullptr;
 	}
-	const FunctionInstantiation* get_function(const StringView& name, const std::vector<Reference<Expression>>& arguments, const Expression* expression = nullptr) {
+	const FunctionInstantiation* get_function(const StringView& name, const std::vector<Reference<Expression>>& arguments, const Type* return_type, const Expression* expression = nullptr) {
 		if (!name) {
 			return nullptr;
 		}
@@ -341,7 +341,7 @@ class Pass1 {
 		for (const Function* function: program->get_functions()) {
 			if (function->get_name() == name) {
 				std::vector<const Type*> template_arguments;
-				if (Unification(this, function, arguments, nullptr, template_arguments).run()) {
+				if (Unification(this, function, arguments, return_type, template_arguments).run()) {
 					match_function = function;
 					match_template_arguments = std::move(template_arguments);
 					++match_count;
@@ -440,7 +440,7 @@ class Pass1 {
 			for (const Expression* argument: e->get_arguments()) {
 				arguments.push_back(handle_expression(argument));
 			}
-			const FunctionInstantiation* function = get_function(name, arguments, expression);
+			const FunctionInstantiation* function = get_function(name, arguments, expected_type, expression);
 			if (function == nullptr) {
 				return Reference<Expression>();
 			}
@@ -477,7 +477,7 @@ class Pass1 {
 		}
 		else if (auto* s = as<LetStatement>(statement)) {
 			const Type* type = handle_type(s->get_type());
-			Reference<Expression> expression = handle_expression(s->get_expression());
+			Reference<Expression> expression = handle_expression(s->get_expression(), type);
 			if (type == nullptr) {
 				type = get_type(expression);
 			}
@@ -490,7 +490,7 @@ class Pass1 {
 			return new LetStatement(s->get_name().to_string(), new Expression(type), std::move(expression));
 		}
 		else if (auto* s = as<IfStatement>(statement)) {
-			Reference<Expression> condition = handle_expression(s->get_condition());
+			Reference<Expression> condition = handle_expression(s->get_condition(), get_int_type());
 			Reference<Statement> then_statement = handle_statement(s->get_then_statement());
 			Reference<Statement> else_statement = handle_statement(s->get_else_statement());
 			bool error = condition == nullptr || then_statement == nullptr || else_statement == nullptr;
@@ -501,7 +501,7 @@ class Pass1 {
 			return new IfStatement(std::move(condition), std::move(then_statement), std::move(else_statement));
 		}
 		else if (auto* s = as<WhileStatement>(statement)) {
-			Reference<Expression> condition = handle_expression(s->get_condition());
+			Reference<Expression> condition = handle_expression(s->get_condition(), get_int_type());
 			Reference<Statement> statement = handle_statement(s->get_statement());
 			bool error = condition == nullptr || statement == nullptr;
 			check_type(condition, get_int_type(), error);
@@ -530,7 +530,7 @@ public:
 		this->structure_instantiations = &structure_instantiations;
 		Instantiations<Function, FunctionInstantiation> function_instantiations;
 		this->function_instantiations = &function_instantiations;
-		const FunctionInstantiation* main_function = get_function("main", std::vector<Reference<Expression>>());
+		const FunctionInstantiation* main_function = get_function("main", {}, get_void_type());
 		if (main_function == nullptr) {
 			return;
 		}
