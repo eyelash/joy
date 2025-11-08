@@ -468,6 +468,14 @@ class Pass1 {
 			}
 		}
 	}
+	void check_name(const Expression* expression, bool& error) {
+		if (expression) {
+			if (!as<Name>(expression)) {
+				add_error(expression, "invalid expression, expected a name");
+				error = true;
+			}
+		}
+	}
 	Reference<Expression> handle_expression_(const Expression* expression, const Type* expected_type) {
 		if (auto* e = as<IntLiteral>(expression)) {
 			return with_type(new IntLiteral(e->get_value()), get_int_type());
@@ -498,7 +506,16 @@ class Pass1 {
 			return with_type(new BinaryExpression(e->get_operation(), std::move(left), std::move(right)), type);
 		}
 		else if (auto* e = as<Assignment>(expression)) {
-			// TODO
+			Reference<Expression> left = handle_expression(e->get_left());
+			Reference<Expression> right = handle_expression(e->get_right());
+			const Type* type = get_type(left);
+			bool error = left == nullptr || right == nullptr;
+			check_name(left, error);
+			check_type(right, type, error);
+			if (error) {
+				return Reference<Expression>();
+			}
+			return with_type(new Assignment(std::move(left), std::move(right)), type);
 		}
 		else if (auto* e = as<Call>(expression)) {
 			StringView name = get_name(e->get_expression());
