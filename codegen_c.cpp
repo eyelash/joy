@@ -155,11 +155,28 @@ public:
 
 class PrintFunctionDefinition {
 	const FunctionInstantiation* function;
+	bool is_builtin_print_int() const {
+		return
+			function->get_function()->get_name() == "print_int" &&
+			function->get_function()->get_template_arguments().empty() &&
+			function->get_arguments().size() == 1 &&
+			as<IntType>(function->get_arguments()[0].get_type()) &&
+			as<VoidType>(function->get_return_type()) &&
+			function->get_block()->get_statements().empty();
+	}
 public:
 	PrintFunctionDefinition(const FunctionInstantiation* function): function(function) {}
 	void print(Context& context) const {
 		print_impl(ln(format("// %", function->get_function()->get_name())), context);
-		print_impl(format("static % f%(%) %", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function), PrintBlock(function->get_block())), context);
+		if (is_builtin_print_int()) {
+			print_impl(ln("int printf(const char*, ...);"), context);
+			print_impl(ln(format("static % f%(%) {", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function))), context);
+			print_impl(indented(ln(format("printf(\"%%d\\n\", %);", function->get_arguments()[0].get_name()))), context);
+			print_impl('}', context);
+		}
+		else {
+			print_impl(format("static % f%(%) %", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function), PrintBlock(function->get_block())), context);
+		}
 	}
 };
 
