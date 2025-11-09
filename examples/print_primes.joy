@@ -1,5 +1,9 @@
 func print_int(n: Int) {}
 
+func print(n: Int) {
+	print_int(n);
+}
+
 func is_prime(n: Int): Int {
 	let i = 2;
 	while (i * i <= n) {
@@ -16,8 +20,8 @@ func print_primes() {
 	let n = 2;
 	let count = 0;
 	while (count < 100) {
-		if (is_prime(n)) {
-			print_int(n);
+		if (n.is_prime()) {
+			n.print();
 			count = count + 1;
 		}
 		n = n + 1;

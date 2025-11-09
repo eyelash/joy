@@ -61,6 +61,9 @@ public:
 	void push(Tag<Call>, std::vector<Reference<Expression>>&& arguments) {
 		expression = new Call(std::move(expression), std::move(arguments));
 	}
+	void push(Tag<MemberAccess>, std::string&& member_name) {
+		expression = new MemberAccess(std::move(expression), std::move(member_name));
+	}
 	void set_location(const SourceLocation& location) {
 		expression->set_location(location);
 	}
@@ -84,6 +87,17 @@ public:
 	}
 	template <class C> void retrieve(const C& callback) {
 		callback.push(Tag<Call>(), std::move(arguments));
+	}
+};
+
+class MemberAccessCollector {
+	std::string member_name;
+public:
+	void push(std::string&& member_name) {
+		this->member_name = std::move(member_name);
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(Tag<MemberAccess>(), std::move(member_name));
 	}
 };
 
@@ -375,6 +389,12 @@ struct expression {
 				)),
 				whitespace,
 				expect(")")
+			))),
+			postfix<IgnoreCallback>(collect<MemberAccessCollector>(sequence(
+				whitespace,
+				ignore('.'),
+				whitespace,
+				identifier
 			)))
 		),
 		pratt_level(

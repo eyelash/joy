@@ -143,6 +143,9 @@ public:
 		else if (auto* e = as<Call>(expression)) {
 			return new Call(copy_expression(e->get_expression()), copy_expressions(e->get_arguments()));
 		}
+		else if (auto* e = as<MemberAccess>(expression)) {
+			return new MemberAccess(copy_expression(e->get_expression()), e->get_member_name().to_string());
+		}
 	}
 	static Reference<Expression> copy_expression(const Expression* expression) {
 		Reference<Expression> new_expression = copy_expression_(expression);
@@ -525,8 +528,16 @@ class Pass1 {
 			return with_type(new Assignment(std::move(left), std::move(right)), type);
 		}
 		else if (auto* e = as<Call>(expression)) {
-			StringView name = get_name(e->get_expression());
+			StringView name;
 			std::vector<Reference<Expression>> arguments;
+			// uniform function call syntax
+			if (auto* member_access = as<MemberAccess>(e->get_expression())) {
+				name = member_access->get_member_name();
+				arguments.push_back(handle_expression(member_access->get_expression()));
+			}
+			else {
+				name = get_name(e->get_expression());
+			}
 			for (const Expression* argument: e->get_arguments()) {
 				arguments.push_back(handle_expression(argument));
 			}
@@ -535,6 +546,11 @@ class Pass1 {
 				return Reference<Expression>();
 			}
 			return with_type(new Call(function->get_id(), std::move(arguments)), function->get_return_type());
+		}
+		else if (auto* e = as<MemberAccess>(expression)) {
+			// TODO
+			add_error(expression, "member access is not yet implemented");
+			return Reference<Expression>();
 		}
 		return Reference<Expression>();
 	}

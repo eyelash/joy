@@ -7,8 +7,8 @@ See [design.md](design.md).
 - [x] basics: functions, statemenets, expressions, integers
 - [x] function overloading
 - [x] templates
+- [x] uniform function call syntax
 - [ ] structs
-- [ ] uniform function call syntax
 - [ ] strings
 - [ ] arrays
 - [ ] union types
