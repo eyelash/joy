@@ -466,6 +466,23 @@ class Pass1 {
 		}
 		return name->get_name();
 	}
+	const Type* get_member_type(const Type* struct_type, const StringView& member_name, const Expression* expression) {
+		if (struct_type == nullptr) {
+			return nullptr;
+		}
+		auto* s = as<StructureInstantiation>(struct_type);
+		if (s == nullptr) {
+			add_error(expression, "invalid type %, expected a struct type", PrintTypeName(struct_type));
+			return nullptr;
+		}
+		for (const StructureInstantiation::Member& member: s->get_members()) {
+			if (member.get_name() == member_name) {
+				return member.get_type();
+			}
+		}
+		add_error(expression, "struct % does not have a field named \"%\"", PrintTypeName(struct_type), member_name);
+		return nullptr;
+	}
 	const Type* handle_type(const Expression* expression) {
 		if (expression == nullptr) {
 			return nullptr;
@@ -568,9 +585,13 @@ class Pass1 {
 			return with_type(new Call(function->get_id(), std::move(arguments)), function->get_return_type());
 		}
 		else if (auto* e = as<MemberAccess>(expression)) {
-			// TODO
-			add_error(expression, "member access is not yet implemented");
-			return Reference<Expression>();
+			Reference<Expression> left = handle_expression(e->get_expression());
+			StringView member_name = e->get_member_name();
+			const Type* type = get_member_type(get_type(left), member_name, expression);
+			if (left == nullptr || type == nullptr) {
+				return Reference<Expression>();
+			}
+			return with_type(new MemberAccess(std::move(left), member_name.to_string()), type);
 		}
 		return Reference<Expression>();
 	}
