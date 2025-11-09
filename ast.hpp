@@ -61,6 +61,7 @@ enum {
 	TYPE_ID_LET_STATEMENT,
 	TYPE_ID_IF_STATEMENT,
 	TYPE_ID_WHILE_STATEMENT,
+	TYPE_ID_RETURN_STATEMENT,
 	TYPE_ID_EXPRESSION_STATEMENT,
 	TYPE_ID_FUNCTION,
 	TYPE_ID_STRUCTURE,
@@ -277,6 +278,17 @@ public:
 	}
 	const Statement* get_statement() const {
 		return statement;
+	}
+};
+
+class ReturnStatement final: public Statement {
+	Reference<Expression> expression;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_RETURN_STATEMENT;
+	ReturnStatement(Reference<Expression>&& expression): Statement(TYPE_ID), expression(std::move(expression)) {}
+	ReturnStatement(): Statement(TYPE_ID) {}
+	const Expression* get_expression() const {
+		return expression;
 	}
 };
 

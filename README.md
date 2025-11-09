@@ -4,11 +4,11 @@ See [design.md](design.md).
 
 ## Roadmap
 
-- [ ] basics: functions, calls, statemenets, expressions, integers
+- [x] basics: functions, statemenets, expressions, integers
+- [x] function overloading
+- [x] templates
 - [ ] structs
-- [ ] function overloading
 - [ ] uniform function call syntax
-- [ ] templates
 - [ ] strings
 - [ ] arrays
 - [ ] union types

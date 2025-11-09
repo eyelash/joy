@@ -181,6 +181,17 @@ public:
 	}
 };
 
+class ReturnStatementCollector {
+	Reference<Expression> expression;
+public:
+	void push(Reference<Expression>&& expression) {
+		this->expression = std::move(expression);
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(new ReturnStatement(std::move(expression)));
+	}
+};
+
 struct TemplateArgument {};
 
 class FunctionCollector {
@@ -443,6 +454,17 @@ struct statement {
 			expect(")"),
 			whitespace,
 			reference<statement>()
+		)),
+		collect<ReturnStatementCollector>(sequence(
+			keyword("return"),
+			whitespace,
+			optional(sequence(
+				not_(';'),
+				not_(end()),
+				reference<expression>(),
+				whitespace
+			)),
+			expect(";")
 		)),
 		sequence(
 			reference<expression>(),

@@ -125,6 +125,9 @@ public:
 class Copy {
 public:
 	static Reference<Expression> copy_expression_(const Expression* expression) {
+		if (expression == nullptr) {
+			return Reference<Expression>();
+		}
 		if (auto* e = as<IntLiteral>(expression)) {
 			return new IntLiteral(e->get_value());
 		}
@@ -181,6 +184,10 @@ public:
 			Reference<Expression> condition = copy_expression(s->get_condition());
 			Reference<Statement> statement = copy_statement(s->get_statement());
 			return new WhileStatement(std::move(condition), std::move(statement));
+		}
+		else if (auto* s = as<ReturnStatement>(statement)) {
+			Reference<Expression> expression = copy_expression(s->get_expression());
+			return new ReturnStatement(std::move(expression));
 		}
 		else if (auto* s = as<ExpressionStatement>(statement)) {
 			return new ExpressionStatement(copy_expression(s->get_expression()));
@@ -532,10 +539,14 @@ class Pass1 {
 		return Reference<Expression>();
 	}
 	Reference<Expression> handle_expression(const Expression* expression, const Type* expected_type = nullptr) {
-		Reference<Expression> new_expression = handle_expression_(expression, expected_type);
-		if (new_expression) {
-			new_expression->set_location(expression->get_location());
+		if (expression == nullptr) {
+			return Reference<Expression>();
 		}
+		Reference<Expression> new_expression = handle_expression_(expression, expected_type);
+		if (new_expression == nullptr) {
+			return Reference<Expression>();
+		}
+		new_expression->set_location(expression->get_location());
 		return new_expression;
 	}
 	Block handle_block(const Block* block) {
@@ -592,6 +603,10 @@ class Pass1 {
 				return Reference<Statement>();
 			}
 			return new WhileStatement(std::move(condition), std::move(statement));
+		}
+		else if (auto* s = as<ReturnStatement>(statement)) {
+			Reference<Expression> expression = handle_expression(s->get_expression());
+			return new ReturnStatement(std::move(expression));
 		}
 		else if (auto* s = as<ExpressionStatement>(statement)) {
 			Reference<Expression> expression = handle_expression(s->get_expression());
