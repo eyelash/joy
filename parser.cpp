@@ -141,11 +141,10 @@ class LetStatementCollector {
 	Reference<Expression> type;
 	Reference<Expression> expression;
 public:
-	struct TypeTag {};
 	void push(std::string&& name) {
 		this->name = std::move(name);
 	}
-	void push(Reference<Expression>&& expression, TypeTag) {
+	void push(Reference<Expression>&& expression, Tag<Type>) {
 		type = std::move(expression);
 	}
 	void push(Reference<Expression>&& expression) {
@@ -438,7 +437,7 @@ struct statement {
 			optional(sequence(
 				ignore(':'),
 				whitespace,
-				tag<LetStatementCollector::TypeTag>(reference<type>()),
+				tag<Tag<Type>>(reference<type>()),
 				whitespace
 			)),
 			expect("="),

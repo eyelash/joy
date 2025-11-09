@@ -55,43 +55,6 @@ public:
 	}
 };
 
-class Interner {
-public:
-	class Key {
-		std::pair<StringView, std::vector<const Type*>> key;
-	public:
-		Key(const StringView& name): key(name, std::vector<const Type*>()) {}
-		Key(const char* name): Key(StringView(name)) {}
-		Key(const std::string& name): Key(StringView(name)) {}
-		bool operator <(const Key& key) const {
-			return this->key < key.key;
-		}
-		StringView get_name() const {
-			return key.first;
-		}
-		const std::vector<const Type*>& get_arguments() const {
-			return key.second;
-		}
-		void add_argument(const Type* argument) {
-			key.second.push_back(argument);
-		}
-	};
-private:
-	std::map<Key, const Type*> types;
-public:
-	void insert(Key&& key, const Type* type) {
-		// TODO: does this move actually work?
-		types.emplace(std::move(key), type);
-	}
-	const Type* look_up(const Key& key) const {
-		auto iterator = types.find(key);
-		if (iterator != types.end()) {
-			return iterator->second;
-		}
-		return nullptr;
-	}
-};
-
 template <class T, class TI = T> class Instantiations {
 public:
 	class Key {
@@ -416,12 +379,13 @@ class Pass1 {
 				++match_count;
 			}
 		}
-		if (match_count == 0) {
-			add_error(expression, "struct \"%\" not found", name);
-			return nullptr;
-		}
-		if (match_count > 1) {
-			add_error(expression, "% structs named \"%\" found", printer::print_number(match_count), name);
+		if (match_count != 1) {
+			if (match_count == 0) {
+				add_error(expression, "struct \"%\" not found", name);
+			}
+			else {
+				add_error(expression, "% structs named \"%\" found", printer::print_number(match_count), name);
+			}
 			return nullptr;
 		}
 		if (match_structure->get_template_arguments().size() != arguments.size()) {
@@ -448,16 +412,16 @@ class Pass1 {
 				}
 			}
 		}
-		if (match_count == 1) {
-			return instantiate_function(match_function, std::move(match_template_arguments));
+		if (match_count != 1) {
+			if (match_count == 0) {
+				add_error(expression, "no matching function \"%\" found", name);
+			}
+			else {
+				add_error(expression, "% matching functions \"%\" found", printer::print_number(match_count), name);
+			}
+			return nullptr;
 		}
-		if (match_count == 0) {
-			add_error(expression, "no matching function \"%\" found", name);
-		}
-		else {
-			add_error(expression, "% matching functions \"%\" found", printer::print_number(match_count), name);
-		}
-		return nullptr;
+		return instantiate_function(match_function, std::move(match_template_arguments));
 	}
 	StringView get_name(const Expression* expression) {
 		if (expression == nullptr) {
@@ -558,8 +522,8 @@ class Pass1 {
 		}
 		else if (auto* e = as<Assignment>(expression)) {
 			Reference<Expression> left = handle_expression(e->get_left());
-			Reference<Expression> right = handle_expression(e->get_right());
 			const Type* type = get_type(left);
+			Reference<Expression> right = handle_expression(e->get_right(), type);
 			bool error = left == nullptr || right == nullptr;
 			check_name(left, error);
 			check_type(right, type, error);
