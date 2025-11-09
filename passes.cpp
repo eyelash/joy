@@ -247,7 +247,7 @@ class Pass1 {
 					return set_variable(e->get_name(), argument);
 				}
 				else {
-					const Type* type = pass1->get_type(e->get_name(), std::vector<const Type*>());
+					const Type* type = pass1->get_type(e->get_name(), std::vector<const Type*>(), function_argument);
 					return type && type == argument;
 				}
 			}
@@ -388,9 +388,14 @@ class Pass1 {
 	const Type* get_int_type() {
 		return get_builtin_type<IntType>(int_type);
 	}
-	const Type* get_type(const StringView& name, std::vector<const Type*>&& arguments) {
+	const Type* get_type(const StringView& name, std::vector<const Type*>&& arguments, const Expression* expression = nullptr) {
 		if (!name) {
 			return nullptr;
+		}
+		for (const Type* argument: arguments) {
+			if (argument == nullptr) {
+				return nullptr;
+			}
 		}
 		if (name == "Void" && arguments.empty()) {
 			return get_void_type();
@@ -398,13 +403,28 @@ class Pass1 {
 		if (name == "Int" && arguments.empty()) {
 			return get_int_type();
 		}
+		const Structure* match_structure = nullptr;
+		unsigned int match_count = 0;
 		// TODO: optimize
 		for (const Structure* structure: program->get_structures()) {
-			if (structure->get_name() == name && structure->get_template_arguments().size() == arguments.size()) {
-				return instantiate_structure(structure, std::move(arguments));
+			if (structure->get_name() == name) {
+				match_structure = structure;
+				++match_count;
 			}
 		}
-		return nullptr;
+		if (match_count == 0) {
+			add_error(expression, "struct \"%\" not found", name);
+			return nullptr;
+		}
+		if (match_count > 1) {
+			add_error(expression, "% structs named \"%\" found", printer::print_number(match_count), name);
+			return nullptr;
+		}
+		if (match_structure->get_template_arguments().size() != arguments.size()) {
+			add_error(expression, "invalid number of template arguments for struct \"%\", expected %", name, printer::print_plural("template argument", match_structure->get_template_arguments().size()));
+			return nullptr;
+		}
+		return instantiate_structure(match_structure, std::move(arguments));
 	}
 	const FunctionInstantiation* get_function(const StringView& name, const std::vector<Reference<Expression>>& arguments, const Type* return_type, const Expression* expression = nullptr) {
 		if (!name) {
@@ -454,7 +474,7 @@ class Pass1 {
 			if (const Type* type = type_variables->look_up(e->get_name())) {
 				return type;
 			}
-			return get_type(e->get_name(), std::vector<const Type*>());
+			return get_type(e->get_name(), std::vector<const Type*>(), expression);
 		}
 		else if (auto* e = as<Call>(expression)) {
 			StringView name = get_name(e->get_expression());
@@ -462,7 +482,7 @@ class Pass1 {
 			for (const Expression* argument: e->get_arguments()) {
 				arguments.push_back(handle_type(argument));
 			}
-			return get_type(name, std::move(arguments));
+			return get_type(name, std::move(arguments), expression);
 		}
 		return nullptr;
 	}
