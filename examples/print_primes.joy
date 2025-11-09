@@ -1,0 +1,29 @@
+func print_int(n: Int) {}
+
+func is_prime(n: Int): Int {
+	let i = 2;
+	while (i * i <= n) {
+		if (n % i == 0) {
+			return false;
+		}
+		i = i + 1;
+	}
+	return true;
+}
+
+// print the first 100 primes
+func print_primes() {
+	let n = 2;
+	let count = 0;
+	while (count < 100) {
+		if (is_prime(n)) {
+			print_int(n);
+			count = count + 1;
+		}
+		n = n + 1;
+	}
+}
+
+func main() {
+	print_primes();
+}

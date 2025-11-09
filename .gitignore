@@ -5,3 +5,4 @@ Makefile
 build.ninja
 rules.ninja
 joy
+*.joy.c
