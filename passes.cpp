@@ -306,6 +306,7 @@ class Pass1 {
 	Instantiations<Function, FunctionInstantiation>* function_instantiations;
 	ScopeMap* variables = nullptr;
 	ScopeMap* type_variables = nullptr;
+	const FunctionInstantiation* current_function = nullptr;
 	template <class... T> void add_error(const Expression* expression, const char* s, T... t) {
 		errors->add_error(program->get_path().c_str(), get_location(expression), printer::format(s, t...));
 	}
@@ -366,10 +367,13 @@ class Pass1 {
 		// return type
 		new_function->set_return_type(handle_type(function->get_return_type()));
 		// block
+		const FunctionInstantiation* previous_current_function = this->current_function;
+		this->current_function = new_function;
 		function_instantiations->insert(std::move(key), new_function);
 		new_function->set_block(handle_block(function->get_block()));
 		this->variables = previous_variables;
 		this->type_variables = previous_type_variables;
+		this->current_function = previous_current_function;
 		program->add_function_instantiation(new_function);
 		return new_function;
 	}
@@ -662,7 +666,13 @@ class Pass1 {
 			return new WhileStatement(std::move(condition), std::move(statement));
 		}
 		else if (auto* s = as<ReturnStatement>(statement)) {
-			Reference<Expression> expression = handle_expression(s->get_expression());
+			const Type* return_type = current_function->get_return_type();
+			Reference<Expression> expression = handle_expression(s->get_expression(), return_type);
+			bool error = false;
+			check_type(expression, return_type, error);
+			if (error) {
+				return Reference<Statement>();
+			}
 			return new ReturnStatement(std::move(expression));
 		}
 		else if (auto* s = as<ExpressionStatement>(statement)) {
