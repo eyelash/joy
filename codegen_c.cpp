@@ -44,8 +44,8 @@ public:
 		else if (auto* assignment = as<Assignment>(expression)) {
 			print_impl(format("(% = %)", PrintExpression(assignment->get_left()), PrintExpression(assignment->get_right())), context);
 		}
-		else if (auto* call = as<Call>(expression)) {
-			print_impl(format("f%(%)", print_number(call->get_function_id()), comma_separated<PrintExpression>(call->get_arguments())), context);
+		else if (auto* call = as<ResolvedCall>(expression)) {
+			print_impl(format("f%(%)", print_number(call->get_function()->get_id()), comma_separated<PrintExpression>(call->get_arguments())), context);
 		}
 		else if (auto* member_access = as<MemberAccess>(expression)) {
 			print_impl(format("%.%", PrintExpression(member_access->get_expression()), member_access->get_member_name()), context);

@@ -56,6 +56,7 @@ enum {
 	TYPE_ID_BINARY_EXPRESSION,
 	TYPE_ID_ASSIGNMENT,
 	TYPE_ID_CALL,
+	TYPE_ID_RESOLVED_CALL,
 	TYPE_ID_MEMBER_ACCESS,
 	TYPE_ID_BLOCK_STATEMENT,
 	TYPE_ID_EMPTY_STATEMENT,
@@ -185,19 +186,30 @@ public:
 class Call final: public Expression {
 	Reference<Expression> expression;
 	std::vector<Reference<Expression>> arguments;
-	unsigned int function_id;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_CALL;
-	Call(Reference<Expression>&& expression, std::vector<Reference<Expression>>&& arguments): Expression(TYPE_ID), function_id(0), expression(std::move(expression)), arguments(std::move(arguments)) {}
-	Call(unsigned int function_id, std::vector<Reference<Expression>>&& arguments): Expression(TYPE_ID), function_id(function_id), arguments(std::move(arguments)) {}
+	Call(Reference<Expression>&& expression, std::vector<Reference<Expression>>&& arguments): Expression(TYPE_ID), expression(std::move(expression)), arguments(std::move(arguments)) {}
 	const Expression* get_expression() const {
 		return expression;
 	}
 	const std::vector<Reference<Expression>>& get_arguments() const {
 		return arguments;
 	}
-	unsigned int get_function_id() const {
-		return function_id;
+};
+
+class FunctionInstantiation;
+
+class ResolvedCall final: public Expression {
+	const FunctionInstantiation* function;
+	std::vector<Reference<Expression>> arguments;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_RESOLVED_CALL;
+	ResolvedCall(const FunctionInstantiation* function, std::vector<Reference<Expression>>&& arguments): Expression(TYPE_ID), function(function), arguments(std::move(arguments)) {}
+	const FunctionInstantiation* get_function() const {
+		return function;
+	}
+	const std::vector<Reference<Expression>>& get_arguments() const {
+		return arguments;
 	}
 };
 
