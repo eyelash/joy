@@ -3,7 +3,7 @@
 
 using namespace parser;
 
-class NameCollector {
+class StringCollector {
 	std::string name;
 public:
 	void push(char c) {
@@ -237,20 +237,7 @@ public:
 	}
 };
 
-class ArgumentCollector {
-	std::string name;
-	Reference<Expression> type;
-public:
-	void push(std::string&& name) {
-		this->name = std::move(name);
-	}
-	void push(Reference<Expression>&& expression) {
-		type = std::move(expression);
-	}
-	template <class C> void retrieve(const C& callback) {
-		callback.push(std::move(name), std::move(type));
-	}
-};
+using ArgumentCollector = TupleCollector<std::string, Reference<Expression>>;
 
 class StructureCollector {
 	std::string name;
@@ -271,7 +258,7 @@ public:
 	}
 };
 
-using MemberCollector = ArgumentCollector;
+using MemberCollector = TupleCollector<std::string, Reference<Expression>>;
 
 class ProgramCollector {
 	std::vector<Reference<Function>> functions;
@@ -321,177 +308,174 @@ template <class P> constexpr auto comma_separated(P p) {
 	return optional(sequence(p, whitespace, zero_or_more(sequence(ignore(','), whitespace, p, whitespace))));
 }
 
-constexpr auto identifier = collect<NameCollector>(sequence(alphabetic_char, zero_or_more(alphanumeric_char)));
+constexpr auto identifier = collect<StringCollector>(sequence(alphabetic_char, zero_or_more(alphanumeric_char)));
 
 constexpr auto expect_identifier = choice(identifier, error("expected an identifier"));
 
 constexpr auto int_literal = collect<IntCollector>(one_or_more(numeric_char));
 
-struct type {
-	static constexpr auto parser = pratt<ExpressionCollector>(
-		pratt_level(
-			postfix<IgnoreCallback>(collect<CallCollector>(sequence(
-				whitespace,
-				ignore('<'),
-				whitespace,
-				comma_separated(sequence(
-					not_('>'),
-					not_(end()),
-					reference<type>()
-				)),
-				whitespace,
-				expect(">")
-			)))
-		),
-		pratt_level(
-			terminal(choice(
-				identifier,
-				error("expected a type")
-			))
-		)
-	);
-};
+DECLARE_PARSER(type)
+constexpr auto type_impl = pratt<ExpressionCollector>(
+	pratt_level(
+		postfix<IgnoreCallback>(collect<CallCollector>(sequence(
+			whitespace,
+			ignore('<'),
+			whitespace,
+			comma_separated(sequence(
+				not_('>'),
+				not_(end()),
+				type
+			)),
+			whitespace,
+			expect(">")
+		)))
+	),
+	pratt_level(
+		terminal(choice(
+			identifier,
+			error("expected a type")
+		))
+	)
+);
+DEFINE_PARSER(type, type_impl)
 
-struct expression {
-	static constexpr auto parser = pratt<ExpressionCollector>(
-		pratt_level(
-			infix_rtl<TagMapper<Tag<Assignment>>>(operator_(sequence('=', not_('='))))
-		),
-		pratt_level(
-			infix_ltr<OperationMapper<BinaryOperation::EQ>>(operator_("==")),
-			infix_ltr<OperationMapper<BinaryOperation::NE>>(operator_("!="))
-		),
-		pratt_level(
-			infix_ltr<OperationMapper<BinaryOperation::LT>>(operator_(sequence('<', not_('=')))),
-			infix_ltr<OperationMapper<BinaryOperation::LE>>(operator_("<=")),
-			infix_ltr<OperationMapper<BinaryOperation::GT>>(operator_(sequence('>', not_('=')))),
-			infix_ltr<OperationMapper<BinaryOperation::GE>>(operator_(">="))
-		),
-		pratt_level(
-			infix_ltr<OperationMapper<BinaryOperation::ADD>>(operator_('+')),
-			infix_ltr<OperationMapper<BinaryOperation::SUB>>(operator_('-'))
-		),
-		pratt_level(
-			infix_ltr<OperationMapper<BinaryOperation::MUL>>(operator_('*')),
-			infix_ltr<OperationMapper<BinaryOperation::DIV>>(operator_('/')),
-			infix_ltr<OperationMapper<BinaryOperation::REM>>(operator_('%'))
-		),
-		pratt_level(
-			postfix<IgnoreCallback>(collect<CallCollector>(sequence(
-				whitespace,
-				ignore('('),
-				whitespace,
-				comma_separated(sequence(
-					not_(')'),
-					not_(end()),
-					reference<expression>()
-				)),
-				whitespace,
-				expect(")")
-			))),
-			postfix<IgnoreCallback>(collect<MemberAccessCollector>(sequence(
-				whitespace,
-				ignore('.'),
-				whitespace,
-				identifier
-			)))
-		),
-		pratt_level(
-			terminal(choice(
-				sequence(ignore('('), whitespace, reference<expression>(), whitespace, expect(")")),
-				collect<FalseCollector>(keyword("false")),
-				collect<TrueCollector>(keyword("true")),
-				int_literal,
-				identifier,
-				error("expected an expression")
-			))
-		)
-	);
-};
+DECLARE_PARSER(expression)
+constexpr auto expression_impl = pratt<ExpressionCollector>(
+	pratt_level(
+		infix_rtl<TagMapper<Tag<Assignment>>>(operator_(sequence('=', not_('='))))
+	),
+	pratt_level(
+		infix_ltr<OperationMapper<BinaryOperation::EQ>>(operator_("==")),
+		infix_ltr<OperationMapper<BinaryOperation::NE>>(operator_("!="))
+	),
+	pratt_level(
+		infix_ltr<OperationMapper<BinaryOperation::LT>>(operator_(sequence('<', not_('=')))),
+		infix_ltr<OperationMapper<BinaryOperation::LE>>(operator_("<=")),
+		infix_ltr<OperationMapper<BinaryOperation::GT>>(operator_(sequence('>', not_('=')))),
+		infix_ltr<OperationMapper<BinaryOperation::GE>>(operator_(">="))
+	),
+	pratt_level(
+		infix_ltr<OperationMapper<BinaryOperation::ADD>>(operator_('+')),
+		infix_ltr<OperationMapper<BinaryOperation::SUB>>(operator_('-'))
+	),
+	pratt_level(
+		infix_ltr<OperationMapper<BinaryOperation::MUL>>(operator_('*')),
+		infix_ltr<OperationMapper<BinaryOperation::DIV>>(operator_('/')),
+		infix_ltr<OperationMapper<BinaryOperation::REM>>(operator_('%'))
+	),
+	pratt_level(
+		postfix<IgnoreCallback>(collect<CallCollector>(sequence(
+			whitespace,
+			ignore('('),
+			whitespace,
+			comma_separated(sequence(
+				not_(')'),
+				not_(end()),
+				expression
+			)),
+			whitespace,
+			expect(")")
+		))),
+		postfix<IgnoreCallback>(collect<MemberAccessCollector>(sequence(
+			whitespace,
+			ignore('.'),
+			whitespace,
+			identifier
+		)))
+	),
+	pratt_level(
+		terminal(choice(
+			sequence(ignore('('), whitespace, expression, whitespace, expect(")")),
+			collect<FalseCollector>(keyword("false")),
+			collect<TrueCollector>(keyword("true")),
+			int_literal,
+			identifier,
+			error("expected an expression")
+		))
+	)
+);
+DEFINE_PARSER(expression, expression_impl)
 
-struct statement;
+DECLARE_PARSER(statement)
 
-struct block {
-	static constexpr auto parser = collect<BlockCollector>(sequence(
-		ignore('{'),
+static constexpr auto block = collect<BlockCollector>(sequence(
+	ignore('{'),
+	whitespace,
+	zero_or_more(sequence(
+		not_('}'),
+		not_(end()),
+		statement,
+		whitespace
+	)),
+	expect("}")
+));
+
+constexpr auto statement_impl = collect<StatementCollector>(choice(
+	block,
+	collect<EmptyStatementCollector>(ignore(';')),
+	collect<LetStatementCollector>(sequence(
+		keyword("let"),
 		whitespace,
-		zero_or_more(sequence(
-			not_('}'),
-			not_(end()),
-			reference<statement>(),
+		expect_identifier,
+		whitespace,
+		optional(sequence(
+			ignore(':'),
+			whitespace,
+			tag<Tag<Type>>(type),
 			whitespace
 		)),
-		expect("}")
-	));
-};
-
-struct statement {
-	static constexpr auto parser = collect<StatementCollector>(choice(
-		reference<block>(),
-		collect<EmptyStatementCollector>(ignore(';')),
-		collect<LetStatementCollector>(sequence(
-			keyword("let"),
+		expect("="),
+		whitespace,
+		expression,
+		whitespace,
+		expect(";")
+	)),
+	collect<IfStatementCollector>(sequence(
+		keyword("if"),
+		whitespace,
+		expect("("),
+		whitespace,
+		expression,
+		whitespace,
+		expect(")"),
+		whitespace,
+		tag<IfStatementCollector::ThenTag>(statement),
+		whitespace,
+		optional(sequence(
+			keyword("else"),
 			whitespace,
-			expect_identifier,
-			whitespace,
-			optional(sequence(
-				ignore(':'),
-				whitespace,
-				tag<Tag<Type>>(reference<type>()),
-				whitespace
-			)),
-			expect("="),
-			whitespace,
-			reference<expression>(),
-			whitespace,
-			expect(";")
+			tag<IfStatementCollector::ElseTag>(statement)
+		))
+	)),
+	collect<WhileStatementCollector>(sequence(
+		keyword("while"),
+		whitespace,
+		expect("("),
+		whitespace,
+		expression,
+		whitespace,
+		expect(")"),
+		whitespace,
+		statement
+	)),
+	collect<ReturnStatementCollector>(sequence(
+		keyword("return"),
+		whitespace,
+		optional(sequence(
+			not_(';'),
+			not_(end()),
+			expression,
+			whitespace
 		)),
-		collect<IfStatementCollector>(sequence(
-			keyword("if"),
-			whitespace,
-			expect("("),
-			whitespace,
-			reference<expression>(),
-			whitespace,
-			expect(")"),
-			whitespace,
-			tag<IfStatementCollector::ThenTag>(reference<statement>()),
-			whitespace,
-			optional(sequence(
-				keyword("else"),
-				whitespace,
-				tag<IfStatementCollector::ElseTag>(reference<statement>())
-			))
-		)),
-		collect<WhileStatementCollector>(sequence(
-			keyword("while"),
-			whitespace,
-			expect("("),
-			whitespace,
-			reference<expression>(),
-			whitespace,
-			expect(")"),
-			whitespace,
-			reference<statement>()
-		)),
-		collect<ReturnStatementCollector>(sequence(
-			keyword("return"),
-			whitespace,
-			optional(sequence(
-				not_(';'),
-				not_(end()),
-				reference<expression>(),
-				whitespace
-			)),
-			expect(";")
-		)),
-		sequence(
-			reference<expression>(),
-			whitespace,
-			expect(";")
-		)
-	));
-};
+		expect(";")
+	)),
+	sequence(
+		expression,
+		whitespace,
+		expect(";")
+	)
+));
+DEFINE_PARSER(statement, statement_impl)
 
 constexpr auto function = collect<FunctionCollector>(sequence(
 	keyword("func"),
@@ -519,7 +503,7 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 		whitespace,
 		expect(":"),
 		whitespace,
-		reference<type>()
+		type
 	))),
 	whitespace,
 	expect(")"),
@@ -527,11 +511,11 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 	optional(sequence(
 		ignore(':'),
 		whitespace,
-		reference<type>(),
+		type,
 		whitespace
 	)),
 	choice(
-		reference<block>(),
+		block,
 		error("expected a block")
 	)
 ));
@@ -562,7 +546,7 @@ constexpr auto structure = collect<StructureCollector>(sequence(
 		whitespace,
 		expect(":"),
 		whitespace,
-		reference<type>()
+		type
 	))),
 	whitespace,
 	expect("}")
