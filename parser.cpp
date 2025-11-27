@@ -14,12 +14,36 @@ public:
 	}
 };
 
-class IntCollector {
-	std::int32_t value = 0;
+class DecimalCollector {
+	std::uint32_t value = 0;
 public:
 	void push(char c) {
-		value *= 10;
-		value += c - '0';
+		if (c >= '0' && c <= '9') {
+			value *= 10;
+			value += c - '0';
+		}
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(value);
+	}
+};
+
+class HexadecimalCollector {
+	std::uint32_t value = 0;
+public:
+	void push(char c) {
+		if (c >= '0' && c <= '9') {
+			value *= 16;
+			value += c - '0';
+		}
+		else if (c >= 'a' && c <= 'f') {
+			value *= 16;
+			value += 10 + (c - 'a');
+		}
+		else if (c >= 'A' && c <= 'F') {
+			value *= 16;
+			value += 10 + (c - 'A');
+		}
 	}
 	template <class C> void retrieve(const C& callback) {
 		callback.push(value);
@@ -46,7 +70,7 @@ public:
 	void push(Reference<Expression>&& expression) {
 		this->expression = std::move(expression);
 	}
-	void push(std::int32_t value) {
+	void push(std::uint32_t value) {
 		expression = new IntLiteral(value);
 	}
 	void push(std::string&& name) {
@@ -263,11 +287,11 @@ public:
 
 constexpr auto whitespace_char = choice(' ', '\t', '\n', '\r');
 
-constexpr auto numeric_char = range('0', '9');
+constexpr auto identifier_start_char = choice(range('a', 'z'), range('A', 'Z'), '_');
+constexpr auto identifier_char = choice(identifier_start_char, range('0', '9'));
 
-constexpr auto alphabetic_char = choice(range('a', 'z'), range('A', 'Z'), '_');
-
-constexpr auto alphanumeric_char = choice(alphabetic_char, numeric_char);
+constexpr auto decimal_digit = range('0', '9');
+constexpr auto hexadecimal_digit = choice(range('0', '9'), range('a', 'f'), range('A', 'F'));
 
 constexpr auto comment = choice(
 	sequence("//", zero_or_more(sequence(not_("\n"), any_char()))),
@@ -283,7 +307,7 @@ constexpr auto whitespace = ignore(sequence(
 ));
 
 constexpr auto keyword(const char* s) {
-	return sequence(ignore(s), not_(alphanumeric_char));
+	return sequence(ignore(s), not_(identifier_char));
 }
 
 template <class P> constexpr auto operator_(P p) {
@@ -294,11 +318,13 @@ template <class P> constexpr auto comma_separated(P p) {
 	return optional(sequence(p, whitespace, zero_or_more(sequence(ignore(','), whitespace, p, whitespace))));
 }
 
-constexpr auto identifier = collect<StringCollector>(sequence(alphabetic_char, zero_or_more(alphanumeric_char)));
-
+constexpr auto identifier = collect<StringCollector>(sequence(identifier_start_char, zero_or_more(identifier_char)));
 constexpr auto expect_identifier = choice(identifier, error("expected an identifier"));
 
-constexpr auto int_literal = collect<IntCollector>(one_or_more(numeric_char));
+constexpr auto int_literal = choice(
+	collect<HexadecimalCollector>(sequence(ignore("0x"), one_or_more(hexadecimal_digit))),
+	collect<DecimalCollector>(one_or_more(decimal_digit))
+);
 
 DECLARE_PARSER(type)
 DECLARE_PARSER(expression)
