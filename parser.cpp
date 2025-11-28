@@ -9,6 +9,9 @@ public:
 	void push(char c) {
 		name.push_back(c);
 	}
+	void push(std::uint32_t code_point) {
+		name.append(from_codepoint(code_point));
+	}
 	template <class C> void retrieve(const C& callback) {
 		callback.push(std::move(name));
 	}
@@ -64,6 +67,16 @@ public:
 	}
 };
 
+template <char c> class EscapeCollector {
+public:
+	template <class... A> void push(A&&...) {}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(c);
+	}
+};
+
+struct CharLiteral {};
+
 class ExpressionCollector {
 	Reference<Expression> expression;
 public:
@@ -73,8 +86,12 @@ public:
 	void push(std::uint32_t value) {
 		expression = new IntLiteral(value);
 	}
-	void push(std::string&& name) {
+	void push(std::string&& name, Tag<Name>) {
 		expression = new Name(std::move(name));
+	}
+	void push(std::string&& string, Tag<CharLiteral>) {
+		StringView string_view(string);
+		expression = new IntLiteral(next_codepoint(string_view));
 	}
 	void push(Reference<Expression>&& right, BinaryOperation operation) {
 		expression = new BinaryExpression(operation, std::move(expression), std::move(right));
@@ -326,6 +343,30 @@ constexpr auto int_literal = choice(
 	collect<DecimalCollector>(one_or_more(decimal_digit))
 );
 
+constexpr auto escape = sequence(
+	ignore('\\'),
+	choice(
+		collect<EscapeCollector<'\n'>>('n'),
+		collect<EscapeCollector<'\\'>>('\\'),
+		collect<EscapeCollector<'"'>>('"'),
+		collect<EscapeCollector<'\''>>('\''),
+		collect<EscapeCollector<'\0'>>('0'),
+		collect<HexadecimalCollector>(sequence(ignore("u{"), one_or_more(hexadecimal_digit), expect("}"))),
+		error("invalid escape sequence")
+	)
+);
+
+using CharLiteralCollector = MapCollector<TagMapper<Tag<CharLiteral>>, StringCollector>;
+
+constexpr auto char_literal = collect<CharLiteralCollector>(sequence(
+	ignore('\''),
+	zero_or_more(choice(
+		escape,
+		sequence(not_('\''), any_char())
+	)),
+	expect("'")
+));
+
 DECLARE_PARSER(type)
 DECLARE_PARSER(expression)
 DECLARE_PARSER(statement)
@@ -347,7 +388,7 @@ constexpr auto type_impl = pratt<ExpressionCollector>(
 	),
 	pratt_level(
 		terminal(choice(
-			identifier,
+			tag<Tag<Name>>(identifier),
 			error("expected a type")
 		))
 	)
@@ -402,10 +443,11 @@ constexpr auto expression_impl = pratt<ExpressionCollector>(
 	pratt_level(
 		terminal(choice(
 			sequence(ignore('('), whitespace, expression, whitespace, expect(")")),
+			char_literal,
 			collect<FalseCollector>(keyword("false")),
 			collect<TrueCollector>(keyword("true")),
 			int_literal,
-			identifier,
+			tag<Tag<Name>>(identifier),
 			error("expected an expression")
 		))
 	)
