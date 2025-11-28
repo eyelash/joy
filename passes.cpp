@@ -94,6 +94,9 @@ public:
 		if (auto* e = as<IntLiteral>(expression)) {
 			return new IntLiteral(e->get_value());
 		}
+		else if (auto* e = as<StringLiteral>(expression)) {
+			return new StringLiteral(e->get_string().to_string());
+		}
 		else if (auto* e = as<Name>(expression)) {
 			return new Name(e->get_name().to_string());
 		}
@@ -494,6 +497,10 @@ class Pass1 {
 	Reference<Expression> handle_expression_(const Expression* expression, const Type* expected_type) {
 		if (auto* e = as<IntLiteral>(expression)) {
 			return with_type(new IntLiteral(e->get_value()), get_int_type());
+		}
+		else if (auto* e = as<StringLiteral>(expression)) {
+			add_error(expression, "strings are not yet supported");
+			return Reference<Expression>();
 		}
 		else if (auto* e = as<Name>(expression)) {
 			StringView name = e->get_name();

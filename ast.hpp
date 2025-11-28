@@ -52,6 +52,7 @@ enum {
 	TYPE_ID_INT_TYPE,
 	TYPE_ID_EXPRESSION,
 	TYPE_ID_INT_LITERAL,
+	TYPE_ID_STRING_LITERAL,
 	TYPE_ID_NAME,
 	TYPE_ID_BINARY_EXPRESSION,
 	TYPE_ID_ASSIGNMENT,
@@ -124,6 +125,16 @@ public:
 	IntLiteral(std::int32_t value): Expression(TYPE_ID), value(value) {}
 	std::int32_t get_value() const {
 		return value;
+	}
+};
+
+class StringLiteral final: public Expression {
+	std::string string;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_STRING_LITERAL;
+	StringLiteral(std::string&& string): Expression(TYPE_ID), string(std::move(string)) {}
+	StringView get_string() const {
+		return string;
 	}
 };
 

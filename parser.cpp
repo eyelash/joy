@@ -93,6 +93,9 @@ public:
 		StringView string_view(string);
 		expression = new IntLiteral(next_codepoint(string_view));
 	}
+	void push(std::string&& string, Tag<StringLiteral>) {
+		expression = new StringLiteral(std::move(string));
+	}
 	void push(Reference<Expression>&& right, BinaryOperation operation) {
 		expression = new BinaryExpression(operation, std::move(expression), std::move(right));
 	}
@@ -357,6 +360,7 @@ constexpr auto escape = sequence(
 );
 
 using CharLiteralCollector = MapCollector<TagMapper<Tag<CharLiteral>>, StringCollector>;
+using StringLiteralCollector = MapCollector<TagMapper<Tag<StringLiteral>>, StringCollector>;
 
 constexpr auto char_literal = collect<CharLiteralCollector>(sequence(
 	ignore('\''),
@@ -365,6 +369,15 @@ constexpr auto char_literal = collect<CharLiteralCollector>(sequence(
 		sequence(not_('\''), any_char())
 	)),
 	expect("'")
+));
+
+constexpr auto string_literal = collect<StringLiteralCollector>(sequence(
+	ignore('"'),
+	zero_or_more(choice(
+		escape,
+		sequence(not_('"'), any_char())
+	)),
+	expect("\"")
 ));
 
 DECLARE_PARSER(type)
@@ -443,6 +456,7 @@ constexpr auto expression_impl = pratt<ExpressionCollector>(
 	pratt_level(
 		terminal(choice(
 			sequence(ignore('('), whitespace, expression, whitespace, expect(")")),
+			string_literal,
 			char_literal,
 			collect<FalseCollector>(keyword("false")),
 			collect<TrueCollector>(keyword("true")),
