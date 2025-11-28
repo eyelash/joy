@@ -53,17 +53,10 @@ public:
 	}
 };
 
-class FalseCollector {
+template <std::uint32_t value> class BoolLiteralCollector {
 public:
 	template <class C> void retrieve(const C& callback) {
-		callback.push(0);
-	}
-};
-
-class TrueCollector {
-public:
-	template <class C> void retrieve(const C& callback) {
-		callback.push(1);
+		callback.push(value);
 	}
 };
 
@@ -346,6 +339,11 @@ constexpr auto int_literal = choice(
 	collect<DecimalCollector>(one_or_more(decimal_digit))
 );
 
+constexpr auto bool_literal = choice(
+	collect<BoolLiteralCollector<0>>(keyword("false")),
+	collect<BoolLiteralCollector<1>>(keyword("true"))
+);
+
 constexpr auto escape = sequence(
 	ignore('\\'),
 	choice(
@@ -458,8 +456,7 @@ constexpr auto expression_impl = pratt<ExpressionCollector>(
 			sequence(ignore('('), whitespace, expression, whitespace, expect(")")),
 			string_literal,
 			char_literal,
-			collect<FalseCollector>(keyword("false")),
-			collect<TrueCollector>(keyword("true")),
+			bool_literal,
 			int_literal,
 			tag<Tag<Name>>(identifier),
 			error("expected an expression")
