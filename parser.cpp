@@ -68,6 +68,21 @@ public:
 	}
 };
 
+class StructLiteralCollector {
+	Reference<Expression> type;
+	std::vector<StructLiteral::Member> members;
+public:
+	void push(Reference<Expression>&& type) {
+		this->type = std::move(type);
+	}
+	void push(std::string&& name, Reference<Expression>&& expression) {
+		members.emplace_back(std::move(name), std::move(expression));
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(new StructLiteral(std::move(type), std::move(members)));
+	}
+};
+
 struct CharLiteral {};
 
 class ExpressionCollector {
@@ -382,6 +397,43 @@ DECLARE_PARSER(type)
 DECLARE_PARSER(expression)
 DECLARE_PARSER(statement)
 
+constexpr auto struct_literal = collect<StructLiteralCollector>(sequence(
+	keyword("new"),
+	whitespace,
+	type,
+	whitespace,
+	expect("{"),
+	whitespace,
+	comma_separated(collect<MemberCollector>(sequence(
+		not_('}'),
+		not_(end()),
+		expect_identifier,
+		whitespace,
+		expect("="),
+		whitespace,
+		expression
+	))),
+	whitespace,
+	expect("}")
+));
+
+// JavaScript-style struct literals
+constexpr auto alternative_struct_literal = collect<StructLiteralCollector>(sequence(
+	ignore('{'),
+	whitespace,
+	comma_separated(collect<MemberCollector>(sequence(
+		not_('}'),
+		not_(end()),
+		expect_identifier,
+		whitespace,
+		expect(":"),
+		whitespace,
+		expression
+	))),
+	whitespace,
+	expect("}")
+));
+
 constexpr auto type_impl = pratt<ExpressionCollector>(
 	pratt_level(
 		postfix<CallCollector>(sequence(
@@ -456,6 +508,8 @@ constexpr auto expression_impl = pratt<ExpressionCollector>(
 			sequence(ignore('('), whitespace, expression, whitespace, expect(")")),
 			string_literal,
 			char_literal,
+			alternative_struct_literal,
+			struct_literal,
 			bool_literal,
 			int_literal,
 			tag<Tag<Name>>(identifier),

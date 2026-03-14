@@ -52,6 +52,7 @@ enum {
 	TYPE_ID_EXPRESSION,
 	TYPE_ID_INT_LITERAL,
 	TYPE_ID_STRING_LITERAL,
+	TYPE_ID_STRUCT_LITERAL,
 	TYPE_ID_NAME,
 	TYPE_ID_BINARY_EXPRESSION,
 	TYPE_ID_ASSIGNMENT,
@@ -134,6 +135,34 @@ public:
 	StringLiteral(std::string&& string): Expression(TYPE_ID), string(std::move(string)) {}
 	StringView get_string() const {
 		return string;
+	}
+};
+
+class StructLiteral final: public Expression {
+public:
+	class Member {
+		std::string name;
+		Reference<Expression> expression;
+	public:
+		Member(std::string&& name, Reference<Expression>&& expression): name(std::move(name)), expression(std::move(expression)) {}
+		StringView get_name() const {
+			return name;
+		}
+		const Expression* get_expression() const {
+			return expression;
+		}
+	};
+private:
+	Reference<Expression> type;
+	std::vector<Member> members;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_STRUCT_LITERAL;
+	StructLiteral(Reference<Expression>&& type, std::vector<Member>&& members): Expression(TYPE_ID), type(std::move(type)), members(std::move(members)) {}
+	const Expression* get_type() const {
+		return type;
+	}
+	const std::vector<Member>& get_members() const {
+		return members;
 	}
 };
 

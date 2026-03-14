@@ -97,6 +97,10 @@ public:
 		else if (auto* e = as<StringLiteral>(expression)) {
 			return new StringLiteral(e->get_string().to_string());
 		}
+		else if (auto* e = as<StructLiteral>(expression)) {
+			// TODO
+			return Reference<Expression>();
+		}
 		else if (auto* e = as<Name>(expression)) {
 			return new Name(e->get_name().to_string());
 		}
@@ -500,6 +504,10 @@ class Pass1 {
 		}
 		else if (auto* e = as<StringLiteral>(expression)) {
 			add_error(expression, "strings are not yet supported");
+			return Reference<Expression>();
+		}
+		else if (auto* e = as<StructLiteral>(expression)) {
+			add_error(expression, "struct literals are not yet supported");
 			return Reference<Expression>();
 		}
 		else if (auto* e = as<Name>(expression)) {
