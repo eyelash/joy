@@ -167,7 +167,7 @@ public:
 class Pass1 {
 	static SourceLocation get_location(const Expression* expression) {
 		if (expression == nullptr) {
-			return SourceLocation(0, 0);
+			return SourceLocation();
 		}
 		return expression->get_location();
 	}

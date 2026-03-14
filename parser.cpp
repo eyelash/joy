@@ -10,7 +10,7 @@ public:
 		name.push_back(c);
 	}
 	void push(std::uint32_t code_point) {
-		name.append(from_codepoint(code_point));
+		name.append(from_code_point(code_point));
 	}
 	template <class C> void retrieve(const C& callback) {
 		callback.push(std::move(name));
@@ -84,7 +84,7 @@ public:
 	}
 	void push(std::string&& string, Tag<CharLiteral>) {
 		StringView string_view(string);
-		expression = new IntLiteral(next_codepoint(string_view));
+		expression = new IntLiteral(next_code_point(string_view));
 	}
 	void push(std::string&& string, Tag<StringLiteral>) {
 		expression = new StringLiteral(std::move(string));

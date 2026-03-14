@@ -9,16 +9,15 @@ class Error {
 	std::string message;
 public:
 	Error(const char* path, const SourceLocation& location, std::string&& message): path(path), location(location), message(std::move(message)) {}
-	template <class C> void print(const C& color, const char* severity) const {
+	template <class Type> void print() const {
 		using namespace printer;
 		Context context(std::cerr);
-		if (location.begin == 0 && location.end == 0) {
-			print_message(context, color, severity, StringView(message));
-			print_impl(ln(format("--> %", StringView(path))), context);
+		if (location) {
+			auto source = read_file(path.c_str());
+			print_diagnostic<Type>(context, path, StringView(source.data(), source.size()), location, StringView(message));
 		}
 		else {
-			auto source = read_file(path.c_str());
-			print_message(context, path.c_str(), StringView(source.data(), source.size()), location, color, severity, StringView(message));
+			print_diagnostic<Type>(context, path, StringView(message));
 		}
 		context.print('\n');
 	}
@@ -39,10 +38,10 @@ public:
 	}
 	void print() {
 		for (const Error& error: warnings) {
-			error.print(printer::yellow, "warning");
+			error.print<printer::DiagnosticType::Warning>();
 		}
 		for (const Error& error: errors) {
-			error.print(printer::red, "error");
+			error.print<printer::DiagnosticType::Error>();
 		}
 	}
 };
@@ -102,8 +101,8 @@ class Expression: public Dynamic {
 	const Type* type;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_EXPRESSION;
-	Expression(int type_id): Dynamic(type_id), location(0, 0), type(nullptr) {}
-	Expression(const Type* type): Dynamic(TYPE_ID), location(0, 0), type(type) {}
+	Expression(int type_id): Dynamic(type_id), type(nullptr) {}
+	Expression(const Type* type): Dynamic(TYPE_ID), type(type) {}
 	void set_location(const SourceLocation& location) {
 		this->location = location;
 	}
