@@ -68,6 +68,17 @@ public:
 	}
 };
 
+class ArrayLiteralCollector {
+	std::vector<Reference<Expression>> elements;
+public:
+	void push(Reference<Expression>&& element) {
+		elements.push_back(std::move(element));
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(new ArrayLiteral(std::move(elements)));
+	}
+};
+
 class StructLiteralCollector {
 	Reference<Expression> type;
 	std::vector<StructLiteral::Member> members;
@@ -397,6 +408,18 @@ DECLARE_PARSER(type)
 DECLARE_PARSER(expression)
 DECLARE_PARSER(statement)
 
+constexpr auto array_literal = collect<ArrayLiteralCollector>(sequence(
+	ignore('['),
+	whitespace,
+	comma_separated(sequence(
+		not_(']'),
+		not_(end()),
+		expression
+	)),
+	whitespace,
+	expect("]")
+));
+
 constexpr auto struct_literal = collect<StructLiteralCollector>(sequence(
 	keyword("new"),
 	whitespace,
@@ -508,6 +531,7 @@ constexpr auto expression_impl = pratt<ExpressionCollector>(
 			sequence(ignore('('), whitespace, expression, whitespace, expect(")")),
 			string_literal,
 			char_literal,
+			array_literal,
 			alternative_struct_literal,
 			struct_literal,
 			bool_literal,

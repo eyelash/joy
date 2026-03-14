@@ -101,6 +101,9 @@ public:
 			// TODO
 			return Reference<Expression>();
 		}
+		else if (auto* e = as<ArrayLiteral>(expression)) {
+			return new ArrayLiteral(copy_expressions(e->get_elements()));
+		}
 		else if (auto* e = as<Name>(expression)) {
 			return new Name(e->get_name().to_string());
 		}
@@ -508,6 +511,10 @@ class Pass1 {
 		}
 		else if (auto* e = as<StructLiteral>(expression)) {
 			add_error(expression, "struct literals are not yet supported");
+			return Reference<Expression>();
+		}
+		else if (auto* e = as<ArrayLiteral>(expression)) {
+			add_error(expression, "array literals are not yet supported");
 			return Reference<Expression>();
 		}
 		else if (auto* e = as<Name>(expression)) {

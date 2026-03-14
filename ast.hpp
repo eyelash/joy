@@ -52,6 +52,7 @@ enum {
 	TYPE_ID_EXPRESSION,
 	TYPE_ID_INT_LITERAL,
 	TYPE_ID_STRING_LITERAL,
+	TYPE_ID_ARRAY_LITERAL,
 	TYPE_ID_STRUCT_LITERAL,
 	TYPE_ID_NAME,
 	TYPE_ID_BINARY_EXPRESSION,
@@ -135,6 +136,16 @@ public:
 	StringLiteral(std::string&& string): Expression(TYPE_ID), string(std::move(string)) {}
 	StringView get_string() const {
 		return string;
+	}
+};
+
+class ArrayLiteral final: public Expression {
+	std::vector<Reference<Expression>> elements;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_ARRAY_LITERAL;
+	ArrayLiteral(std::vector<Reference<Expression>>&& elements): Expression(TYPE_ID), elements(std::move(elements)) {}
+	const std::vector<Reference<Expression>>& get_elements() const {
+		return elements;
 	}
 };
 
