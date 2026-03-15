@@ -25,36 +25,20 @@ public:
 	}
 };
 
-class DecimalCollector {
-	std::uint32_t value = 0;
+template <char start_char, std::uint32_t start_value> class DigitMapper {
 public:
-	void push(char c) {
-		if (c >= '0' && c <= '9') {
-			value *= 10;
-			value += c - '0';
-		}
-	}
-	template <class C> void retrieve(const C& callback) {
-		callback.push(value);
+	constexpr DigitMapper() {}
+	template <class C> static void map(const C& callback, char c) {
+		callback.push(start_value + (c - start_char));
 	}
 };
 
-class HexadecimalCollector {
+template <std::uint32_t base> class NumberCollector {
 	std::uint32_t value = 0;
 public:
-	void push(char c) {
-		if (c >= '0' && c <= '9') {
-			value *= 16;
-			value += c - '0';
-		}
-		else if (c >= 'a' && c <= 'f') {
-			value *= 16;
-			value += 10 + (c - 'a');
-		}
-		else if (c >= 'A' && c <= 'F') {
-			value *= 16;
-			value += 10 + (c - 'A');
-		}
+	void push(std::uint32_t digit) {
+		value *= base;
+		value += digit;
 	}
 	template <class C> void retrieve(const C& callback) {
 		callback.push(value);
@@ -325,8 +309,12 @@ constexpr auto whitespace_char = choice(' ', '\t', '\n', '\r');
 constexpr auto identifier_start_char = choice(range('a', 'z'), range('A', 'Z'), '_');
 constexpr auto identifier_char = choice(identifier_start_char, range('0', '9'));
 
-constexpr auto decimal_digit = range('0', '9');
-constexpr auto hexadecimal_digit = choice(range('0', '9'), range('a', 'f'), range('A', 'F'));
+constexpr auto decimal_digit = map<DigitMapper<'0', 0>>(range('0', '9'));
+constexpr auto hexadecimal_digit = choice(
+	map<DigitMapper<'0', 0>>(range('0', '9')),
+	map<DigitMapper<'a', 10>>(range('a', 'f')),
+	map<DigitMapper<'A', 10>>(range('A', 'F'))
+);
 
 constexpr auto comment = choice(
 	sequence("//", zero_or_more(sequence(not_("\n"), any_char()))),
@@ -357,8 +345,8 @@ constexpr auto identifier = collect<StringCollector>(sequence(identifier_start_c
 constexpr auto expect_identifier = choice(identifier, error("expected an identifier"));
 
 constexpr auto int_literal = choice(
-	collect<HexadecimalCollector>(sequence(ignore("0x"), one_or_more(hexadecimal_digit))),
-	collect<DecimalCollector>(one_or_more(decimal_digit))
+	collect<NumberCollector<16>>(sequence(ignore("0x"), one_or_more(hexadecimal_digit))),
+	collect<NumberCollector<10>>(one_or_more(decimal_digit))
 );
 
 constexpr auto bool_literal = choice(
@@ -374,7 +362,7 @@ constexpr auto escape = sequence(
 		collect<EscapeCollector<'"'>>('"'),
 		collect<EscapeCollector<'\''>>('\''),
 		collect<EscapeCollector<'\0'>>('0'),
-		collect<HexadecimalCollector>(sequence(ignore("u{"), one_or_more(hexadecimal_digit), expect("}"))),
+		collect<NumberCollector<16>>(sequence(ignore("u{"), one_or_more(hexadecimal_digit), expect("}"))),
 		error("invalid escape sequence")
 	)
 );
