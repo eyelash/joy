@@ -3,6 +3,14 @@
 
 using namespace parser;
 
+template <class T> class NewMapper {
+public:
+	constexpr NewMapper() {}
+	template <class C, class... A> static void map(const C& callback, A&&... a) {
+		callback.push(new T(std::forward<A>(a)...));
+	}
+};
+
 class StringCollector {
 	std::string name;
 public:
@@ -68,16 +76,7 @@ public:
 	}
 };
 
-class ArrayLiteralCollector {
-	std::vector<Reference<Expression>> elements;
-public:
-	void push(Reference<Expression>&& element) {
-		elements.push_back(std::move(element));
-	}
-	template <class C> void retrieve(const C& callback) {
-		callback.push(new ArrayLiteral(std::move(elements)));
-	}
-};
+using ArrayLiteralCollector = MapCollector<NewMapper<ArrayLiteral>, VectorCollector<Reference<Expression>>>;
 
 class StructLiteralCollector {
 	Reference<Expression> type;
@@ -104,9 +103,6 @@ public:
 	}
 	void push(std::uint32_t value) {
 		expression = new IntLiteral(value);
-	}
-	void push(std::string&& name, Tag<Name>) {
-		expression = new Name(std::move(name));
 	}
 	void push(std::string&& string, Tag<CharLiteral>) {
 		StringView string_view(string);
@@ -474,7 +470,7 @@ constexpr auto type_impl = pratt<ExpressionCollector>(
 	),
 	pratt_level(
 		terminal(choice(
-			tag<Tag<Name>>(identifier),
+			map<NewMapper<Name>>(identifier),
 			error("expected a type")
 		))
 	)
@@ -536,7 +532,7 @@ constexpr auto expression_impl = pratt<ExpressionCollector>(
 			struct_literal,
 			bool_literal,
 			int_literal,
-			tag<Tag<Name>>(identifier),
+			map<NewMapper<Name>>(identifier),
 			error("expected an expression")
 		))
 	)
