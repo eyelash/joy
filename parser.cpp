@@ -82,8 +82,6 @@ public:
 	}
 };
 
-struct CharLiteral {};
-
 class ExpressionCollector {
 	Reference<Expression> expression;
 public:
@@ -94,8 +92,7 @@ public:
 		expression = new IntLiteral(value);
 	}
 	void push(std::string&& string, Tag<CharLiteral>) {
-		StringView string_view(string);
-		expression = new IntLiteral(next_code_point(string_view));
+		expression = new CharLiteral(std::move(string));
 	}
 	void push(std::string&& string, Tag<StringLiteral>) {
 		expression = new StringLiteral(std::move(string));

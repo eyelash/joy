@@ -505,6 +505,15 @@ class Pass1 {
 		if (auto* e = as<IntLiteral>(expression)) {
 			return with_type(new IntLiteral(e->get_value()), get_int_type());
 		}
+		else if (auto* e = as<CharLiteral>(expression)) {
+			StringView string_view = e->get_string();
+			const std::int32_t value = next_code_point(string_view);
+			if (!string_view.empty()) {
+				add_error(expression, "char literal contains more than one code point");
+				return Reference<Expression>();
+			}
+			return with_type(new IntLiteral(value), get_int_type());
+		}
 		else if (auto* e = as<StringLiteral>(expression)) {
 			add_error(expression, "strings are not yet supported");
 			return Reference<Expression>();
