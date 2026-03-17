@@ -65,21 +65,14 @@ public:
 	}
 };
 
-using ArrayLiteralCollector = MapCollector<NewMapper<ArrayLiteral>, VectorCollector<Reference<Expression>>>;
-
-class StructLiteralCollector {
-	Reference<Expression> type;
-	std::vector<StructLiteral::Member> members;
+template <class T> class NudTag {
 public:
-	void push(Reference<Expression>&& type) {
-		this->type = std::move(type);
-	}
-	void push(std::string&& name, Reference<Expression>&& expression) {
-		members.emplace_back(std::move(name), std::move(expression));
-	}
-	template <class C> void retrieve(const C& callback) {
-		callback.push(new StructLiteral(std::move(type), std::move(members)));
-	}
+	constexpr NudTag() {}
+};
+
+template <class T> class LedTag {
+public:
+	constexpr LedTag() {}
 };
 
 template <BinaryOperation operation> class BinaryOperationTag {
@@ -93,26 +86,14 @@ public:
 	void push(Reference<Expression>&& expression) {
 		this->expression = std::move(expression);
 	}
-	void push(std::uint32_t value) {
-		expression = new IntLiteral(value);
+	template <class T, class... A> void push(NudTag<T>, A&&... a) {
+		expression = new T(std::forward<A>(a)...);
 	}
-	void push(Tag<CharLiteral>, std::string&& string) {
-		expression = new CharLiteral(std::move(string));
-	}
-	void push(Tag<StringLiteral>, std::string&& string) {
-		expression = new StringLiteral(std::move(string));
+	template <class T, class... A> void push(LedTag<T>, A&&... a) {
+		expression = new T(std::move(expression), std::forward<A>(a)...);
 	}
 	template <BinaryOperation operation> void push(BinaryOperationTag<operation>, Reference<Expression>&& right) {
 		expression = new BinaryExpression(operation, std::move(expression), std::move(right));
-	}
-	void push(Tag<Assignment>, Reference<Expression>&& right) {
-		expression = new Assignment(std::move(expression), std::move(right));
-	}
-	void push(Tag<Call>, std::vector<Reference<Expression>>&& arguments) {
-		expression = new Call(std::move(expression), std::move(arguments));
-	}
-	void push(Tag<MemberAccess>, std::string&& member_name) {
-		expression = new MemberAccess(std::move(expression), std::move(member_name));
 	}
 	void set_location(const SourceLocation& location) {
 		expression->set_location(location);
@@ -123,10 +104,6 @@ public:
 };
 
 template <BinaryOperation operation> using OperationCollector = MapCollector<TagMapper<BinaryOperationTag<operation>>, TupleCollector<Reference<Expression>>>;
-
-using CallCollector = MapCollector<TagMapper<Tag<Call>>, VectorCollector<Reference<Expression>>>;
-
-using MemberAccessCollector = MapCollector<TagMapper<Tag<MemberAccess>>, TupleCollector<std::string>>;
 
 class BlockCollector {
 	std::vector<Reference<Statement>> statements;
@@ -342,15 +319,17 @@ template <class P> constexpr auto comma_separated(P p) {
 constexpr auto identifier = collect<StringCollector>(sequence(identifier_start_char, zero_or_more(identifier_char)));
 constexpr auto expect_identifier = choice(identifier, error("expected an identifier"));
 
-constexpr auto int_literal = choice(
-	collect<NumberCollector>(sequence(ignore("0x"), one_or_more(hexadecimal_digit))),
-	collect<NumberCollector>(one_or_more(decimal_digit))
-);
+using IntLiteralCollector = MapCollector<TagMapper<NudTag<IntLiteral>>, NumberCollector>;
 
-constexpr auto bool_literal = choice(
+constexpr auto int_literal = collect<IntLiteralCollector>(choice(
+	sequence(ignore("0x"), one_or_more(hexadecimal_digit)),
+	one_or_more(decimal_digit)
+));
+
+constexpr auto bool_literal = tag<NudTag<IntLiteral>>(choice(
 	collect<BoolLiteralCollector<0>>(keyword("false")),
 	collect<BoolLiteralCollector<1>>(keyword("true"))
-);
+));
 
 constexpr auto escape = sequence(
 	ignore('\\'),
@@ -365,8 +344,8 @@ constexpr auto escape = sequence(
 	)
 );
 
-using CharLiteralCollector = MapCollector<TagMapper<Tag<CharLiteral>>, StringCollector>;
-using StringLiteralCollector = MapCollector<TagMapper<Tag<StringLiteral>>, StringCollector>;
+using CharLiteralCollector = MapCollector<TagMapper<NudTag<CharLiteral>>, StringCollector>;
+using StringLiteralCollector = MapCollector<TagMapper<NudTag<StringLiteral>>, StringCollector>;
 
 constexpr auto char_literal = collect<CharLiteralCollector>(sequence(
 	ignore('\''),
@@ -390,6 +369,8 @@ DECLARE_PARSER(type)
 DECLARE_PARSER(expression)
 DECLARE_PARSER(statement)
 
+using ArrayLiteralCollector = MapCollector<TagMapper<NudTag<ArrayLiteral>>, VectorCollector<Reference<Expression>>>;
+
 constexpr auto array_literal = collect<ArrayLiteralCollector>(sequence(
 	ignore('['),
 	whitespace,
@@ -402,6 +383,9 @@ constexpr auto array_literal = collect<ArrayLiteralCollector>(sequence(
 	expect("]")
 ));
 
+using StructLiteralCollector = MapCollector<TagMapper<NudTag<StructLiteral>>, TupleCollector<Reference<Expression>, std::vector<StructLiteral::Member>>>;
+using StructLiteralMemberCollector = MapCollector<ConstructorMapper<StructLiteral::Member>, TupleCollector<std::string, Reference<Expression>>>;
+
 constexpr auto struct_literal = collect<StructLiteralCollector>(sequence(
 	keyword("new"),
 	whitespace,
@@ -409,15 +393,17 @@ constexpr auto struct_literal = collect<StructLiteralCollector>(sequence(
 	whitespace,
 	expect("{"),
 	whitespace,
-	comma_separated(collect<MemberCollector>(sequence(
-		not_('}'),
-		not_(end()),
-		expect_identifier,
-		whitespace,
-		expect("="),
-		whitespace,
-		expression
-	))),
+	collect<VectorCollector<StructLiteral::Member>>(comma_separated(
+		collect<StructLiteralMemberCollector>(sequence(
+			not_('}'),
+			not_(end()),
+			expect_identifier,
+			whitespace,
+			expect("="),
+			whitespace,
+			expression
+		))
+	)),
 	whitespace,
 	expect("}")
 ));
@@ -426,18 +412,22 @@ constexpr auto struct_literal = collect<StructLiteralCollector>(sequence(
 constexpr auto alternative_struct_literal = collect<StructLiteralCollector>(sequence(
 	ignore('{'),
 	whitespace,
-	comma_separated(collect<MemberCollector>(sequence(
-		not_('}'),
-		not_(end()),
-		expect_identifier,
-		whitespace,
-		expect(":"),
-		whitespace,
-		expression
-	))),
+	collect<VectorCollector<StructLiteral::Member>>(comma_separated(
+		collect<StructLiteralMemberCollector>(sequence(
+			not_('}'),
+			not_(end()),
+			expect_identifier,
+			whitespace,
+			expect(":"),
+			whitespace,
+			expression
+		))
+	)),
 	whitespace,
 	expect("}")
 ));
+
+using CallCollector = MapCollector<TagMapper<LedTag<Call>>, VectorCollector<Reference<Expression>>>;
 
 constexpr auto type_impl = pratt<ExpressionCollector>(
 	pratt_level(
@@ -456,14 +446,16 @@ constexpr auto type_impl = pratt<ExpressionCollector>(
 	),
 	pratt_level(
 		terminal(choice(
-			map<NewMapper<Name>>(identifier),
+			tag<NudTag<Name>>(identifier),
 			error("expected a type")
 		))
 	)
 );
 DEFINE_PARSER(type, type_impl)
 
-using AssignmentCollector = MapCollector<TagMapper<Tag<Assignment>>, TupleCollector<Reference<Expression>>>;
+using AssignmentCollector = MapCollector<TagMapper<LedTag<Assignment>>, TupleCollector<Reference<Expression>>>;
+
+using MemberAccessCollector = MapCollector<TagMapper<LedTag<MemberAccess>>, TupleCollector<std::string>>;
 
 constexpr auto expression_impl = pratt<ExpressionCollector>(
 	pratt_level(
@@ -518,7 +510,7 @@ constexpr auto expression_impl = pratt<ExpressionCollector>(
 			struct_literal,
 			bool_literal,
 			int_literal,
-			map<NewMapper<Name>>(identifier),
+			tag<NudTag<Name>>(identifier),
 			error("expected an expression")
 		))
 	)
