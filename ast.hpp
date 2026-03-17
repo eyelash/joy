@@ -343,7 +343,11 @@ class IfStatement final: public Statement {
 	Reference<Statement> else_statement;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_IF_STATEMENT;
-	IfStatement(Reference<Expression>&& condition, Reference<Statement>&& then_statement, Reference<Statement>&& else_statement): Statement(TYPE_ID), condition(std::move(condition)), then_statement(std::move(then_statement)), else_statement(std::move(else_statement)) {}
+	IfStatement(Reference<Expression>&& condition, Reference<Statement>&& then_statement, Reference<Statement>&& else_statement): Statement(TYPE_ID), condition(std::move(condition)), then_statement(std::move(then_statement)), else_statement(std::move(else_statement)) {
+		if (this->else_statement == nullptr) {
+			this->else_statement = new EmptyStatement();
+		}
+	}
 	const Expression* get_condition() const {
 		return condition;
 	}
@@ -412,7 +416,11 @@ private:
 	Block block;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_FUNCTION;
-	Function(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): Dynamic(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), arguments(std::move(arguments)), return_type(std::move(return_type)), block(std::move(block)) {}
+	Function(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): Dynamic(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), arguments(std::move(arguments)), return_type(std::move(return_type)), block(std::move(block)) {
+		if (this->return_type == nullptr) {
+			this->return_type = new Name("Void");
+		}
+	}
 	StringView get_name() const {
 		return name;
 	}

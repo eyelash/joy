@@ -50,20 +50,9 @@ public:
 	}
 };
 
-template <std::uint32_t value> class BoolLiteralCollector {
-public:
-	template <class C> void retrieve(const C& callback) {
-		callback.push(value);
-	}
-};
+template <std::uint32_t value> using BoolLiteralCollector = ConstantCollector<std::uint32_t, value>;
 
-template <char c> class EscapeCollector {
-public:
-	template <class... A> void push(A&&...) {}
-	template <class C> void retrieve(const C& callback) {
-		callback.push(c);
-	}
-};
+template <char c> using EscapeCollector = ConstantCollector<char, c>;
 
 template <class T> class NudTag {
 public:
@@ -122,147 +111,10 @@ public:
 	void push(Reference<Statement>&& statement) {
 		this->statement = std::move(statement);
 	}
-	void push(Block&& block) {
-		statement = new BlockStatement(std::move(block));
-	}
-	void push(Reference<Expression>&& expression) {
-		statement = new ExpressionStatement(std::move(expression));
-	}
 	template <class C> void retrieve(const C& callback) {
 		callback.push(std::move(statement));
 	}
 };
-
-class EmptyStatementCollector {
-public:
-	template <class C> void retrieve(const C& callback) {
-		callback.push(new EmptyStatement());
-	}
-};
-
-class LetStatementCollector {
-	std::string name;
-	Reference<Expression> type;
-	Reference<Expression> expression;
-public:
-	void push(std::string&& name) {
-		this->name = std::move(name);
-	}
-	void push(Tag<Type>, Reference<Expression>&& expression) {
-		type = std::move(expression);
-	}
-	void push(Reference<Expression>&& expression) {
-		this->expression = std::move(expression);
-	}
-	template <class C> void retrieve(const C& callback) {
-		callback.push(new LetStatement(std::move(name), std::move(type), std::move(expression)));
-	}
-};
-
-class IfStatementCollector {
-	Reference<Expression> condition;
-	Reference<Statement> then_statement;
-	Reference<Statement> else_statement;
-public:
-	struct ThenTag {};
-	struct ElseTag {};
-	void push(Reference<Expression>&& condition) {
-		this->condition = std::move(condition);
-	}
-	void push(ThenTag, Reference<Statement>&& statement) {
-		then_statement = std::move(statement);
-	}
-	void push(ElseTag, Reference<Statement>&& statement) {
-		else_statement = std::move(statement);
-	}
-	template <class C> void retrieve(const C& callback) {
-		if (else_statement == nullptr) {
-			else_statement = new EmptyStatement();
-		}
-		callback.push(new IfStatement(std::move(condition), std::move(then_statement), std::move(else_statement)));
-	}
-};
-
-class WhileStatementCollector {
-	Reference<Expression> condition;
-	Reference<Statement> statement;
-public:
-	void push(Reference<Expression>&& condition) {
-		this->condition = std::move(condition);
-	}
-	void push(Reference<Statement>&& statement) {
-		this->statement = std::move(statement);
-	}
-	template <class C> void retrieve(const C& callback) {
-		callback.push(new WhileStatement(std::move(condition), std::move(statement)));
-	}
-};
-
-class ReturnStatementCollector {
-	Reference<Expression> expression;
-public:
-	void push(Reference<Expression>&& expression) {
-		this->expression = std::move(expression);
-	}
-	template <class C> void retrieve(const C& callback) {
-		callback.push(new ReturnStatement(std::move(expression)));
-	}
-};
-
-struct TemplateArgument {};
-
-class FunctionCollector {
-	std::string name;
-	std::vector<std::string> template_arguments;
-	std::vector<Function::Argument> arguments;
-	Reference<Expression> return_type;
-	Block block;
-public:
-	void push(std::string&& name) {
-		this->name = std::move(name);
-	}
-	void push(Tag<TemplateArgument>, std::string&& name) {
-		template_arguments.push_back(std::move(name));
-	}
-	void push(std::string&& name, Reference<Expression>&& type) {
-		arguments.emplace_back(std::move(name), std::move(type));
-	}
-	void push(Reference<Expression>&& expression) {
-		return_type = std::move(expression);
-	}
-	void push(Block&& block) {
-		this->block = std::move(block);
-	}
-	template <class C> void retrieve(const C& callback) {
-		if (return_type == nullptr) {
-			return_type = new Name("Void");
-		}
-		callback.push(new Function(std::move(name), std::move(template_arguments), std::move(arguments), std::move(return_type), std::move(block)));
-	}
-};
-
-using ArgumentCollector = TupleCollector<std::string, Reference<Expression>>;
-
-class StructureCollector {
-	std::string name;
-	std::vector<std::string> template_arguments;
-	std::vector<Structure::Member> members;
-public:
-	void push(std::string&& name) {
-		this->name = std::move(name);
-	}
-	void push(Tag<TemplateArgument>, std::string&& name) {
-		template_arguments.push_back(std::move(name));
-	}
-	void push(std::string&& name, Reference<Expression>&& type) {
-		members.emplace_back(std::move(name), std::move(type));
-	}
-	template <class C> void retrieve(const C& callback) {
-		callback.push(new Structure(std::move(name), std::move(template_arguments), std::move(members)));
-	}
-};
-
-using MemberCollector = TupleCollector<std::string, Reference<Expression>>;
 
 class ProgramCollector {
 	std::vector<Reference<Function>> functions;
@@ -529,8 +381,16 @@ static constexpr auto block = collect<BlockCollector>(sequence(
 	expect("}")
 ));
 
+using BlockStatementCollector = MapCollector<NewMapper<BlockStatement>, TupleCollector<Block>>;
+using EmptyStatementCollector = MapCollector<NewMapper<EmptyStatement>, TupleCollector<>>;
+using LetStatementCollector = MapCollector<NewMapper<LetStatement>, TupleCollector<std::string, Reference<Expression>, Reference<Expression>>>;
+using IfStatementCollector = MapCollector<NewMapper<IfStatement>, TupleCollector<Reference<Expression>, Reference<Statement>, Reference<Statement>>>;
+using WhileStatementCollector = MapCollector<NewMapper<WhileStatement>, TupleCollector<Reference<Expression>, Reference<Statement>>>;
+using ReturnStatementCollector = MapCollector<NewMapper<ReturnStatement>, TupleCollector<Reference<Expression>>>;
+using ExpressionStatementCollector = MapCollector<NewMapper<ExpressionStatement>, TupleCollector<Reference<Expression>>>;
+
 constexpr auto statement_impl = collect<StatementCollector>(choice(
-	block,
+	collect<BlockStatementCollector>(block),
 	collect<EmptyStatementCollector>(ignore(';')),
 	collect<LetStatementCollector>(sequence(
 		keyword("let"),
@@ -540,12 +400,12 @@ constexpr auto statement_impl = collect<StatementCollector>(choice(
 		optional(sequence(
 			ignore(':'),
 			whitespace,
-			tag<Tag<Type>>(type),
+			tag<TupleIndex<1>>(type),
 			whitespace
 		)),
 		expect("="),
 		whitespace,
-		expression,
+		tag<TupleIndex<2>>(expression),
 		whitespace,
 		expect(";")
 	)),
@@ -558,12 +418,12 @@ constexpr auto statement_impl = collect<StatementCollector>(choice(
 		whitespace,
 		expect(")"),
 		whitespace,
-		tag<IfStatementCollector::ThenTag>(statement),
+		tag<TupleIndex<1>>(statement),
 		whitespace,
 		optional(sequence(
 			keyword("else"),
 			whitespace,
-			tag<IfStatementCollector::ElseTag>(statement)
+			tag<TupleIndex<2>>(statement)
 		))
 	)),
 	collect<WhileStatementCollector>(sequence(
@@ -588,13 +448,16 @@ constexpr auto statement_impl = collect<StatementCollector>(choice(
 		)),
 		expect(";")
 	)),
-	sequence(
+	collect<ExpressionStatementCollector>(sequence(
 		expression,
 		whitespace,
 		expect(";")
-	)
+	))
 ));
 DEFINE_PARSER(statement, statement_impl)
+
+using FunctionCollector = MapCollector<NewMapper<Function>, TupleCollector<std::string, std::vector<std::string>, std::vector<Function::Argument>, Reference<Expression>, Block>>;
+using FunctionArgumentCollector = MapCollector<ConstructorMapper<Function::Argument>, TupleCollector<std::string, Reference<Expression>>>;
 
 constexpr auto function = collect<FunctionCollector>(sequence(
 	keyword("func"),
@@ -604,26 +467,28 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 	optional(sequence(
 		ignore('<'),
 		whitespace,
-		comma_separated(sequence(
+		collect<VectorCollector<std::string>>(comma_separated(sequence(
 			not_('>'),
 			not_(end()),
-			tag<Tag<TemplateArgument>>(expect_identifier)
-		)),
+			expect_identifier
+		))),
 		whitespace,
 		expect(">"),
 		whitespace
 	)),
 	expect("("),
 	whitespace,
-	comma_separated(collect<ArgumentCollector>(sequence(
-		not_(')'),
-		not_(end()),
-		expect_identifier,
-		whitespace,
-		expect(":"),
-		whitespace,
-		type
-	))),
+	collect<VectorCollector<Function::Argument>>(comma_separated(
+		collect<FunctionArgumentCollector>(sequence(
+			not_(')'),
+			not_(end()),
+			expect_identifier,
+			whitespace,
+			expect(":"),
+			whitespace,
+			type
+		))
+	)),
 	whitespace,
 	expect(")"),
 	whitespace,
@@ -639,6 +504,9 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 	)
 ));
 
+using StructureCollector = MapCollector<NewMapper<Structure>, TupleCollector<std::string, std::vector<std::string>, std::vector<Structure::Member>>>;
+using StructureMemberCollector = MapCollector<ConstructorMapper<Structure::Member>, TupleCollector<std::string, Reference<Expression>>>;
+
 constexpr auto structure = collect<StructureCollector>(sequence(
 	keyword("struct"),
 	whitespace,
@@ -647,26 +515,28 @@ constexpr auto structure = collect<StructureCollector>(sequence(
 	optional(sequence(
 		ignore('<'),
 		whitespace,
-		comma_separated(sequence(
+		collect<VectorCollector<std::string>>(comma_separated(sequence(
 			not_('>'),
 			not_(end()),
-			tag<Tag<TemplateArgument>>(expect_identifier)
-		)),
+			expect_identifier
+		))),
 		whitespace,
 		expect(">"),
 		whitespace
 	)),
 	expect("{"),
 	whitespace,
-	comma_separated(collect<MemberCollector>(sequence(
-		not_('}'),
-		not_(end()),
-		expect_identifier,
-		whitespace,
-		expect(":"),
-		whitespace,
-		type
-	))),
+	collect<VectorCollector<Structure::Member>>(comma_separated(
+		collect<StructureMemberCollector>(sequence(
+			not_('}'),
+			not_(end()),
+			expect_identifier,
+			whitespace,
+			expect(":"),
+			whitespace,
+			type
+		))
+	)),
 	whitespace,
 	expect("}")
 ));
