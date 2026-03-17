@@ -91,22 +91,22 @@ public:
 	void push(std::uint32_t value) {
 		expression = new IntLiteral(value);
 	}
-	void push(std::string&& string, Tag<CharLiteral>) {
+	void push(Tag<CharLiteral>, std::string&& string) {
 		expression = new CharLiteral(std::move(string));
 	}
-	void push(std::string&& string, Tag<StringLiteral>) {
+	void push(Tag<StringLiteral>, std::string&& string) {
 		expression = new StringLiteral(std::move(string));
 	}
 	void push(Reference<Expression>&& right, BinaryOperation operation) {
 		expression = new BinaryExpression(operation, std::move(expression), std::move(right));
 	}
-	void push(Reference<Expression>&& right, Tag<Assignment>) {
+	void push(Tag<Assignment>, Reference<Expression>&& right) {
 		expression = new Assignment(std::move(expression), std::move(right));
 	}
-	void push(std::vector<Reference<Expression>>&& arguments, Tag<Call>) {
+	void push(Tag<Call>, std::vector<Reference<Expression>>&& arguments) {
 		expression = new Call(std::move(expression), std::move(arguments));
 	}
-	void push(std::string&& member_name, Tag<MemberAccess>) {
+	void push(Tag<MemberAccess>, std::string&& member_name) {
 		expression = new MemberAccess(std::move(expression), std::move(member_name));
 	}
 	void set_location(const SourceLocation& location) {
@@ -175,7 +175,7 @@ public:
 	void push(std::string&& name) {
 		this->name = std::move(name);
 	}
-	void push(Reference<Expression>&& expression, Tag<Type>) {
+	void push(Tag<Type>, Reference<Expression>&& expression) {
 		type = std::move(expression);
 	}
 	void push(Reference<Expression>&& expression) {
@@ -196,10 +196,10 @@ public:
 	void push(Reference<Expression>&& condition) {
 		this->condition = std::move(condition);
 	}
-	void push(Reference<Statement>&& statement, ThenTag) {
+	void push(ThenTag, Reference<Statement>&& statement) {
 		then_statement = std::move(statement);
 	}
-	void push(Reference<Statement>&& statement, ElseTag) {
+	void push(ElseTag, Reference<Statement>&& statement) {
 		else_statement = std::move(statement);
 	}
 	template <class C> void retrieve(const C& callback) {
@@ -248,7 +248,7 @@ public:
 	void push(std::string&& name) {
 		this->name = std::move(name);
 	}
-	void push(std::string&& name, Tag<TemplateArgument>) {
+	void push(Tag<TemplateArgument>, std::string&& name) {
 		template_arguments.push_back(std::move(name));
 	}
 	void push(std::string&& name, Reference<Expression>&& type) {
@@ -278,7 +278,7 @@ public:
 	void push(std::string&& name) {
 		this->name = std::move(name);
 	}
-	void push(std::string&& name, Tag<TemplateArgument>) {
+	void push(Tag<TemplateArgument>, std::string&& name) {
 		template_arguments.push_back(std::move(name));
 	}
 	void push(std::string&& name, Reference<Expression>&& type) {
