@@ -82,6 +82,11 @@ public:
 	}
 };
 
+template <BinaryOperation operation> class BinaryOperationTag {
+public:
+	constexpr BinaryOperationTag() {}
+};
+
 class ExpressionCollector {
 	Reference<Expression> expression;
 public:
@@ -97,7 +102,7 @@ public:
 	void push(Tag<StringLiteral>, std::string&& string) {
 		expression = new StringLiteral(std::move(string));
 	}
-	void push(Reference<Expression>&& right, BinaryOperation operation) {
+	template <BinaryOperation operation> void push(BinaryOperationTag<operation>, Reference<Expression>&& right) {
 		expression = new BinaryExpression(operation, std::move(expression), std::move(right));
 	}
 	void push(Tag<Assignment>, Reference<Expression>&& right) {
@@ -117,16 +122,7 @@ public:
 	}
 };
 
-template <BinaryOperation operation> class OperationCollector {
-	Reference<Expression> expression;
-public:
-	void push(Reference<Expression>&& expression) {
-		this->expression = std::move(expression);
-	}
-	template <class C> void retrieve(const C& callback) {
-		callback.push(std::move(expression), operation);
-	}
-};
+template <BinaryOperation operation> using OperationCollector = MapCollector<TagMapper<BinaryOperationTag<operation>>, TupleCollector<Reference<Expression>>>;
 
 using CallCollector = MapCollector<TagMapper<Tag<Call>>, VectorCollector<Reference<Expression>>>;
 
