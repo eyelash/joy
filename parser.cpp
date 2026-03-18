@@ -349,7 +349,7 @@ constexpr auto expression_impl = pratt<ExpressionCollector>(
 			whitespace,
 			ignore('.'),
 			whitespace,
-			identifier
+			expect_identifier
 		))
 	),
 	pratt_level(
