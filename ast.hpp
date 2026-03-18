@@ -59,7 +59,7 @@ enum {
 	TYPE_ID_BINARY_EXPRESSION,
 	TYPE_ID_ASSIGNMENT,
 	TYPE_ID_CALL,
-	TYPE_ID_RESOLVED_CALL,
+	TYPE_ID_FUNCTION_REFERENCE,
 	TYPE_ID_MEMBER_ACCESS,
 	TYPE_ID_BLOCK_STATEMENT,
 	TYPE_ID_EMPTY_STATEMENT,
@@ -260,17 +260,13 @@ public:
 
 class FunctionInstantiation;
 
-class ResolvedCall final: public Expression {
+class FunctionReference final: public Expression {
 	const FunctionInstantiation* function;
-	std::vector<Reference<Expression>> arguments;
 public:
-	static constexpr int TYPE_ID = TYPE_ID_RESOLVED_CALL;
-	ResolvedCall(const FunctionInstantiation* function, std::vector<Reference<Expression>>&& arguments): Expression(TYPE_ID), function(function), arguments(std::move(arguments)) {}
+	static constexpr int TYPE_ID = TYPE_ID_FUNCTION_REFERENCE;
+	FunctionReference(const FunctionInstantiation* function): Expression(TYPE_ID), function(function) {}
 	const FunctionInstantiation* get_function() const {
 		return function;
-	}
-	const std::vector<Reference<Expression>>& get_arguments() const {
-		return arguments;
 	}
 };
 

@@ -581,7 +581,7 @@ class Pass1 {
 			if (function == nullptr) {
 				return Reference<Expression>();
 			}
-			return with_type(new ResolvedCall(function, std::move(arguments)), function->get_return_type());
+			return with_type(new Call(new FunctionReference(function), std::move(arguments)), function->get_return_type());
 		}
 		else if (auto* e = as<MemberAccess>(expression)) {
 			Reference<Expression> left = handle_expression(e->get_expression());
