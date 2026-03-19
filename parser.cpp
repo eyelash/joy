@@ -136,6 +136,8 @@ constexpr auto whitespace_char = choice(' ', '\t', '\n', '\r');
 constexpr auto identifier_start_char = choice(range('a', 'z'), range('A', 'Z'), '_');
 constexpr auto identifier_char = choice(identifier_start_char, range('0', '9'));
 
+constexpr auto binary_digit = map<DigitMapper<2, '0', 0>>(range('0', '1'));
+constexpr auto octal_digit = map<DigitMapper<8, '0', 0>>(range('0', '7'));
 constexpr auto decimal_digit = map<DigitMapper<10, '0', 0>>(range('0', '9'));
 constexpr auto hexadecimal_digit = choice(
 	map<DigitMapper<16, '0', 0>>(range('0', '9')),
@@ -174,6 +176,8 @@ constexpr auto expect_identifier = choice(identifier, error("expected an identif
 using IntLiteralCollector = MapCollector<TagMapper<NudTag<IntLiteral>>, NumberCollector>;
 
 constexpr auto int_literal = collect<IntLiteralCollector>(choice(
+	sequence(ignore("0b"), one_or_more(binary_digit)),
+	sequence(ignore("0o"), one_or_more(octal_digit)),
 	sequence(ignore("0x"), one_or_more(hexadecimal_digit)),
 	one_or_more(decimal_digit)
 ));
