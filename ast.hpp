@@ -649,7 +649,12 @@ public:
 			print_impl("Int", context);
 		}
 		else if (auto* s = as<StructureInstantiation>(type)) {
-			print_impl(printer::format("%<%>", s->get_structure()->get_name(), comma_separated<PrintTypeName>(s->get_template_arguments())), context);
+			const StringView name = s->get_structure()->get_name();
+			const std::vector<const Type*>& template_arguments = s->get_template_arguments();
+			print_impl(name, context);
+			if (!template_arguments.empty()) {
+				print_impl(printer::format("<%>", comma_separated<PrintTypeName>(template_arguments)), context);
+			}
 		}
 	}
 };
