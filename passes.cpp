@@ -171,6 +171,7 @@ public:
 	}
 };
 
+// name resolution, type checking, and template instantiation
 class Pass1 {
 	static SourceLocation get_location(const Expression* expression) {
 		if (expression == nullptr) {
@@ -275,8 +276,8 @@ class Pass1 {
 	Errors* errors;
 	const Type* void_type = nullptr;
 	const Type* int_type = nullptr;
-	Instantiations<Structure, StructureInstantiation>* structure_instantiations;
-	Instantiations<Function, FunctionInstantiation>* function_instantiations;
+	Instantiations<Structure, StructureInstantiation> structure_instantiations;
+	Instantiations<Function, FunctionInstantiation> function_instantiations;
 	ScopeMap* variables = nullptr;
 	ScopeMap* type_variables = nullptr;
 	const FunctionInstantiation* current_function = nullptr;
@@ -288,7 +289,7 @@ class Pass1 {
 			return nullptr;
 		}
 		Instantiations<Structure, StructureInstantiation>::Key key(structure, std::move(template_arguments));
-		if (const StructureInstantiation* new_structure = structure_instantiations->look_up(key)) {
+		if (const StructureInstantiation* new_structure = structure_instantiations.look_up(key)) {
 			return new_structure;
 		}
 		StructureInstantiation* new_structure = new StructureInstantiation(structure);
@@ -302,7 +303,7 @@ class Pass1 {
 		ScopeMap* previous_type_variables = this->type_variables;
 		this->type_variables = &type_variables;
 		// members
-		structure_instantiations->insert(std::move(key), new_structure);
+		structure_instantiations.insert(std::move(key), new_structure);
 		for (const Structure::Member& member: structure->get_members()) {
 			new_structure->add_member(member.get_name(), handle_type(member.get_type()));
 		}
@@ -315,7 +316,7 @@ class Pass1 {
 			return nullptr;
 		}
 		Instantiations<Function, FunctionInstantiation>::Key key(function, std::move(template_arguments));
-		if (const FunctionInstantiation* new_function = function_instantiations->look_up(key)) {
+		if (const FunctionInstantiation* new_function = function_instantiations.look_up(key)) {
 			return new_function;
 		}
 		FunctionInstantiation* new_function = new FunctionInstantiation(function);
@@ -342,7 +343,7 @@ class Pass1 {
 		// block
 		const FunctionInstantiation* previous_current_function = this->current_function;
 		this->current_function = new_function;
-		function_instantiations->insert(std::move(key), new_function);
+		function_instantiations.insert(std::move(key), new_function);
 		new_function->set_block(handle_block(function->get_block()));
 		this->variables = previous_variables;
 		this->type_variables = previous_type_variables;
@@ -686,10 +687,6 @@ public:
 		this->errors = errors;
 	}
 	void run() {
-		Instantiations<Structure, StructureInstantiation> structure_instantiations;
-		this->structure_instantiations = &structure_instantiations;
-		Instantiations<Function, FunctionInstantiation> function_instantiations;
-		this->function_instantiations = &function_instantiations;
 		const FunctionInstantiation* main_function = get_function("main", {}, get_void_type());
 		if (main_function == nullptr) {
 			return;
