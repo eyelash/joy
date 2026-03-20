@@ -55,28 +55,27 @@ public:
 	}
 };
 
+template <class T> class InstantiationKey {
+	std::pair<const T*, std::vector<const Type*>> key;
+public:
+	// TODO: does this move actually work?
+	InstantiationKey(const T* t, std::vector<const Type*>&& arguments): key(t, std::move(arguments)) {}
+	bool operator <(const InstantiationKey& key) const {
+		return this->key < key.key;
+	}
+	const std::vector<const Type*>& get_arguments() const {
+		return key.second;
+	}
+};
+
 template <class T, class TI = T> class Instantiations {
+	std::map<InstantiationKey<T>, const TI*> instantiations;
 public:
-	class Key {
-		std::pair<const T*, std::vector<const Type*>> key;
-	public:
-		// TODO: does this move actually work?
-		Key(const T* t, std::vector<const Type*>&& arguments): key(t, std::move(arguments)) {}
-		bool operator <(const Key& key) const {
-			return this->key < key.key;
-		}
-		const std::vector<const Type*>& get_arguments() const {
-			return key.second;
-		}
-	};
-private:
-	std::map<Key, const TI*> instantiations;
-public:
-	void insert(Key&& key, const TI* t) {
+	void insert(InstantiationKey<T>&& key, const TI* t) {
 		// TODO: does this move actually work?
 		instantiations.emplace(std::move(key), t);
 	}
-	const TI* look_up(const Key& key) const {
+	const TI* look_up(const InstantiationKey<T>& key) const {
 		auto iterator = instantiations.find(key);
 		if (iterator != instantiations.end()) {
 			return iterator->second;
@@ -288,7 +287,7 @@ class Pass1 {
 		if (template_arguments.size() != structure->get_template_arguments().size()) {
 			return nullptr;
 		}
-		Instantiations<Structure, StructureInstantiation>::Key key(structure, std::move(template_arguments));
+		InstantiationKey<Structure> key(structure, std::move(template_arguments));
 		if (const StructureInstantiation* new_structure = structure_instantiations.look_up(key)) {
 			return new_structure;
 		}
@@ -315,7 +314,7 @@ class Pass1 {
 		if (template_arguments.size() != function->get_template_arguments().size()) {
 			return nullptr;
 		}
-		Instantiations<Function, FunctionInstantiation>::Key key(function, std::move(template_arguments));
+		InstantiationKey<Function> key(function, std::move(template_arguments));
 		if (const FunctionInstantiation* new_function = function_instantiations.look_up(key)) {
 			return new_function;
 		}
