@@ -385,21 +385,19 @@ class Pass1 {
 		// TODO: optimize
 		for (const Structure* structure: program->get_structures()) {
 			if (structure->get_name() == name) {
-				match_structure = structure;
-				++match_count;
+				if (structure->get_template_arguments().size() == arguments.size()) {
+					match_structure = structure;
+					++match_count;
+				}
 			}
 		}
 		if (match_count != 1) {
 			if (match_count == 0) {
-				add_error(expression, "struct \"%\" not found", name);
+				add_error(expression, "no matching struct \"%\" found", name);
 			}
 			else {
-				add_error(expression, "% structs named \"%\" found", printer::print_number(match_count), name);
+				add_error(expression, "% matching structs \"%\" found", printer::print_number(match_count), name);
 			}
-			return nullptr;
-		}
-		if (match_structure->get_template_arguments().size() != arguments.size()) {
-			add_error(expression, "invalid number of template arguments for struct \"%\", expected %", name, printer::print_plural("template argument", match_structure->get_template_arguments().size()));
 			return nullptr;
 		}
 		return instantiate_structure(match_structure, std::move(arguments));
@@ -407,6 +405,11 @@ class Pass1 {
 	const FunctionInstantiation* get_function(const StringView& name, const std::vector<Reference<Expression>>& arguments, const Type* return_type, const Expression* expression = nullptr) {
 		if (!name) {
 			return nullptr;
+		}
+		for (const Expression* argument: arguments) {
+			if (get_type(argument) == nullptr) {
+				return nullptr;
+			}
 		}
 		const Function* match_function = nullptr;
 		std::vector<const Type*> match_template_arguments;
