@@ -109,41 +109,6 @@ void PrintStatement::print(Context& context) const {
 	}
 }
 
-class PrintTypeDeclaration {
-	const Type* type;
-public:
-	PrintTypeDeclaration(const Type* type): type(type) {}
-	void print(Context& context) const {
-		if (as<VoidType>(type)) {
-			print_impl(format("typedef void t%;", print_number(type->get_id())), context);
-		}
-		else if (as<IntType>(type)) {
-			print_impl(format("typedef int t%;", print_number(type->get_id())), context);
-		}
-		else if (as<StructureInstantiation>(type)) {
-			print_impl(format("typedef struct t% t%;", print_number(type->get_id()), print_number(type->get_id())), context);
-		}
-	}
-};
-
-class PrintTypeDefinition {
-	const Type* type;
-public:
-	PrintTypeDefinition(const Type* type): type(type) {}
-	void print(Context& context) const {
-		if (auto* structure = as<StructureInstantiation>(type)) {
-			print_impl(ln(format("// %", PrintTypeName(structure))), context);
-			print_impl(ln(format("struct t% {", print_number(structure->get_id()))), context);
-			context.increase_indentation();
-			for (const StructureInstantiation::Member& member: structure->get_members()) {
-				print_impl(ln(format("% %;", PrintType(member.get_type()), member.get_name())), context);
-			}
-			context.decrease_indentation();
-			print_impl(ln("};"), context);
-		}
-	}
-};
-
 class PrintFunctionArgument {
 	const FunctionInstantiation::Argument* argument;
 public:
@@ -168,18 +133,29 @@ public:
 	}
 };
 
-class PrintFunctionDeclaration {
-	const FunctionInstantiation* function;
+class PrintDeclaration {
+	const Entity* entity;
 public:
-	PrintFunctionDeclaration(const FunctionInstantiation* function): function(function) {}
+	PrintDeclaration(const Entity* entity): entity(entity) {}
 	void print(Context& context) const {
-		print_impl(format("static % f%(%);", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function)), context);
+		if (as<VoidType>(entity)) {
+			print_impl(format("typedef void t%;", print_number(entity->get_id())), context);
+		}
+		else if (as<IntType>(entity)) {
+			print_impl(format("typedef int t%;", print_number(entity->get_id())), context);
+		}
+		else if (as<StructureInstantiation>(entity)) {
+			print_impl(format("typedef struct t% t%;", print_number(entity->get_id()), print_number(entity->get_id())), context);
+		}
+		else if (const FunctionInstantiation* function = as<FunctionInstantiation>(entity)) {
+			print_impl(format("static % f%(%);", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function)), context);
+		}
 	}
 };
 
-class PrintFunctionDefinition {
-	const FunctionInstantiation* function;
-	bool is_builtin_print_int() const {
+class PrintDefinition {
+	const Entity* entity;
+	static bool is_builtin_print_int(const FunctionInstantiation* function) {
 		return
 			function->get_function()->get_name() == "print_int" &&
 			function->get_function()->get_template_arguments().empty() &&
@@ -189,17 +165,29 @@ class PrintFunctionDefinition {
 			function->get_block()->get_statements().empty();
 	}
 public:
-	PrintFunctionDefinition(const FunctionInstantiation* function): function(function) {}
+	PrintDefinition(const Entity* entity): entity(entity) {}
 	void print(Context& context) const {
-		print_impl(ln(format("// %", function->get_function()->get_name())), context);
-		if (is_builtin_print_int()) {
-			print_impl(ln("int printf(const char*, ...);"), context);
-			print_impl(ln(format("static % f%(%) {", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function))), context);
-			print_impl(indented(ln(format("printf(\"%%d\\n\", %);", function->get_arguments()[0].get_name()))), context);
-			print_impl(ln('}'), context);
+		if (auto* structure = as<StructureInstantiation>(entity)) {
+			print_impl(ln(format("// %", PrintTypeName(structure))), context);
+			print_impl(ln(format("struct t% {", print_number(structure->get_id()))), context);
+			context.increase_indentation();
+			for (const StructureInstantiation::Member& member: structure->get_members()) {
+				print_impl(ln(format("% %;", PrintType(member.get_type()), member.get_name())), context);
+			}
+			context.decrease_indentation();
+			print_impl(ln("};"), context);
 		}
-		else {
-			print_impl(ln(format("static % f%(%) %", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function), PrintBlock(function->get_block()))), context);
+		else if (const FunctionInstantiation* function = as<FunctionInstantiation>(entity)) {
+			print_impl(ln(format("// %", function->get_function()->get_name())), context);
+			if (is_builtin_print_int(function)) {
+				print_impl(ln("int printf(const char*, ...);"), context);
+				print_impl(ln(format("static % f%(%) {", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function))), context);
+				print_impl(indented(ln(format("printf(\"%%d\\n\", %);", function->get_arguments()[0].get_name()))), context);
+				print_impl(ln('}'), context);
+			}
+			else {
+				print_impl(ln(format("static % f%(%) %", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function), PrintBlock(function->get_block()))), context);
+			}
 		}
 	}
 };
@@ -209,17 +197,11 @@ class PrintProgram {
 public:
 	PrintProgram(const Program* program): program(program) {}
 	void print(Context& context) const {
-		for (const Type* type: program->get_types()) {
-			print_impl(ln(PrintTypeDeclaration(type)), context);
+		for (const Entity* entity: program->get_entities()) {
+			print_impl(ln(PrintDeclaration(entity)), context);
 		}
-		for (const FunctionInstantiation* function: program->get_function_instantiations()) {
-			print_impl(ln(PrintFunctionDeclaration(function)), context);
-		}
-		for (const Type* type: program->get_types()) {
-			print_impl(PrintTypeDefinition(type), context);
-		}
-		for (const FunctionInstantiation* function: program->get_function_instantiations()) {
-			print_impl(PrintFunctionDefinition(function), context);
+		for (const Entity* entity: program->get_entities()) {
+			print_impl(PrintDefinition(entity), context);
 		}
 		print_impl(ln("int main(void) {"), context);
 		context.increase_indentation();

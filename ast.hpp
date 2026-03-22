@@ -76,16 +76,21 @@ enum {
 	TYPE_ID_PROGRAM
 };
 
-class Type: public Dynamic {
-	unsigned int id = 0;
+class Entity: public Dynamic {
+	unsigned int id;
 public:
-	Type(int type_id): Dynamic(type_id) {}
+	Entity(int type_id): Dynamic(type_id), id(0) {}
 	void set_id(unsigned int id) {
 		this->id = id;
 	}
 	unsigned int get_id() const {
 		return id;
 	}
+};
+
+class Type: public Entity {
+public:
+	Type(int type_id): Entity(type_id) {}
 };
 
 class VoidType final: public Type {
@@ -472,7 +477,7 @@ public:
 	}
 };
 
-class FunctionInstantiation final: public Dynamic {
+class FunctionInstantiation final: public Entity {
 public:
 	class Argument {
 		StringView name;
@@ -492,10 +497,9 @@ private:
 	std::vector<Argument> arguments;
 	const Type* return_type;
 	Block block;
-	unsigned int id = 0;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_FUNCTION_INSTANTIATION;
-	FunctionInstantiation(const Function* function): Dynamic(TYPE_ID), function(function) {}
+	FunctionInstantiation(const Function* function): Entity(TYPE_ID), function(function) {}
 	const Function* get_function() const {
 		return function;
 	}
@@ -522,12 +526,6 @@ public:
 	}
 	const Block* get_block() const {
 		return &block;
-	}
-	void set_id(unsigned int id) {
-		this->id = id;
-	}
-	unsigned int get_id() const {
-		return id;
 	}
 };
 
@@ -573,8 +571,7 @@ class Program final: public Dynamic {
 	std::string path;
 	std::vector<Reference<Function>> functions;
 	std::vector<Reference<Structure>> structures;
-	std::vector<Reference<FunctionInstantiation>> function_instantiations;
-	std::vector<Reference<Type>> types;
+	std::vector<Reference<Entity>> entities;
 	unsigned int current_id = 0;
 	unsigned int main_function_id = 0;
 public:
@@ -593,17 +590,11 @@ public:
 	const std::vector<Reference<Structure>>& get_structures() const {
 		return structures;
 	}
-	void add_function_instantiation(Reference<FunctionInstantiation>&& function_instantiation) {
-		function_instantiations.push_back(std::move(function_instantiation));
+	void add_entity(Reference<Entity>&& entity) {
+		entities.push_back(std::move(entity));
 	}
-	const std::vector<Reference<FunctionInstantiation>>& get_function_instantiations() const {
-		return function_instantiations;
-	}
-	void add_type(Reference<Type>&& type) {
-		types.push_back(std::move(type));
-	}
-	const std::vector<Reference<Type>>& get_types() const {
-		return types;
+	const std::vector<Reference<Entity>>& get_entities() const {
+		return entities;
 	}
 	unsigned int get_next_id() {
 		++current_id;

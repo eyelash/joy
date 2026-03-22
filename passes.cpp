@@ -319,7 +319,7 @@ class Pass1 {
 			new_structure->add_member(member.get_name(), handle_type(member.get_type()));
 		}
 		this->type_variables = previous_type_variables;
-		program->add_type(new_structure);
+		program->add_entity(new_structure);
 		return new_structure;
 	}
 	const FunctionInstantiation* instantiate_function(const Function* function, std::vector<const Type*>&& template_arguments) {
@@ -359,14 +359,14 @@ class Pass1 {
 		this->variables = previous_variables;
 		this->type_variables = previous_type_variables;
 		this->current_function = previous_current_function;
-		program->add_function_instantiation(new_function);
+		program->add_entity(new_function);
 		return new_function;
 	}
 	template <class T> const Type* get_builtin_type(const Type*& type) {
 		if (type == nullptr) {
 			T* t = new T();
 			t->set_id(program->get_next_id());
-			program->add_type(t);
+			program->add_entity(t);
 			type = t;
 		}
 		return type;
