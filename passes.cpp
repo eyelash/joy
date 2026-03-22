@@ -652,7 +652,7 @@ class Pass1 {
 			if (error) {
 				return Reference<Statement>();
 			}
-			return new LetStatement(s->get_name().to_string(), new Expression(type), std::move(expression));
+			return new LetStatement(s->get_name().to_string(), new TypeReference(type), std::move(expression));
 		}
 		else if (auto* s = as<IfStatement>(statement)) {
 			Reference<Expression> condition = handle_expression(s->get_condition(), get_int_type());

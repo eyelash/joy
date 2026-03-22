@@ -50,7 +50,6 @@ enum {
 	TYPE_ID_INVALID,
 	TYPE_ID_VOID_TYPE,
 	TYPE_ID_INT_TYPE,
-	TYPE_ID_EXPRESSION,
 	TYPE_ID_INT_LITERAL,
 	TYPE_ID_CHAR_LITERAL,
 	TYPE_ID_STRING_LITERAL,
@@ -62,6 +61,7 @@ enum {
 	TYPE_ID_CALL,
 	TYPE_ID_FUNCTION_REFERENCE,
 	TYPE_ID_MEMBER_ACCESS,
+	TYPE_ID_TYPE_REFERENCE,
 	TYPE_ID_BLOCK_STATEMENT,
 	TYPE_ID_EMPTY_STATEMENT,
 	TYPE_ID_LET_STATEMENT,
@@ -104,9 +104,8 @@ class Expression: public Dynamic {
 	SourceLocation location;
 	const Type* type;
 public:
-	static constexpr int TYPE_ID = TYPE_ID_EXPRESSION;
 	Expression(int type_id): Dynamic(type_id), type(nullptr) {}
-	Expression(const Type* type): Dynamic(TYPE_ID), type(type) {}
+	Expression(int type_id, const Type* type): Dynamic(type_id), type(type) {}
 	void set_location(const SourceLocation& location) {
 		this->location = location;
 	}
@@ -283,6 +282,12 @@ public:
 	StringView get_member_name() const {
 		return member_name;
 	}
+};
+
+class TypeReference final: public Expression {
+public:
+	static constexpr int TYPE_ID = TYPE_ID_TYPE_REFERENCE;
+	TypeReference(const Type* type): Expression(TYPE_ID, type) {}
 };
 
 class Statement: public Dynamic {
