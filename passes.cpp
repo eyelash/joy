@@ -185,7 +185,6 @@ class Pass1 {
 		return expression->get_type();
 	}
 	class Unification {
-		Pass1* pass1;
 		const Function* function;
 		const std::vector<Reference<Expression>>& arguments;
 		const Type* return_type;
@@ -216,16 +215,29 @@ class Pass1 {
 				return false;
 			}
 			if (auto* e = as<Name>(function_argument)) {
-				if (is_variable(e->get_name())) {
-					return set_variable(e->get_name(), argument);
+				StringView name = e->get_name();
+				if (is_variable(name)) {
+					return set_variable(name, argument);
 				}
-				else {
-					const Type* type = pass1->get_type(e->get_name(), std::vector<const Type*>(), function_argument);
-					return type && type == argument;
+				if (as<VoidType>(argument)) {
+					return name == "Void";
 				}
+				else if (as<IntType>(argument)) {
+					return name == "Int";
+				}
+				else if (auto* s = as<StructureInstantiation>(argument)) {
+					if (name != s->get_structure()->get_name()) {
+						return false;
+					}
+					if (!s->get_template_arguments().empty()) {
+						return false;
+					}
+					return true;
+				}
+				return false;
 			}
 			else if (auto* e = as<Call>(function_argument)) {
-				StringView name = pass1->get_name(e->get_expression());
+				StringView name = as<Name>(e->get_expression())->get_name();
 				if (auto* s = as<StructureInstantiation>(argument)) {
 					if (name != s->get_structure()->get_name()) {
 						return false;
@@ -244,7 +256,7 @@ class Pass1 {
 			return false;
 		}
 	public:
-		Unification(Pass1* pass1, const Function* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, std::vector<const Type*>& template_arguments): pass1(pass1), function(function), arguments(arguments), return_type(return_type), template_arguments(template_arguments) {}
+		Unification(const Function* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, std::vector<const Type*>& template_arguments): function(function), arguments(arguments), return_type(return_type), template_arguments(template_arguments) {}
 		bool run() {
 			if (function->get_arguments().size() != arguments.size()) {
 				return false;
@@ -418,7 +430,7 @@ class Pass1 {
 		for (const Function* function: program->get_functions()) {
 			if (function->get_name() == name) {
 				std::vector<const Type*> template_arguments;
-				if (Unification(this, function, arguments, return_type, template_arguments).run()) {
+				if (Unification(function, arguments, return_type, template_arguments).run()) {
 					match_function = function;
 					match_template_arguments = std::move(template_arguments);
 					++match_count;
