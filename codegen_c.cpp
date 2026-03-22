@@ -109,10 +109,10 @@ void PrintStatement::print(Context& context) const {
 	}
 }
 
-class PrintTypeDefinition {
+class PrintTypeDeclaration {
 	const Type* type;
 public:
-	PrintTypeDefinition(const Type* type): type(type) {}
+	PrintTypeDeclaration(const Type* type): type(type) {}
 	void print(Context& context) const {
 		if (as<VoidType>(type)) {
 			print_impl(format("typedef void t%;", print_number(type->get_id())), context);
@@ -120,15 +120,26 @@ public:
 		else if (as<IntType>(type)) {
 			print_impl(format("typedef int t%;", print_number(type->get_id())), context);
 		}
-		else if (auto* structure = as<StructureInstantiation>(type)) {
-			print_impl(ln(format("typedef struct t% t%;", print_number(type->get_id()), print_number(type->get_id()))), context);
-			print_impl(ln(format("struct t% {", print_number(type->get_id()))), context);
+		else if (as<StructureInstantiation>(type)) {
+			print_impl(format("typedef struct t% t%;", print_number(type->get_id()), print_number(type->get_id())), context);
+		}
+	}
+};
+
+class PrintTypeDefinition {
+	const Type* type;
+public:
+	PrintTypeDefinition(const Type* type): type(type) {}
+	void print(Context& context) const {
+		if (auto* structure = as<StructureInstantiation>(type)) {
+			print_impl(ln(format("// %", PrintTypeName(structure))), context);
+			print_impl(ln(format("struct t% {", print_number(structure->get_id()))), context);
 			context.increase_indentation();
 			for (const StructureInstantiation::Member& member: structure->get_members()) {
 				print_impl(ln(format("% %;", PrintType(member.get_type()), member.get_name())), context);
 			}
 			context.decrease_indentation();
-			print_impl("};", context);
+			print_impl(ln("};"), context);
 		}
 	}
 };
@@ -185,10 +196,10 @@ public:
 			print_impl(ln("int printf(const char*, ...);"), context);
 			print_impl(ln(format("static % f%(%) {", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function))), context);
 			print_impl(indented(ln(format("printf(\"%%d\\n\", %);", function->get_arguments()[0].get_name()))), context);
-			print_impl('}', context);
+			print_impl(ln('}'), context);
 		}
 		else {
-			print_impl(format("static % f%(%) %", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function), PrintBlock(function->get_block())), context);
+			print_impl(ln(format("static % f%(%) %", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function), PrintBlock(function->get_block()))), context);
 		}
 	}
 };
@@ -199,13 +210,16 @@ public:
 	PrintProgram(const Program* program): program(program) {}
 	void print(Context& context) const {
 		for (const Type* type: program->get_types()) {
-			print_impl(ln(PrintTypeDefinition(type)), context);
+			print_impl(ln(PrintTypeDeclaration(type)), context);
 		}
 		for (const FunctionInstantiation* function: program->get_function_instantiations()) {
 			print_impl(ln(PrintFunctionDeclaration(function)), context);
 		}
+		for (const Type* type: program->get_types()) {
+			print_impl(PrintTypeDefinition(type), context);
+		}
 		for (const FunctionInstantiation* function: program->get_function_instantiations()) {
-			print_impl(ln(PrintFunctionDefinition(function)), context);
+			print_impl(PrintFunctionDefinition(function), context);
 		}
 		print_impl(ln("int main(void) {"), context);
 		context.increase_indentation();
