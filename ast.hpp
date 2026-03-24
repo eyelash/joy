@@ -71,6 +71,7 @@ enum {
 	TYPE_ID_EXPRESSION_STATEMENT,
 	TYPE_ID_FUNCTION,
 	TYPE_ID_STRUCTURE,
+	TYPE_ID_BUILTIN_FUNCTION,
 	TYPE_ID_FUNCTION_INSTANTIATION,
 	TYPE_ID_STRUCTURE_INSTANTIATION,
 	TYPE_ID_PROGRAM
@@ -472,6 +473,16 @@ public:
 	}
 	const std::vector<Member>& get_members() const {
 		return members;
+	}
+};
+
+class BuiltinFunction final: public Entity {
+	const char* name;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_BUILTIN_FUNCTION;
+	BuiltinFunction(const char* name): Entity(TYPE_ID), name(name) {}
+	StringView get_name() const {
+		return name;
 	}
 };
 

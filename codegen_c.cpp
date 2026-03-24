@@ -147,6 +147,11 @@ public:
 		else if (as<StructureInstantiation>(entity)) {
 			print_impl(format("typedef struct t% t%;", print_number(entity->get_id()), print_number(entity->get_id())), context);
 		}
+		else if (const BuiltinFunction* function = as<BuiltinFunction>(entity)) {
+			if (function->get_name() == "__builtin_joy_print_int") {
+				print_impl(format("static void f%(int n);", print_number(function->get_id())), context);
+			}
+		}
 		else if (const FunctionInstantiation* function = as<FunctionInstantiation>(entity)) {
 			print_impl(format("static % f%(%);", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function)), context);
 		}
@@ -155,15 +160,6 @@ public:
 
 class PrintDefinition {
 	const Entity* entity;
-	static bool is_builtin_print_int(const FunctionInstantiation* function) {
-		return
-			function->get_function()->get_name() == "print_int" &&
-			function->get_function()->get_template_arguments().empty() &&
-			function->get_arguments().size() == 1 &&
-			as<IntType>(function->get_arguments()[0].get_type()) &&
-			as<VoidType>(function->get_return_type()) &&
-			function->get_block()->get_statements().empty();
-	}
 public:
 	PrintDefinition(const Entity* entity): entity(entity) {}
 	void print(Context& context) const {
@@ -177,17 +173,17 @@ public:
 			context.decrease_indentation();
 			print_impl(ln("};"), context);
 		}
-		else if (const FunctionInstantiation* function = as<FunctionInstantiation>(entity)) {
-			print_impl(ln(format("// %", function->get_function()->get_name())), context);
-			if (is_builtin_print_int(function)) {
+		else if (const BuiltinFunction* function = as<BuiltinFunction>(entity)) {
+			if (function->get_name() == "__builtin_joy_print_int") {
 				print_impl(ln("int printf(const char*, ...);"), context);
-				print_impl(ln(format("static % f%(%) {", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function))), context);
-				print_impl(indented(ln(format("printf(\"%%d\\n\", %);", function->get_arguments()[0].get_name()))), context);
+				print_impl(ln(format("static void f%(int n) {", print_number(function->get_id()))), context);
+				print_impl(indented(ln("printf(\"%d\\n\", n);")), context);
 				print_impl(ln('}'), context);
 			}
-			else {
-				print_impl(ln(format("static % f%(%) %", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function), PrintBlock(function->get_block()))), context);
-			}
+		}
+		else if (const FunctionInstantiation* function = as<FunctionInstantiation>(entity)) {
+			print_impl(ln(format("// %", function->get_function()->get_name())), context);
+			print_impl(ln(format("static % f%(%) %", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function), PrintBlock(function->get_block()))), context);
 		}
 	}
 };

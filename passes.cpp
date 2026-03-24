@@ -287,6 +287,7 @@ class Pass1 {
 	Errors* errors;
 	const Type* void_type = nullptr;
 	const Type* int_type = nullptr;
+	const BuiltinFunction* builtin_function_print_int = nullptr;
 	Instantiations<Structure, StructureInstantiation> structure_instantiations;
 	Instantiations<Function, FunctionInstantiation> function_instantiations;
 	ScopeMap* variables = nullptr;
@@ -371,6 +372,15 @@ class Pass1 {
 		}
 		return type;
 	}
+	const BuiltinFunction* get_builtin_function(const BuiltinFunction*& function, const char* name) {
+		if (function == nullptr) {
+			BuiltinFunction* f = new BuiltinFunction(name);
+			f->set_id(program->get_next_id());
+			program->add_entity(f);
+			function = f;
+		}
+		return function;
+	}
 	const Type* get_void_type() {
 		return get_builtin_type<VoidType>(void_type);
 	}
@@ -414,7 +424,7 @@ class Pass1 {
 		}
 		return instantiate_structure(match_structure, std::move(arguments));
 	}
-	const FunctionInstantiation* get_function(const StringView& name, const std::vector<Reference<Expression>>& arguments, const Type* return_type, const Expression* expression = nullptr) {
+	const Entity* get_function(const StringView& name, const std::vector<Reference<Expression>>& arguments, const Type* return_type, const Expression* expression = nullptr) {
 		if (!name) {
 			return nullptr;
 		}
@@ -422,6 +432,18 @@ class Pass1 {
 			if (get_type(argument) == nullptr) {
 				return nullptr;
 			}
+		}
+		if (name == "__builtin_joy_print_int") {
+			if (arguments.size() != 1) {
+				add_error(expression, "invalid number of arguments, expected 1 argument");
+				return nullptr;
+			}
+			const Type* argument_type = get_type(arguments[0]);
+			if (!as<IntType>(argument_type)) {
+				add_error(expression, "invalid argument type %, expected type Int", PrintTypeName(argument_type));
+				return nullptr;
+			}
+			return get_builtin_function(builtin_function_print_int, "__builtin_joy_print_int");
 		}
 		const Function* match_function = nullptr;
 		std::vector<const Type*> match_template_arguments;
@@ -458,6 +480,17 @@ class Pass1 {
 			return StringView();
 		}
 		return name->get_name();
+	}
+	const Type* get_return_type(const Entity* function) {
+		if (auto* f = as<BuiltinFunction>(function)) {
+			if (f->get_name() == "__builtin_joy_print_int") {
+				return get_void_type();
+			}
+		}
+		else if (auto* f = as<FunctionInstantiation>(function)) {
+			return f->get_return_type();
+		}
+		return nullptr;
 	}
 	const Type* get_member_type(const Type* struct_type, const StringView& member_name, const Expression* expression) {
 		if (struct_type == nullptr) {
@@ -592,11 +625,11 @@ class Pass1 {
 			for (const Expression* argument: e->get_arguments()) {
 				arguments.push_back(handle_expression(argument));
 			}
-			const FunctionInstantiation* function = get_function(name, arguments, expected_type, expression);
+			const Entity* function = get_function(name, arguments, expected_type, expression);
 			if (function == nullptr) {
 				return Reference<Expression>();
 			}
-			return with_type(new Call(new EntityReference(function), std::move(arguments)), function->get_return_type());
+			return with_type(new Call(new EntityReference(function), std::move(arguments)), get_return_type(function));
 		}
 		else if (auto* e = as<MemberAccess>(expression)) {
 			Reference<Expression> left = handle_expression(e->get_expression());
@@ -701,7 +734,7 @@ public:
 		this->errors = errors;
 	}
 	void run() {
-		const FunctionInstantiation* main_function = get_function("main", {}, get_void_type());
+		const Entity* main_function = get_function("main", {}, get_void_type());
 		if (main_function == nullptr) {
 			return;
 		}

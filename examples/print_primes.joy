@@ -1,7 +1,5 @@
-func print_int(n: Int) {}
-
 func print(n: Int) {
-	print_int(n);
+	__builtin_joy_print_int(n);
 }
 
 func is_prime(n: Int): Int {
