@@ -45,7 +45,7 @@ public:
 			print_impl(format("(% = %)", PrintExpression(assignment->get_left()), PrintExpression(assignment->get_right())), context);
 		}
 		else if (auto* call = as<Call>(expression)) {
-			const FunctionInstantiation* function = as<FunctionReference>(call->get_expression())->get_function();
+			const Entity* function = as<EntityReference>(call->get_expression())->get_entity();
 			print_impl(format("f%(%)", print_number(function->get_id()), comma_separated<PrintExpression>(call->get_arguments())), context);
 		}
 		else if (auto* member_access = as<MemberAccess>(expression)) {

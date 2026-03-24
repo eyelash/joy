@@ -59,8 +59,8 @@ enum {
 	TYPE_ID_BINARY_EXPRESSION,
 	TYPE_ID_ASSIGNMENT,
 	TYPE_ID_CALL,
-	TYPE_ID_FUNCTION_REFERENCE,
 	TYPE_ID_MEMBER_ACCESS,
+	TYPE_ID_ENTITY_REFERENCE,
 	TYPE_ID_TYPE_REFERENCE,
 	TYPE_ID_BLOCK_STATEMENT,
 	TYPE_ID_EMPTY_STATEMENT,
@@ -263,18 +263,6 @@ public:
 	}
 };
 
-class FunctionInstantiation;
-
-class FunctionReference final: public Expression {
-	const FunctionInstantiation* function;
-public:
-	static constexpr int TYPE_ID = TYPE_ID_FUNCTION_REFERENCE;
-	FunctionReference(const FunctionInstantiation* function): Expression(TYPE_ID), function(function) {}
-	const FunctionInstantiation* get_function() const {
-		return function;
-	}
-};
-
 class MemberAccess final: public Expression {
 	Reference<Expression> expression;
 	std::string member_name;
@@ -286,6 +274,16 @@ public:
 	}
 	StringView get_member_name() const {
 		return member_name;
+	}
+};
+
+class EntityReference final: public Expression {
+	const Entity* entity;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_ENTITY_REFERENCE;
+	EntityReference(const Entity* entity): Expression(TYPE_ID), entity(entity) {}
+	const Entity* get_entity() const {
+		return entity;
 	}
 };
 
