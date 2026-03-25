@@ -13,6 +13,14 @@ public:
 	}
 };
 
+class PrintStructLiteralMember {
+	const StructLiteral::Member* member;
+public:
+	PrintStructLiteralMember(const StructLiteral::Member* member): member(member) {}
+	PrintStructLiteralMember(const StructLiteral::Member& member): member(&member) {}
+	void print(Context& context) const;
+};
+
 class PrintExpression {
 	static const char* print_operation(BinaryOperation operation) {
 		if (operation == BinaryOperation::ADD) return "+";
@@ -35,6 +43,9 @@ public:
 		if (auto* int_literal = as<IntLiteral>(expression)) {
 			print_impl(print_number(int_literal->get_value()), context);
 		}
+		else if (auto* e = as<StructLiteral>(expression)) {
+			print_impl(format("((%){%})", PrintType(expression), comma_separated<PrintStructLiteralMember>(e->get_members())), context);
+		}
 		else if (auto* name = as<Name>(expression)) {
 			print_impl(name->get_name(), context);
 		}
@@ -53,6 +64,10 @@ public:
 		}
 	}
 };
+
+void PrintStructLiteralMember::print(Context& context) const {
+	print_impl(PrintExpression(member->get_expression()), context);
+}
 
 class PrintStatement {
 	const Statement* statement;

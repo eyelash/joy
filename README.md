@@ -8,7 +8,7 @@ See [design.md](design.md).
 - [x] function overloading
 - [x] templates
 - [x] uniform function call syntax
-- [ ] structs
+- [x] structs
 - [ ] strings
 - [ ] arrays
 - [ ] union types

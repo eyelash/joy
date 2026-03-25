@@ -97,8 +97,11 @@ public:
 			return new StringLiteral(e->get_string().to_string());
 		}
 		else if (auto* e = as<StructLiteral>(expression)) {
-			// TODO
-			return Reference<Expression>();
+			std::vector<StructLiteral::Member> new_members;
+			for (const StructLiteral::Member& member: e->get_members()) {
+				new_members.emplace_back(member.get_name().to_string(), copy_expression(member.get_expression()));
+			}
+			return new StructLiteral(copy_expression(e->get_type()), std::move(new_members));
 		}
 		else if (auto* e = as<ArrayLiteral>(expression)) {
 			return new ArrayLiteral(copy_expressions(e->get_elements()));
@@ -567,8 +570,50 @@ class Pass1 {
 			return Reference<Expression>();
 		}
 		else if (auto* e = as<StructLiteral>(expression)) {
-			add_error(expression, "struct literals are not yet supported");
-			return Reference<Expression>();
+			std::vector<StructLiteral::Member> members;
+			for (const StructLiteral::Member& member: e->get_members()) {
+				// TODO: propagate expected type
+				members.emplace_back(member.get_name().to_string(), handle_expression(member.get_expression()));
+			}
+			const Type* type;
+			if (e->get_type()) {
+				type = handle_type(e->get_type());
+			}
+			else {
+				type = expected_type;
+			}
+			if (type == nullptr) {
+				add_error(expression, "type of struct literal cannot be determined");
+				return Reference<Expression>();
+			}
+			auto* structure_instantiation = as<StructureInstantiation>(type);
+			if (structure_instantiation == nullptr) {
+				add_error(expression, "invalid type % for struct literal", PrintTypeName(type));
+				return Reference<Expression>();
+			}
+			const std::size_t field_count = structure_instantiation->get_members().size();
+			if (members.size() != field_count) {
+				add_error(expression, "invalid number of fields, expected %", printer::print_plural("field", field_count));
+				return Reference<Expression>();
+			}
+			bool error = false;
+			for (std::size_t i = 0; i < field_count; ++i) {
+				const StructLiteral::Member& member = members[i];
+				const StructureInstantiation::Member& expected_member = structure_instantiation->get_members()[i];
+				if (member.get_name() != expected_member.get_name()) {
+					add_error(expression, "invalid field name \"%\", expected \"%\"", member.get_name(), expected_member.get_name());
+					error = true;
+				}
+				const Type* member_type = get_type(member.get_expression());
+				if (member_type && member_type != expected_member.get_type()) {
+					add_error(expression, "invalid type % for field \"%\", expected type %", PrintTypeName(member_type), member.get_name(), PrintTypeName(expected_member.get_type()));
+					error = true;
+				}
+			}
+			if (error) {
+				return Reference<Expression>();
+			}
+			return with_type(new StructLiteral(new TypeReference(type), std::move(members)), type);
 		}
 		else if (auto* e = as<ArrayLiteral>(expression)) {
 			add_error(expression, "array literals are not yet supported");
