@@ -613,7 +613,7 @@ class Pass1 {
 			if (error) {
 				return Reference<Expression>();
 			}
-			return with_type(new StructLiteral(new TypeReference(type), std::move(members)), type);
+			return with_type(new StructLiteral(Reference<Expression>(), std::move(members)), type);
 		}
 		else if (auto* e = as<ArrayLiteral>(expression)) {
 			add_error(expression, "array literals are not yet supported");
@@ -730,7 +730,7 @@ class Pass1 {
 			if (error) {
 				return Reference<Statement>();
 			}
-			return new LetStatement(s->get_name().to_string(), new TypeReference(type), std::move(expression));
+			return new LetStatement(s->get_name().to_string(), Reference<Expression>(), std::move(expression));
 		}
 		else if (auto* s = as<IfStatement>(statement)) {
 			Reference<Expression> condition = handle_expression(s->get_condition(), get_int_type());

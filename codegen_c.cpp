@@ -99,7 +99,7 @@ void PrintStatement::print(Context& context) const {
 		print_impl(';', context);
 	}
 	else if (auto* let_statement = as<LetStatement>(statement)) {
-		print_impl(format("% % = %;", PrintType(let_statement->get_type()), let_statement->get_name(), PrintExpression(let_statement->get_expression())), context);
+		print_impl(format("% % = %;", PrintType(let_statement->get_expression()), let_statement->get_name(), PrintExpression(let_statement->get_expression())), context);
 	}
 	else if (auto* if_statement = as<IfStatement>(statement)) {
 		print_impl(format("if (%) %", PrintExpression(if_statement->get_condition()), PrintStatement(if_statement->get_then_statement())), context);

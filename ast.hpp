@@ -61,7 +61,6 @@ enum {
 	TYPE_ID_CALL,
 	TYPE_ID_MEMBER_ACCESS,
 	TYPE_ID_ENTITY_REFERENCE,
-	TYPE_ID_TYPE_REFERENCE,
 	TYPE_ID_BLOCK_STATEMENT,
 	TYPE_ID_EMPTY_STATEMENT,
 	TYPE_ID_LET_STATEMENT,
@@ -286,12 +285,6 @@ public:
 	const Entity* get_entity() const {
 		return entity;
 	}
-};
-
-class TypeReference final: public Expression {
-public:
-	static constexpr int TYPE_ID = TYPE_ID_TYPE_REFERENCE;
-	TypeReference(const Type* type): Expression(TYPE_ID, type) {}
 };
 
 class Statement: public Dynamic {
