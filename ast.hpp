@@ -575,7 +575,7 @@ class Program final: public Dynamic {
 	std::vector<Reference<Structure>> structures;
 	std::vector<Reference<Entity>> entities;
 	unsigned int current_id = 0;
-	unsigned int main_function_id = 0;
+	const Entity* main_function = nullptr;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_PROGRAM;
 	Program(): Dynamic(TYPE_ID) {}
@@ -602,11 +602,11 @@ public:
 		++current_id;
 		return current_id;
 	}
-	void set_main_function_id(unsigned int id) {
-		main_function_id = id;
+	void set_main_function(const Entity* main_function) {
+		this->main_function = main_function;
 	}
-	unsigned int get_main_function_id() const {
-		return main_function_id;
+	const Entity* get_main_function() const {
+		return main_function;
 	}
 };
 

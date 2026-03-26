@@ -214,9 +214,10 @@ public:
 		for (const Entity* entity: program->get_entities()) {
 			print_impl(PrintDefinition(entity), context);
 		}
+		const Entity* main_function = program->get_main_function();
 		print_impl(ln("int main(void) {"), context);
 		context.increase_indentation();
-		print_impl(ln(format("f%();", print_number(program->get_main_function_id()))), context);
+		print_impl(ln(format("f%();", print_number(main_function->get_id()))), context);
 		print_impl(ln("return 0;"), context);
 		context.decrease_indentation();
 		print_impl(ln('}'), context);

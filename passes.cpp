@@ -783,7 +783,7 @@ public:
 		if (main_function == nullptr) {
 			return;
 		}
-		program->set_main_function_id(main_function->get_id());
+		program->set_main_function(main_function);
 	}
 };
 
