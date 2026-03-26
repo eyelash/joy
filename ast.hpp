@@ -50,6 +50,9 @@ enum {
 	TYPE_ID_INVALID,
 	TYPE_ID_VOID_TYPE,
 	TYPE_ID_INT_TYPE,
+	TYPE_ID_STRING_TYPE,
+	TYPE_ID_ARRAY_TYPE,
+	TYPE_ID_TUPLE_TYPE,
 	TYPE_ID_INT_LITERAL,
 	TYPE_ID_CHAR_LITERAL,
 	TYPE_ID_STRING_LITERAL,
@@ -103,6 +106,32 @@ class IntType final: public Type {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_INT_TYPE;
 	IntType(): Type(TYPE_ID) {}
+};
+
+class StringType final: public Type {
+public:
+	static constexpr int TYPE_ID = TYPE_ID_STRING_TYPE;
+	StringType(): Type(TYPE_ID) {}
+};
+
+class ArrayType final: public Type {
+	const Type* element_type;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_ARRAY_TYPE;
+	ArrayType(const Type* element_type): Type(TYPE_ID), element_type(element_type) {}
+	const Type* get_element_type() const {
+		return element_type;
+	}
+};
+
+class TupleType final: public Type {
+	std::vector<const Type*> element_types;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_TUPLE_TYPE;
+	TupleType(std::vector<const Type*>&& element_types): Type(TYPE_ID), element_types(std::move(element_types)) {}
+	const std::vector<const Type*>& get_element_types() const {
+		return element_types;
+	}
 };
 
 class Expression: public Dynamic {
@@ -642,6 +671,15 @@ public:
 		}
 		else if (as<IntType>(type)) {
 			print_impl("Int", context);
+		}
+		else if (as<StringType>(type)) {
+			print_impl("String", context);
+		}
+		else if (auto* t = as<ArrayType>(type)) {
+			print_impl(printer::format("Array<%>", PrintTypeName(t->get_element_type())), context);
+		}
+		else if (auto* t = as<TupleType>(type)) {
+			print_impl(printer::format("Tuple<%>", comma_separated<PrintTypeName>(t->get_element_types())), context);
 		}
 		else if (auto* s = as<StructureInstantiation>(type)) {
 			const StringView name = s->get_structure()->get_name();

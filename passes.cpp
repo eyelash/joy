@@ -205,6 +205,30 @@ public:
 	}
 };
 
+class TypeCompare {
+public:
+	constexpr TypeCompare() {}
+	bool operator ()(const ArrayType* lhs, const ArrayType* rhs) const {
+		return std::less<const Type*>()(lhs->get_element_type(), rhs->get_element_type());
+	}
+	bool operator ()(const ArrayType* lhs, const Type* rhs) const {
+		return std::less<const Type*>()(lhs->get_element_type(), rhs);
+	}
+	bool operator ()(const Type* lhs, const ArrayType* rhs) const {
+		return std::less<const Type*>()(lhs, rhs->get_element_type());
+	}
+	bool operator ()(const TupleType* lhs, const TupleType* rhs) const {
+		return std::less<std::vector<const Type*>>()(lhs->get_element_types(), rhs->get_element_types());
+	}
+	bool operator ()(const TupleType* lhs, const std::vector<const Type*>& rhs) const {
+		return std::less<std::vector<const Type*>>()(lhs->get_element_types(), rhs);
+	}
+	bool operator ()(const std::vector<const Type*>& lhs, const TupleType* rhs) const {
+		return std::less<std::vector<const Type*>>()(lhs, rhs->get_element_types());
+	}
+	using is_transparent = std::true_type;
+};
+
 // name resolution, type checking, and template instantiation
 class Pass1 {
 	static SourceLocation get_location(const Expression* expression) {
@@ -322,6 +346,9 @@ class Pass1 {
 	Errors* errors;
 	SingletonSet<VoidType> void_type;
 	SingletonSet<IntType> int_type;
+	SingletonSet<StringType> string_type;
+	Set<ArrayType, TypeCompare> array_types;
+	Set<TupleType, TypeCompare> tuple_types;
 	const BuiltinFunction* builtin_function_print_int = nullptr;
 	Instantiations<Structure, StructureInstantiation> structure_instantiations;
 	Instantiations<Function, FunctionInstantiation> function_instantiations;
@@ -422,6 +449,15 @@ class Pass1 {
 	}
 	const Type* get_int_type() {
 		return get_builtin_type<IntType>(int_type);
+	}
+	const Type* get_string_type() {
+		return get_builtin_type<StringType>(string_type);
+	}
+	const Type* get_array_type(const Type* element_type) {
+		return get_builtin_type<ArrayType>(array_types, element_type);
+	}
+	const Type* get_tuple_type(std::vector<const Type*>&& element_types) {
+		return get_builtin_type<TupleType>(tuple_types, std::move(element_types));
 	}
 	const Type* get_type(const StringView& name, std::vector<const Type*>&& arguments, const Expression* expression = nullptr) {
 		if (!name) {
