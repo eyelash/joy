@@ -11,6 +11,17 @@ public:
 	}
 };
 
+template <class OuterT, class InnerT = OuterT> class ReferenceMapper {
+public:
+	constexpr ReferenceMapper() {}
+	template <class C, class... A> static void map(const C& callback, A&&... a) {
+		callback.push(Reference<OuterT>(new InnerT(std::forward<A>(a)...)));
+	}
+};
+
+template <class T> using ExpressionMapper = ReferenceMapper<Expression, T>;
+template <class T> using StatementMapper = ReferenceMapper<Statement, T>;
+
 class StringCollector {
 	std::string name;
 public:
@@ -173,7 +184,7 @@ template <class P> constexpr auto comma_separated(P p) {
 constexpr auto identifier = collect<StringCollector>(sequence(identifier_start_char, zero_or_more(identifier_char)));
 constexpr auto expect_identifier = choice(identifier, error("expected an identifier"));
 
-using IntLiteralCollector = MapCollector<TagMapper<NudTag<IntLiteral>>, NumberCollector>;
+using IntLiteralCollector = MapCollector<ExpressionMapper<IntLiteral>, NumberCollector>;
 
 constexpr auto int_literal = collect<IntLiteralCollector>(choice(
 	sequence(ignore("0b"), one_or_more(binary_digit)),
@@ -182,7 +193,7 @@ constexpr auto int_literal = collect<IntLiteralCollector>(choice(
 	one_or_more(decimal_digit)
 ));
 
-constexpr auto bool_literal = tag<NudTag<IntLiteral>>(choice(
+constexpr auto bool_literal = map<ExpressionMapper<IntLiteral>>(choice(
 	collect<BoolLiteralCollector<0>>(keyword("false")),
 	collect<BoolLiteralCollector<1>>(keyword("true"))
 ));
@@ -200,8 +211,8 @@ constexpr auto escape = sequence(
 	)
 );
 
-using CharLiteralCollector = MapCollector<TagMapper<NudTag<CharLiteral>>, StringCollector>;
-using StringLiteralCollector = MapCollector<TagMapper<NudTag<StringLiteral>>, StringCollector>;
+using CharLiteralCollector = MapCollector<ExpressionMapper<CharLiteral>, StringCollector>;
+using StringLiteralCollector = MapCollector<ExpressionMapper<StringLiteral>, StringCollector>;
 
 constexpr auto char_literal = collect<CharLiteralCollector>(sequence(
 	ignore('\''),
@@ -225,7 +236,7 @@ DECLARE_PARSER(type)
 DECLARE_PARSER(expression)
 DECLARE_PARSER(statement)
 
-using ArrayLiteralCollector = MapCollector<TagMapper<NudTag<ArrayLiteral>>, VectorCollector<Reference<Expression>>>;
+using ArrayLiteralCollector = MapCollector<ExpressionMapper<ArrayLiteral>, VectorCollector<Reference<Expression>>>;
 
 constexpr auto array_literal = collect<ArrayLiteralCollector>(sequence(
 	ignore('['),
@@ -283,6 +294,8 @@ constexpr auto alternative_struct_literal = collect<StructLiteralCollector>(sequ
 	expect("}")
 ));
 
+constexpr auto name = map<ExpressionMapper<Name>>(identifier);
+
 using CallCollector = MapCollector<TagMapper<LedTag<Call>>, VectorCollector<Reference<Expression>>>;
 
 constexpr auto type_impl = pratt<ExpressionCollector>(
@@ -302,7 +315,7 @@ constexpr auto type_impl = pratt<ExpressionCollector>(
 	),
 	pratt_level(
 		terminal(choice(
-			tag<NudTag<Name>>(identifier),
+			name,
 			error("expected a type")
 		))
 	)
@@ -366,7 +379,7 @@ constexpr auto expression_impl = pratt<ExpressionCollector>(
 			struct_literal,
 			bool_literal,
 			int_literal,
-			tag<NudTag<Name>>(identifier),
+			name,
 			error("expected an expression")
 		))
 	)
@@ -385,13 +398,13 @@ static constexpr auto block = collect<BlockCollector>(sequence(
 	expect("}")
 ));
 
-using BlockStatementCollector = MapCollector<NewMapper<BlockStatement>, TupleCollector<Block>>;
-using EmptyStatementCollector = MapCollector<NewMapper<EmptyStatement>, TupleCollector<>>;
-using LetStatementCollector = MapCollector<NewMapper<LetStatement>, TupleCollector<std::string, Reference<Expression>, Reference<Expression>>>;
-using IfStatementCollector = MapCollector<NewMapper<IfStatement>, TupleCollector<Reference<Expression>, Reference<Statement>, Reference<Statement>>>;
-using WhileStatementCollector = MapCollector<NewMapper<WhileStatement>, TupleCollector<Reference<Expression>, Reference<Statement>>>;
-using ReturnStatementCollector = MapCollector<NewMapper<ReturnStatement>, TupleCollector<Reference<Expression>>>;
-using ExpressionStatementCollector = MapCollector<NewMapper<ExpressionStatement>, TupleCollector<Reference<Expression>>>;
+using BlockStatementCollector = MapCollector<StatementMapper<BlockStatement>, TupleCollector<Block>>;
+using EmptyStatementCollector = MapCollector<StatementMapper<EmptyStatement>, TupleCollector<>>;
+using LetStatementCollector = MapCollector<StatementMapper<LetStatement>, TupleCollector<std::string, Reference<Expression>, Reference<Expression>>>;
+using IfStatementCollector = MapCollector<StatementMapper<IfStatement>, TupleCollector<Reference<Expression>, Reference<Statement>, Reference<Statement>>>;
+using WhileStatementCollector = MapCollector<StatementMapper<WhileStatement>, TupleCollector<Reference<Expression>, Reference<Statement>>>;
+using ReturnStatementCollector = MapCollector<StatementMapper<ReturnStatement>, TupleCollector<Reference<Expression>>>;
+using ExpressionStatementCollector = MapCollector<StatementMapper<ExpressionStatement>, TupleCollector<Reference<Expression>>>;
 
 constexpr auto statement_impl = collect<StatementCollector>(choice(
 	collect<BlockStatementCollector>(block),
@@ -460,7 +473,7 @@ constexpr auto statement_impl = collect<StatementCollector>(choice(
 ));
 DEFINE_PARSER(statement, statement_impl)
 
-using FunctionCollector = MapCollector<NewMapper<Function>, TupleCollector<std::string, std::vector<std::string>, std::vector<Function::Argument>, Reference<Expression>, Block>>;
+using FunctionCollector = MapCollector<ReferenceMapper<Function>, TupleCollector<std::string, std::vector<std::string>, std::vector<Function::Argument>, Reference<Expression>, Block>>;
 using FunctionArgumentCollector = MapCollector<ConstructorMapper<Function::Argument>, TupleCollector<std::string, Reference<Expression>>>;
 
 constexpr auto function = collect<FunctionCollector>(sequence(
@@ -508,7 +521,7 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 	)
 ));
 
-using StructureCollector = MapCollector<NewMapper<Structure>, TupleCollector<std::string, std::vector<std::string>, std::vector<Structure::Member>>>;
+using StructureCollector = MapCollector<ReferenceMapper<Structure>, TupleCollector<std::string, std::vector<std::string>, std::vector<Structure::Member>>>;
 using StructureMemberCollector = MapCollector<ConstructorMapper<Structure::Member>, TupleCollector<std::string, Reference<Expression>>>;
 
 constexpr auto structure = collect<StructureCollector>(sequence(
