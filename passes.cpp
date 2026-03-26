@@ -2,6 +2,24 @@
 #include <algorithm>
 #include <map>
 
+template <class Key, class T> class Map {
+	std::map<Key, const T*> map;
+public:
+	void insert(const Key& key, const T* value) {
+		map.emplace(key, value);
+	}
+	void insert(Key&& key, const T* value) {
+		map.emplace(std::move(key), value);
+	}
+	const T* look_up(const Key& key) const {
+		auto iterator = map.find(key);
+		if (iterator != map.end()) {
+			return iterator->second;
+		}
+		return nullptr;
+	}
+};
+
 class ScopeMap {
 	ScopeMap* parent;
 	std::map<StringView, const Type*> map;
@@ -68,21 +86,7 @@ public:
 	}
 };
 
-template <class T, class TI = T> class Instantiations {
-	std::map<InstantiationKey<T>, const TI*> instantiations;
-public:
-	void insert(InstantiationKey<T>&& key, const TI* t) {
-		// TODO: does this move actually work?
-		instantiations.emplace(std::move(key), t);
-	}
-	const TI* look_up(const InstantiationKey<T>& key) const {
-		auto iterator = instantiations.find(key);
-		if (iterator != instantiations.end()) {
-			return iterator->second;
-		}
-		return nullptr;
-	}
-};
+template <class T, class TI = T> using Instantiations = Map<InstantiationKey<T>, TI>;
 
 class Copy {
 public:
