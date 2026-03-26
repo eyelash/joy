@@ -153,6 +153,9 @@ public:
 		else if (auto* e = as<MemberAccess>(expression)) {
 			return new MemberAccess(copy_expression(e->get_expression()), e->get_member_name().to_string());
 		}
+		else if (auto* e = as<Accessor>(expression)) {
+			return new Accessor(copy_expression(e->get_left()), copy_expression(e->get_right()));
+		}
 	}
 	static Reference<Expression> copy_expression(const Expression* expression) {
 		Reference<Expression> new_expression = copy_expression_(expression);
@@ -564,6 +567,17 @@ class Pass1 {
 		}
 		return nullptr;
 	}
+	StringView get_constant_string(const Expression* expression) {
+		if (expression == nullptr) {
+			return StringView();
+		}
+		const StringLiteral* string = as<StringLiteral>(expression);
+		if (string == nullptr) {
+			add_error(expression, "invalid expression, expected a string literal");
+			return StringView();
+		}
+		return string->get_string();
+	}
 	const Type* get_member_type(const Type* struct_type, const StringView& member_name, const Expression* expression) {
 		if (struct_type == nullptr) {
 			return nullptr;
@@ -733,6 +747,10 @@ class Pass1 {
 				name = member_access->get_member_name();
 				arguments.push_back(handle_expression(member_access->get_expression()));
 			}
+			else if (auto* accessor = as<Accessor>(e->get_expression())) {
+				name = get_constant_string(accessor->get_right());
+				arguments.push_back(handle_expression(accessor->get_left()));
+			}
 			else {
 				name = get_name(e->get_expression());
 			}
@@ -749,10 +767,29 @@ class Pass1 {
 			Reference<Expression> left = handle_expression(e->get_expression());
 			StringView member_name = e->get_member_name();
 			const Type* type = get_member_type(get_type(left), member_name, expression);
-			if (left == nullptr || type == nullptr) {
+			if (type == nullptr) {
 				return Reference<Expression>();
 			}
 			return with_type(new MemberAccess(std::move(left), member_name.to_string()), type);
+		}
+		else if (auto* e = as<Accessor>(expression)) {
+			Reference<Expression> left = handle_expression(e->get_left());
+			const Type* left_type = get_type(left);
+			if (left_type == nullptr) {
+				return Reference<Expression>();
+			}
+			if (as<StructureInstantiation>(left_type)) {
+				StringView member_name = get_constant_string(e->get_right());
+				const Type* type = get_member_type(left_type, member_name, expression);
+				if (type == nullptr) {
+					return Reference<Expression>();
+				}
+				return with_type(new MemberAccess(std::move(left), member_name.to_string()), type);
+			}
+			else {
+				add_error(expression, "invalid accessor");
+				return Reference<Expression>();
+			}
 		}
 		return Reference<Expression>();
 	}

@@ -326,6 +326,8 @@ using AssignmentCollector = MapCollector<TagMapper<LedTag<Assignment>>, TupleCol
 
 using MemberAccessCollector = MapCollector<TagMapper<LedTag<MemberAccess>>, TupleCollector<std::string>>;
 
+using AccessorCollector = MapCollector<TagMapper<LedTag<Accessor>>, TupleCollector<Reference<Expression>>>;
+
 constexpr auto expression_impl = pratt<ExpressionCollector>(
 	pratt_level(
 		infix_rtl<AssignmentCollector>(operator_(sequence('=', not_('='))))
@@ -367,6 +369,14 @@ constexpr auto expression_impl = pratt<ExpressionCollector>(
 			ignore('.'),
 			whitespace,
 			expect_identifier
+		)),
+		postfix<AccessorCollector>(sequence(
+			whitespace,
+			ignore('['),
+			whitespace,
+			expression,
+			whitespace,
+			expect("]")
 		))
 	),
 	pratt_level(

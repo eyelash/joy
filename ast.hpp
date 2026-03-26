@@ -63,6 +63,7 @@ enum {
 	TYPE_ID_ASSIGNMENT,
 	TYPE_ID_CALL,
 	TYPE_ID_MEMBER_ACCESS,
+	TYPE_ID_ACCESSOR,
 	TYPE_ID_ENTITY_REFERENCE,
 	TYPE_ID_BLOCK_STATEMENT,
 	TYPE_ID_EMPTY_STATEMENT,
@@ -303,6 +304,20 @@ public:
 	}
 	StringView get_member_name() const {
 		return member_name;
+	}
+};
+
+class Accessor final: public Expression {
+	Reference<Expression> left;
+	Reference<Expression> right;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_ACCESSOR;
+	Accessor(Reference<Expression>&& left, Reference<Expression>&& right): Expression(TYPE_ID), left(std::move(left)), right(std::move(right)) {}
+	const Expression* get_left() const {
+		return left;
+	}
+	const Expression* get_right() const {
+		return right;
 	}
 };
 

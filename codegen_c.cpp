@@ -62,6 +62,13 @@ public:
 		else if (auto* member_access = as<MemberAccess>(expression)) {
 			print_impl(format("%.%", PrintExpression(member_access->get_expression()), member_access->get_member_name()), context);
 		}
+		else if (auto* accessor = as<Accessor>(expression)) {
+			const Type* left_type = accessor->get_left()->get_type();
+			if (as<StructureInstantiation>(accessor->get_left()->get_type())) {
+				const StringView member_name = as<StringLiteral>(accessor->get_right())->get_string();
+				print_impl(format("%.%", PrintExpression(accessor->get_left()), member_name), context);
+			}
+		}
 	}
 };
 
