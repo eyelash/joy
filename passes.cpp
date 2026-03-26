@@ -1,6 +1,34 @@
 #include "passes.hpp"
 #include <algorithm>
+#include <functional>
+#include <set>
 #include <map>
+
+template <class T, class Compare = std::less<>> class Set {
+	std::set<const T*, Compare> set;
+public:
+	void insert(const T* value) {
+		set.insert(value);
+	}
+	template <class K> const T* look_up(const K& key) const {
+		auto iterator = set.find(key);
+		if (iterator != set.end()) {
+			return *iterator;
+		}
+		return nullptr;
+	}
+};
+
+template <class T> class SingletonSet {
+	const T* value = nullptr;
+public:
+	void insert(const T* value) {
+		this->value = value;
+	}
+	const T* look_up() const {
+		return value;
+	}
+};
 
 template <class Key, class T> class Map {
 	std::map<Key, const T*> map;
@@ -292,8 +320,8 @@ class Pass1 {
 	};
 	Program* program;
 	Errors* errors;
-	const Type* void_type = nullptr;
-	const Type* int_type = nullptr;
+	SingletonSet<VoidType> void_type;
+	SingletonSet<IntType> int_type;
 	const BuiltinFunction* builtin_function_print_int = nullptr;
 	Instantiations<Structure, StructureInstantiation> structure_instantiations;
 	Instantiations<Function, FunctionInstantiation> function_instantiations;
@@ -370,14 +398,15 @@ class Pass1 {
 		program->add_entity(new_function);
 		return new_function;
 	}
-	template <class T> const Type* get_builtin_type(const Type*& type) {
-		if (type == nullptr) {
-			T* t = new T();
-			t->set_id(program->get_next_id());
-			program->add_entity(t);
-			type = t;
+	template <class T, class S, class... A> const Type* get_builtin_type(S& set, A&&... arguments) {
+		if (const Type* type = set.look_up(arguments...)) {
+			return type;
 		}
-		return type;
+		T* t = new T(std::forward<A>(arguments)...);
+		t->set_id(program->get_next_id());
+		program->add_entity(t);
+		set.insert(t);
+		return t;
 	}
 	const BuiltinFunction* get_builtin_function(const BuiltinFunction*& function, const char* name) {
 		if (function == nullptr) {
