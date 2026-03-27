@@ -59,9 +59,6 @@ public:
 			const Entity* function = as<EntityReference>(call->get_expression())->get_entity();
 			print_impl(format("f%(%)", print_number(function->get_id()), comma_separated<PrintExpression>(call->get_arguments())), context);
 		}
-		else if (auto* member_access = as<MemberAccess>(expression)) {
-			print_impl(format("%.%", PrintExpression(member_access->get_expression()), member_access->get_member_name()), context);
-		}
 		else if (auto* accessor = as<Accessor>(expression)) {
 			const Type* left_type = accessor->get_left()->get_type();
 			if (as<StructureInstantiation>(accessor->get_left()->get_type())) {

@@ -324,8 +324,6 @@ DEFINE_PARSER(type, type_impl)
 
 using AssignmentCollector = MapCollector<TagMapper<LedTag<Assignment>>, TupleCollector<Reference<Expression>>>;
 
-using MemberAccessCollector = MapCollector<TagMapper<LedTag<MemberAccess>>, TupleCollector<std::string>>;
-
 using AccessorCollector = MapCollector<TagMapper<LedTag<Accessor>>, TupleCollector<Reference<Expression>>>;
 
 constexpr auto expression_impl = pratt<ExpressionCollector>(
@@ -364,11 +362,11 @@ constexpr auto expression_impl = pratt<ExpressionCollector>(
 			whitespace,
 			expect(")")
 		)),
-		postfix<MemberAccessCollector>(sequence(
+		postfix<AccessorCollector>(sequence(
 			whitespace,
 			ignore('.'),
 			whitespace,
-			expect_identifier
+			map<ExpressionMapper<StringLiteral>>(expect_identifier)
 		)),
 		postfix<AccessorCollector>(sequence(
 			whitespace,

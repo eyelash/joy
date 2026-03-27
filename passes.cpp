@@ -150,9 +150,6 @@ public:
 		else if (auto* e = as<Call>(expression)) {
 			return new Call(copy_expression(e->get_expression()), copy_expressions(e->get_arguments()));
 		}
-		else if (auto* e = as<MemberAccess>(expression)) {
-			return new MemberAccess(copy_expression(e->get_expression()), e->get_member_name().to_string());
-		}
 		else if (auto* e = as<Accessor>(expression)) {
 			return new Accessor(copy_expression(e->get_left()), copy_expression(e->get_right()));
 		}
@@ -743,11 +740,7 @@ class Pass1 {
 			StringView name;
 			std::vector<Reference<Expression>> arguments;
 			// uniform function call syntax
-			if (auto* member_access = as<MemberAccess>(e->get_expression())) {
-				name = member_access->get_member_name();
-				arguments.push_back(handle_expression(member_access->get_expression()));
-			}
-			else if (auto* accessor = as<Accessor>(e->get_expression())) {
+			if (auto* accessor = as<Accessor>(e->get_expression())) {
 				name = get_constant_string(accessor->get_right());
 				arguments.push_back(handle_expression(accessor->get_left()));
 			}
@@ -763,15 +756,6 @@ class Pass1 {
 			}
 			return with_type(new Call(new EntityReference(function), std::move(arguments)), get_return_type(function));
 		}
-		else if (auto* e = as<MemberAccess>(expression)) {
-			Reference<Expression> left = handle_expression(e->get_expression());
-			StringView member_name = e->get_member_name();
-			const Type* type = get_member_type(get_type(left), member_name, expression);
-			if (type == nullptr) {
-				return Reference<Expression>();
-			}
-			return with_type(new MemberAccess(std::move(left), member_name.to_string()), type);
-		}
 		else if (auto* e = as<Accessor>(expression)) {
 			Reference<Expression> left = handle_expression(e->get_left());
 			const Type* left_type = get_type(left);
@@ -784,7 +768,7 @@ class Pass1 {
 				if (type == nullptr) {
 					return Reference<Expression>();
 				}
-				return with_type(new MemberAccess(std::move(left), member_name.to_string()), type);
+				return with_type(new Accessor(std::move(left), new StringLiteral(member_name.to_string())), type);
 			}
 			else {
 				add_error(expression, "invalid accessor");
