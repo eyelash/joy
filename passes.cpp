@@ -186,14 +186,14 @@ public:
 		}
 		else if (auto* s = as<IfStatement>(statement)) {
 			Reference<Expression> condition = copy_expression(s->get_condition());
-			Reference<Statement> then_statement = copy_statement(s->get_then_statement());
-			Reference<Statement> else_statement = copy_statement(s->get_else_statement());
-			return new IfStatement(std::move(condition), std::move(then_statement), std::move(else_statement));
+			Block then_block = copy_block(s->get_then_block());
+			Block else_block = copy_block(s->get_else_block());
+			return new IfStatement(std::move(condition), std::move(then_block), std::move(else_block));
 		}
 		else if (auto* s = as<WhileStatement>(statement)) {
 			Reference<Expression> condition = copy_expression(s->get_condition());
-			Reference<Statement> statement = copy_statement(s->get_statement());
-			return new WhileStatement(std::move(condition), std::move(statement));
+			Block block = copy_block(s->get_block());
+			return new WhileStatement(std::move(condition), std::move(block));
 		}
 		else if (auto* s = as<ReturnStatement>(statement)) {
 			Reference<Expression> expression = copy_expression(s->get_expression());
@@ -824,24 +824,24 @@ class Pass1 {
 		}
 		else if (auto* s = as<IfStatement>(statement)) {
 			Reference<Expression> condition = handle_expression(s->get_condition(), get_int_type());
-			Reference<Statement> then_statement = handle_statement(s->get_then_statement());
-			Reference<Statement> else_statement = handle_statement(s->get_else_statement());
-			bool error = condition == nullptr || then_statement == nullptr || else_statement == nullptr;
+			Block then_block = handle_block(s->get_then_block());
+			Block else_block = handle_block(s->get_else_block());
+			bool error = condition == nullptr;
 			check_type(condition, get_int_type(), error);
 			if (error) {
 				return Reference<Statement>();
 			}
-			return new IfStatement(std::move(condition), std::move(then_statement), std::move(else_statement));
+			return new IfStatement(std::move(condition), std::move(then_block), std::move(else_block));
 		}
 		else if (auto* s = as<WhileStatement>(statement)) {
 			Reference<Expression> condition = handle_expression(s->get_condition(), get_int_type());
-			Reference<Statement> statement = handle_statement(s->get_statement());
-			bool error = condition == nullptr || statement == nullptr;
+			Block block = handle_block(s->get_block());
+			bool error = condition == nullptr;
 			check_type(condition, get_int_type(), error);
 			if (error) {
 				return Reference<Statement>();
 			}
-			return new WhileStatement(std::move(condition), std::move(statement));
+			return new WhileStatement(std::move(condition), std::move(block));
 		}
 		else if (auto* s = as<ReturnStatement>(statement)) {
 			const Type* return_type = current_function->get_return_type();

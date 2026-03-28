@@ -326,6 +326,11 @@ class Block {
 public:
 	Block() {}
 	Block(std::vector<Reference<Statement>>&& statements): statements(std::move(statements)) {}
+	Block(Reference<Statement>&& statement) {
+		if (statement) {
+			statements.push_back(std::move(statement));
+		}
+	}
 	const std::vector<Reference<Statement>>& get_statements() const {
 		return statements;
 	}
@@ -367,37 +372,35 @@ public:
 
 class IfStatement final: public Statement {
 	Reference<Expression> condition;
-	Reference<Statement> then_statement;
-	Reference<Statement> else_statement;
+	Block then_block;
+	Block else_block;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_IF_STATEMENT;
-	IfStatement(Reference<Expression>&& condition, Reference<Statement>&& then_statement, Reference<Statement>&& else_statement): Statement(TYPE_ID), condition(std::move(condition)), then_statement(std::move(then_statement)), else_statement(std::move(else_statement)) {
-		if (this->else_statement == nullptr) {
-			this->else_statement = new EmptyStatement();
-		}
-	}
+	IfStatement(Reference<Expression>&& condition, Block&& then_block, Block&& else_block): Statement(TYPE_ID), condition(std::move(condition)), then_block(std::move(then_block)), else_block(std::move(else_block)) {}
+	IfStatement(Reference<Expression>&& condition, Reference<Statement>&& then_statement, Reference<Statement>&& else_statement): Statement(TYPE_ID), condition(std::move(condition)), then_block(std::move(then_statement)), else_block(std::move(else_statement)) {}
 	const Expression* get_condition() const {
 		return condition;
 	}
-	const Statement* get_then_statement() const {
-		return then_statement;
+	const Block* get_then_block() const {
+		return &then_block;
 	}
-	const Statement* get_else_statement() const {
-		return else_statement;
+	const Block* get_else_block() const {
+		return &else_block;
 	}
 };
 
 class WhileStatement final: public Statement {
 	Reference<Expression> condition;
-	Reference<Statement> statement;
+	Block block;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_WHILE_STATEMENT;
-	WhileStatement(Reference<Expression>&& condition, Reference<Statement>&& statement): Statement(TYPE_ID), condition(std::move(condition)), statement(std::move(statement)) {}
+	WhileStatement(Reference<Expression>&& condition, Block&& block): Statement(TYPE_ID), condition(std::move(condition)), block(std::move(block)) {}
+	WhileStatement(Reference<Expression>&& condition, Reference<Statement>&& statement): Statement(TYPE_ID), condition(std::move(condition)), block(std::move(statement)) {}
 	const Expression* get_condition() const {
 		return condition;
 	}
-	const Statement* get_statement() const {
-		return statement;
+	const Block* get_block() const {
+		return &block;
 	}
 };
 

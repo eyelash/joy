@@ -106,13 +106,10 @@ void PrintStatement::print(Context& context) const {
 		print_impl(format("% % = %;", PrintType(let_statement->get_expression()), let_statement->get_name(), PrintExpression(let_statement->get_expression())), context);
 	}
 	else if (auto* if_statement = as<IfStatement>(statement)) {
-		print_impl(format("if (%) %", PrintExpression(if_statement->get_condition()), PrintStatement(if_statement->get_then_statement())), context);
-		if (auto* else_statement = if_statement->get_else_statement()) {
-			print_impl(format(" else %", PrintStatement(else_statement)), context);
-		}
+		print_impl(format("if (%) % else %", PrintExpression(if_statement->get_condition()), PrintBlock(if_statement->get_then_block()), PrintBlock(if_statement->get_else_block())), context);
 	}
 	else if (auto* while_statement = as<WhileStatement>(statement)) {
-		print_impl(format("while (%) %", PrintExpression(while_statement->get_condition()), PrintStatement(while_statement->get_statement())), context);
+		print_impl(format("while (%) %", PrintExpression(while_statement->get_condition()), PrintBlock(while_statement->get_block())), context);
 	}
 	else if (auto* return_statement = as<ReturnStatement>(statement)) {
 		const Expression* expression = return_statement->get_expression();
