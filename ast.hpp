@@ -139,7 +139,6 @@ class Expression: public Dynamic {
 	const Type* type;
 public:
 	Expression(int type_id): Dynamic(type_id), type(nullptr) {}
-	Expression(int type_id, const Type* type): Dynamic(type_id), type(type) {}
 	void set_location(const SourceLocation& location) {
 		this->location = location;
 	}

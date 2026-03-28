@@ -105,17 +105,6 @@ public:
 
 template <BinaryOperation operation> using OperationCollector = MapCollector<TagMapper<BinaryOperationTag<operation>>, TupleCollector<Reference<Expression>>>;
 
-class BlockCollector {
-	std::vector<Reference<Statement>> statements;
-public:
-	void push(Reference<Statement>&& statement) {
-		statements.push_back(std::move(statement));
-	}
-	template <class C> void retrieve(const C& callback) {
-		callback.push(Block(std::move(statements)));
-	}
-};
-
 class StatementCollector {
 	Reference<Statement> statement;
 public:
@@ -393,6 +382,8 @@ constexpr auto expression_impl = pratt<ExpressionCollector>(
 	)
 );
 DEFINE_PARSER(expression, expression_impl)
+
+using BlockCollector = MapCollector<ConstructorMapper<Block>, VectorCollector<Reference<Statement>>>;
 
 static constexpr auto block = collect<BlockCollector>(sequence(
 	ignore('{'),

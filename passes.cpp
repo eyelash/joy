@@ -713,7 +713,7 @@ class Pass1 {
 			Reference<Expression> right = handle_expression(e->get_right());
 			bool error = left == nullptr || right == nullptr;
 			if (left && right) {
-				if (!(left->get_type() == get_int_type() && right->get_type() == get_int_type())) {
+				if (!(as<IntType>(left->get_type()) && as<IntType>(right->get_type()))) {
 					add_error(expression, "invalid binary expression");
 					error = true;
 				}
