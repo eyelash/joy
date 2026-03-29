@@ -376,7 +376,6 @@ class IfStatement final: public Statement {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_IF_STATEMENT;
 	IfStatement(Reference<Expression>&& condition, Block&& then_block, Block&& else_block): Statement(TYPE_ID), condition(std::move(condition)), then_block(std::move(then_block)), else_block(std::move(else_block)) {}
-	IfStatement(Reference<Expression>&& condition, Reference<Statement>&& then_statement, Reference<Statement>&& else_statement): Statement(TYPE_ID), condition(std::move(condition)), then_block(std::move(then_statement)), else_block(std::move(else_statement)) {}
 	const Expression* get_condition() const {
 		return condition;
 	}
@@ -394,7 +393,6 @@ class WhileStatement final: public Statement {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_WHILE_STATEMENT;
 	WhileStatement(Reference<Expression>&& condition, Block&& block): Statement(TYPE_ID), condition(std::move(condition)), block(std::move(block)) {}
-	WhileStatement(Reference<Expression>&& condition, Reference<Statement>&& statement): Statement(TYPE_ID), condition(std::move(condition)), block(std::move(statement)) {}
 	const Expression* get_condition() const {
 		return condition;
 	}

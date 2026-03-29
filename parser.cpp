@@ -105,17 +105,6 @@ public:
 
 template <BinaryOperation operation> using OperationCollector = MapCollector<TagMapper<BinaryOperationTag<operation>>, TupleCollector<Reference<Expression>>>;
 
-class StatementCollector {
-	Reference<Statement> statement;
-public:
-	void push(Reference<Statement>&& statement) {
-		this->statement = std::move(statement);
-	}
-	template <class C> void retrieve(const C& callback) {
-		callback.push(std::move(statement));
-	}
-};
-
 class ProgramCollector {
 	std::vector<Reference<Function>> functions;
 	std::vector<Reference<Structure>> structures;
@@ -224,6 +213,7 @@ constexpr auto string_literal = collect<StringLiteralCollector>(sequence(
 DECLARE_PARSER(type)
 DECLARE_PARSER(expression)
 DECLARE_PARSER(statement)
+DECLARE_PARSER(branch)
 
 using ArrayLiteralCollector = MapCollector<ExpressionMapper<ArrayLiteral>, VectorCollector<Reference<Expression>>>;
 
@@ -397,15 +387,12 @@ static constexpr auto block = collect<BlockCollector>(sequence(
 	expect("}")
 ));
 
-using BlockStatementCollector = MapCollector<StatementMapper<BlockStatement>, TupleCollector<Block>>;
 using EmptyStatementCollector = MapCollector<StatementMapper<EmptyStatement>, TupleCollector<>>;
 using LetStatementCollector = MapCollector<StatementMapper<LetStatement>, TupleCollector<std::string, Reference<Expression>, Reference<Expression>>>;
-using IfStatementCollector = MapCollector<StatementMapper<IfStatement>, TupleCollector<Reference<Expression>, Reference<Statement>, Reference<Statement>>>;
-using WhileStatementCollector = MapCollector<StatementMapper<WhileStatement>, TupleCollector<Reference<Expression>, Reference<Statement>>>;
+using IfStatementCollector = MapCollector<StatementMapper<IfStatement>, TupleCollector<Reference<Expression>, Block, Block>>;
+using WhileStatementCollector = MapCollector<StatementMapper<WhileStatement>, TupleCollector<Reference<Expression>, Block>>;
 using ReturnStatementCollector = MapCollector<StatementMapper<ReturnStatement>, TupleCollector<Reference<Expression>>>;
 using ExpressionStatementCollector = MapCollector<StatementMapper<ExpressionStatement>, TupleCollector<Reference<Expression>>>;
-
-constexpr auto block_statement = collect<BlockStatementCollector>(block);
 
 constexpr auto empty_statement = collect<EmptyStatementCollector>(ignore(';'));
 
@@ -436,12 +423,12 @@ constexpr auto if_statement = collect<IfStatementCollector>(sequence(
 	whitespace,
 	expect(")"),
 	whitespace,
-	tag<TupleIndex<1>>(statement),
+	tag<TupleIndex<1>>(branch),
 	whitespace,
 	optional(sequence(
 		keyword("else"),
 		whitespace,
-		tag<TupleIndex<2>>(statement)
+		tag<TupleIndex<2>>(branch)
 	))
 ));
 
@@ -454,7 +441,7 @@ constexpr auto while_statement = collect<WhileStatementCollector>(sequence(
 	whitespace,
 	expect(")"),
 	whitespace,
-	statement
+	branch
 ));
 
 constexpr auto return_statement = collect<ReturnStatementCollector>(sequence(
@@ -475,16 +462,28 @@ constexpr auto expression_statement = collect<ExpressionStatementCollector>(sequ
 	expect(";")
 ));
 
-constexpr auto statement_impl = collect<StatementCollector>(choice(
-	block_statement,
+constexpr auto statement_impl = choice(
+	map<StatementMapper<BlockStatement>>(block),
 	empty_statement,
 	let_statement,
 	if_statement,
 	while_statement,
 	return_statement,
 	expression_statement
-));
+);
 DEFINE_PARSER(statement, statement_impl)
+
+constexpr auto branch_impl = choice(
+	block,
+	map<ConstructorMapper<Block>>(choice(
+		empty_statement,
+		if_statement,
+		while_statement,
+		return_statement,
+		expression_statement
+	))
+);
+DEFINE_PARSER(branch, branch_impl)
 
 using FunctionCollector = MapCollector<ReferenceMapper<Function>, TupleCollector<std::string, std::vector<std::string>, std::vector<Function::Argument>, Reference<Expression>, Block>>;
 using FunctionArgumentCollector = MapCollector<ConstructorMapper<Function::Argument>, TupleCollector<std::string, Reference<Expression>>>;
