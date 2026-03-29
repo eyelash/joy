@@ -666,6 +666,7 @@ class PrintTypeName {
 public:
 	constexpr PrintTypeName(const Type* type): type(type) {}
 	void print(printer::Context& context) const {
+		using namespace printer;
 		if (as<VoidType>(type)) {
 			print_impl("Void", context);
 		}
@@ -676,18 +677,43 @@ public:
 			print_impl("String", context);
 		}
 		else if (auto* t = as<ArrayType>(type)) {
-			print_impl(printer::format("Array<%>", PrintTypeName(t->get_element_type())), context);
+			print_impl(format("Array<%>", PrintTypeName(t->get_element_type())), context);
 		}
 		else if (auto* t = as<TupleType>(type)) {
-			print_impl(printer::format("Tuple<%>", comma_separated<PrintTypeName>(t->get_element_types())), context);
+			print_impl(format("Tuple<%>", comma_separated<PrintTypeName>(t->get_element_types())), context);
 		}
 		else if (auto* s = as<StructureInstantiation>(type)) {
 			const StringView name = s->get_structure()->get_name();
 			const std::vector<const Type*>& template_arguments = s->get_template_arguments();
 			print_impl(name, context);
 			if (!template_arguments.empty()) {
-				print_impl(printer::format("<%>", comma_separated<PrintTypeName>(template_arguments)), context);
+				print_impl(format("<%>", comma_separated<PrintTypeName>(template_arguments)), context);
 			}
 		}
+	}
+};
+
+class PrintFunctionArgumentTypeName {
+	const FunctionInstantiation::Argument* argument;
+public:
+	PrintFunctionArgumentTypeName(const FunctionInstantiation::Argument& argument): argument(&argument) {}
+	void print(printer::Context& context) const {
+		print_impl(PrintTypeName(argument->get_type()), context);
+	}
+};
+
+class PrintFunctionSignature {
+	const FunctionInstantiation* function;
+public:
+	PrintFunctionSignature(const FunctionInstantiation* function): function(function) {}
+	void print(printer::Context& context) const {
+		using namespace printer;
+		const StringView name = function->get_function()->get_name();
+		const std::vector<const Type*>& template_arguments = function->get_template_arguments();
+		print_impl(name, context);
+		if (!template_arguments.empty()) {
+			print_impl(format("<%>", comma_separated<PrintTypeName>(template_arguments)), context);
+		}
+		print_impl(format("(%): %", comma_separated<PrintFunctionArgumentTypeName>(function->get_arguments()), PrintTypeName(function->get_return_type())), context);
 	}
 };

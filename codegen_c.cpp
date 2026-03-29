@@ -198,7 +198,7 @@ public:
 			}
 		}
 		else if (const FunctionInstantiation* function = as<FunctionInstantiation>(entity)) {
-			print_impl(ln(format("// %", function->get_function()->get_name())), context);
+			print_impl(ln(format("// %", PrintFunctionSignature(function))), context);
 			print_impl(ln(format("static % f%(%) %", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function), PrintBlock(function->get_block()))), context);
 		}
 	}
