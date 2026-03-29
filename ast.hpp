@@ -422,7 +422,7 @@ public:
 	}
 };
 
-class Function final: public Dynamic {
+class Function final: public Entity {
 public:
 	class Argument {
 		std::string name;
@@ -444,7 +444,7 @@ private:
 	Block block;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_FUNCTION;
-	Function(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): Dynamic(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), arguments(std::move(arguments)), return_type(std::move(return_type)), block(std::move(block)) {
+	Function(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): Entity(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), arguments(std::move(arguments)), return_type(std::move(return_type)), block(std::move(block)) {
 		if (this->return_type == nullptr) {
 			this->return_type = new Name("Void");
 		}
@@ -466,7 +466,7 @@ public:
 	}
 };
 
-class Structure final: public Dynamic {
+class Structure final: public Entity {
 public:
 	class Member {
 		std::string name;
@@ -486,7 +486,7 @@ private:
 	std::vector<Member> members;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_STRUCTURE;
-	Structure(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Member>&& members): Dynamic(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), members(std::move(members)) {}
+	Structure(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Member>&& members): Entity(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), members(std::move(members)) {}
 	StringView get_name() const {
 		return name;
 	}
@@ -600,26 +600,22 @@ public:
 
 class Program final: public Dynamic {
 	std::string path;
-	std::vector<Reference<Function>> functions;
-	std::vector<Reference<Structure>> structures;
+	std::vector<Reference<Entity>> source_entities;
 	std::vector<Reference<Entity>> entities;
 	unsigned int current_id = 0;
 	const Entity* main_function = nullptr;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_PROGRAM;
 	Program(): Dynamic(TYPE_ID) {}
-	Program(std::vector<Reference<Function>>&& functions, std::vector<Reference<Structure>>&& structures): Dynamic(TYPE_ID), functions(std::move(functions)), structures(std::move(structures)) {}
+	Program(std::vector<Reference<Entity>>&& source_entities): Dynamic(TYPE_ID), source_entities(std::move(source_entities)) {}
 	void set_path(const char* path) {
 		this->path = path;
 	}
 	const std::string& get_path() const {
 		return path;
 	}
-	const std::vector<Reference<Function>>& get_functions() const {
-		return functions;
-	}
-	const std::vector<Reference<Structure>>& get_structures() const {
-		return structures;
+	const std::vector<Reference<Entity>>& get_source_entities() const {
+		return source_entities;
 	}
 	void add_entity(Reference<Entity>&& entity) {
 		entities.push_back(std::move(entity));

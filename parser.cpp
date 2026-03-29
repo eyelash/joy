@@ -19,6 +19,7 @@ public:
 	}
 };
 
+template <class T> using EntityMapper = ReferenceMapper<Entity, T>;
 template <class T> using ExpressionMapper = ReferenceMapper<Expression, T>;
 template <class T> using StatementMapper = ReferenceMapper<Statement, T>;
 
@@ -104,21 +105,6 @@ public:
 };
 
 template <BinaryOperation operation> using OperationCollector = MapCollector<TagMapper<BinaryOperationTag<operation>>, TupleCollector<Reference<Expression>>>;
-
-class ProgramCollector {
-	std::vector<Reference<Function>> functions;
-	std::vector<Reference<Structure>> structures;
-public:
-	void push(Reference<Function>&& function) {
-		functions.push_back(std::move(function));
-	}
-	void push(Reference<Structure>&& structure) {
-		structures.push_back(std::move(structure));
-	}
-	template <class C> void retrieve(const C& callback) {
-		callback.push(new Program(std::move(functions), std::move(structures)));
-	}
-};
 
 constexpr auto whitespace_char = choice(' ', '\t', '\n', '\r');
 
@@ -485,7 +471,7 @@ constexpr auto branch_impl = choice(
 );
 DEFINE_PARSER(branch, branch_impl)
 
-using FunctionCollector = MapCollector<ReferenceMapper<Function>, TupleCollector<std::string, std::vector<std::string>, std::vector<Function::Argument>, Reference<Expression>, Block>>;
+using FunctionCollector = MapCollector<EntityMapper<Function>, TupleCollector<std::string, std::vector<std::string>, std::vector<Function::Argument>, Reference<Expression>, Block>>;
 using FunctionArgumentCollector = MapCollector<ConstructorMapper<Function::Argument>, TupleCollector<std::string, Reference<Expression>>>;
 
 constexpr auto function = collect<FunctionCollector>(sequence(
@@ -533,7 +519,7 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 	)
 ));
 
-using StructureCollector = MapCollector<ReferenceMapper<Structure>, TupleCollector<std::string, std::vector<std::string>, std::vector<Structure::Member>>>;
+using StructureCollector = MapCollector<EntityMapper<Structure>, TupleCollector<std::string, std::vector<std::string>, std::vector<Structure::Member>>>;
 using StructureMemberCollector = MapCollector<ConstructorMapper<Structure::Member>, TupleCollector<std::string, Reference<Expression>>>;
 
 constexpr auto structure = collect<StructureCollector>(sequence(
@@ -569,6 +555,8 @@ constexpr auto structure = collect<StructureCollector>(sequence(
 	whitespace,
 	expect("}")
 ));
+
+using ProgramCollector = MapCollector<ReferenceMapper<Program>, VectorCollector<Reference<Entity>>>;
 
 constexpr auto program = collect<ProgramCollector>(sequence(
 	whitespace,

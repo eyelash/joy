@@ -477,11 +477,13 @@ class Pass1 {
 		const Structure* match_structure = nullptr;
 		unsigned int match_count = 0;
 		// TODO: optimize
-		for (const Structure* structure: program->get_structures()) {
-			if (structure->get_name() == name) {
-				if (structure->get_template_arguments().size() == arguments.size()) {
-					match_structure = structure;
-					++match_count;
+		for (const Entity* entity: program->get_source_entities()) {
+			if (const Structure* structure = as<Structure>(entity)) {
+				if (structure->get_name() == name) {
+					if (structure->get_template_arguments().size() == arguments.size()) {
+						match_structure = structure;
+						++match_count;
+					}
 				}
 			}
 		}
@@ -521,13 +523,15 @@ class Pass1 {
 		std::vector<const Type*> match_template_arguments;
 		unsigned int match_count = 0;
 		// TODO: optimize
-		for (const Function* function: program->get_functions()) {
-			if (function->get_name() == name) {
-				std::vector<const Type*> template_arguments;
-				if (Unification(function, arguments, return_type, template_arguments).run()) {
-					match_function = function;
-					match_template_arguments = std::move(template_arguments);
-					++match_count;
+		for (const Entity* entity: program->get_source_entities()) {
+			if (const Function* function = as<Function>(entity)) {
+				if (function->get_name() == name) {
+					std::vector<const Type*> template_arguments;
+					if (Unification(function, arguments, return_type, template_arguments).run()) {
+						match_function = function;
+						match_template_arguments = std::move(template_arguments);
+						++match_count;
+					}
 				}
 			}
 		}
