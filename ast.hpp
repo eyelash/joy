@@ -618,6 +618,7 @@ public:
 		return source_entities;
 	}
 	void add_entity(Reference<Entity>&& entity) {
+		entity->set_id(get_next_id());
 		entities.push_back(std::move(entity));
 	}
 	const std::vector<Reference<Entity>>& get_entities() const {

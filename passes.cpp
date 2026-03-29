@@ -248,26 +248,13 @@ class Pass1 {
 		const std::vector<Reference<Expression>>& arguments;
 		const Type* return_type;
 		std::vector<const Type*>& template_arguments;
-		bool is_variable(const StringView& name) {
-			for (StringView template_argument_name: function->get_template_arguments()) {
-				if (name == template_argument_name) {
-					return true;
-				}
-			}
-			return false;
-		}
-		bool set_variable(const StringView& name, const Type* type) {
-			for (std::size_t i = 0; i < template_arguments.size(); ++i) {
+		Index look_up_variable(const StringView& name) {
+			for (std::size_t i = 0; i < function->get_template_arguments().size(); ++i) {
 				if (name == function->get_template_arguments()[i]) {
-					if (template_arguments[i]) {
-						// variable already set
-						return template_arguments[i] == type;
-					}
-					template_arguments[i] = type;
-					return true;
+					return i;
 				}
 			}
-			return false;
+			return Index();
 		}
 		bool match(const Expression* function_argument, const Type* argument) {
 			if (argument == nullptr) {
@@ -275,8 +262,13 @@ class Pass1 {
 			}
 			if (auto* e = as<Name>(function_argument)) {
 				StringView name = e->get_name();
-				if (is_variable(name)) {
-					return set_variable(name, argument);
+				if (const Index i = look_up_variable(name)) {
+					if (template_arguments[*i]) {
+						// variable already set
+						return template_arguments[*i] == argument;
+					}
+					template_arguments[*i] = argument;
+					return true;
 				}
 				if (as<VoidType>(argument)) {
 					return name == "Void";
@@ -367,14 +359,13 @@ class Pass1 {
 			return new_structure;
 		}
 		StructureInstantiation* new_structure = new StructureInstantiation(structure);
-		new_structure->set_id(program->get_next_id());
+		auto previous_type_variables = this->type_variables;
 		// template arguments
 		ScopeMap type_variables;
 		for (std::size_t i = 0; i < key.get_arguments().size(); ++i) {
 			new_structure->add_template_argument(key.get_arguments()[i]);
 			type_variables.insert(structure->get_template_arguments()[i], key.get_arguments()[i]);
 		}
-		ScopeMap* previous_type_variables = this->type_variables;
 		this->type_variables = &type_variables;
 		// members
 		structure_instantiations.insert(std::move(key), new_structure);
@@ -394,14 +385,15 @@ class Pass1 {
 			return new_function;
 		}
 		FunctionInstantiation* new_function = new FunctionInstantiation(function);
-		new_function->set_id(program->get_next_id());
+		auto previous_variables = this->variables;
+		auto previous_type_variables = this->type_variables;
+		auto previous_current_function = this->current_function;
 		// template arguments
 		ScopeMap type_variables;
 		for (std::size_t i = 0; i < key.get_arguments().size(); ++i) {
 			new_function->add_template_argument(key.get_arguments()[i]);
 			type_variables.insert(function->get_template_arguments()[i], key.get_arguments()[i]);
 		}
-		ScopeMap* previous_type_variables = this->type_variables;
 		this->type_variables = &type_variables;
 		// arguments
 		ScopeMap variables;
@@ -410,12 +402,10 @@ class Pass1 {
 			new_function->add_argument(argument.get_name(), argument_type);
 			variables.insert(argument.get_name(), argument_type);
 		}
-		ScopeMap* previous_variables = this->variables;
 		this->variables = &variables;
 		// return type
 		new_function->set_return_type(handle_type(function->get_return_type()));
 		// block
-		const FunctionInstantiation* previous_current_function = this->current_function;
 		this->current_function = new_function;
 		function_instantiations.insert(std::move(key), new_function);
 		new_function->set_block(handle_block(function->get_block()));
@@ -430,7 +420,6 @@ class Pass1 {
 			return type;
 		}
 		T* t = new T(std::forward<A>(arguments)...);
-		t->set_id(program->get_next_id());
 		program->add_entity(t);
 		set.insert(t);
 		return t;
@@ -438,7 +427,6 @@ class Pass1 {
 	const BuiltinFunction* get_builtin_function(const BuiltinFunction*& function, const char* name) {
 		if (function == nullptr) {
 			BuiltinFunction* f = new BuiltinFunction(name);
-			f->set_id(program->get_next_id());
 			program->add_entity(f);
 			function = f;
 		}

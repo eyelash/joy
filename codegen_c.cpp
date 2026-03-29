@@ -40,30 +40,30 @@ class PrintExpression {
 public:
 	PrintExpression(const Expression* expression): expression(expression) {}
 	void print(Context& context) const {
-		if (auto* int_literal = as<IntLiteral>(expression)) {
-			print_impl(print_number(int_literal->get_value()), context);
+		if (auto* e = as<IntLiteral>(expression)) {
+			print_impl(print_number(e->get_value()), context);
 		}
 		else if (auto* e = as<StructLiteral>(expression)) {
 			print_impl(format("((%){%})", PrintType(expression), comma_separated<PrintStructLiteralMember>(e->get_members())), context);
 		}
-		else if (auto* name = as<Name>(expression)) {
-			print_impl(name->get_name(), context);
+		else if (auto* e = as<Name>(expression)) {
+			print_impl(e->get_name(), context);
 		}
-		else if (auto* binary_expression = as<BinaryExpression>(expression)) {
-			print_impl(format("(% % %)", PrintExpression(binary_expression->get_left()), print_operation(binary_expression->get_operation()), PrintExpression(binary_expression->get_right())), context);
+		else if (auto* e = as<BinaryExpression>(expression)) {
+			print_impl(format("(% % %)", PrintExpression(e->get_left()), print_operation(e->get_operation()), PrintExpression(e->get_right())), context);
 		}
-		else if (auto* assignment = as<Assignment>(expression)) {
-			print_impl(format("(% = %)", PrintExpression(assignment->get_left()), PrintExpression(assignment->get_right())), context);
+		else if (auto* e = as<Assignment>(expression)) {
+			print_impl(format("(% = %)", PrintExpression(e->get_left()), PrintExpression(e->get_right())), context);
 		}
-		else if (auto* call = as<Call>(expression)) {
-			const Entity* function = as<EntityReference>(call->get_expression())->get_entity();
-			print_impl(format("f%(%)", print_number(function->get_id()), comma_separated<PrintExpression>(call->get_arguments())), context);
+		else if (auto* e = as<Call>(expression)) {
+			const Entity* function = as<EntityReference>(e->get_expression())->get_entity();
+			print_impl(format("f%(%)", print_number(function->get_id()), comma_separated<PrintExpression>(e->get_arguments())), context);
 		}
-		else if (auto* accessor = as<Accessor>(expression)) {
-			const Type* left_type = accessor->get_left()->get_type();
-			if (as<StructureInstantiation>(accessor->get_left()->get_type())) {
-				const StringView member_name = as<StringLiteral>(accessor->get_right())->get_string();
-				print_impl(format("%.%", PrintExpression(accessor->get_left()), member_name), context);
+		else if (auto* e = as<Accessor>(expression)) {
+			const Type* left_type = e->get_left()->get_type();
+			if (as<StructureInstantiation>(e->get_left()->get_type())) {
+				const StringView member_name = as<StringLiteral>(e->get_right())->get_string();
+				print_impl(format("%.%", PrintExpression(e->get_left()), member_name), context);
 			}
 		}
 	}
@@ -96,23 +96,23 @@ public:
 };
 
 void PrintStatement::print(Context& context) const {
-	if (auto* block_statement = as<BlockStatement>(statement)) {
-		print_impl(PrintBlock(block_statement->get_block()), context);
+	if (auto* s = as<BlockStatement>(statement)) {
+		print_impl(PrintBlock(s->get_block()), context);
 	}
-	else if (auto* empty_statement = as<EmptyStatement>(statement)) {
+	else if (auto* s = as<EmptyStatement>(statement)) {
 		print_impl(';', context);
 	}
-	else if (auto* let_statement = as<LetStatement>(statement)) {
-		print_impl(format("% % = %;", PrintType(let_statement->get_expression()), let_statement->get_name(), PrintExpression(let_statement->get_expression())), context);
+	else if (auto* s = as<LetStatement>(statement)) {
+		print_impl(format("% % = %;", PrintType(s->get_expression()), s->get_name(), PrintExpression(s->get_expression())), context);
 	}
-	else if (auto* if_statement = as<IfStatement>(statement)) {
-		print_impl(format("if (%) % else %", PrintExpression(if_statement->get_condition()), PrintBlock(if_statement->get_then_block()), PrintBlock(if_statement->get_else_block())), context);
+	else if (auto* s = as<IfStatement>(statement)) {
+		print_impl(format("if (%) % else %", PrintExpression(s->get_condition()), PrintBlock(s->get_then_block()), PrintBlock(s->get_else_block())), context);
 	}
-	else if (auto* while_statement = as<WhileStatement>(statement)) {
-		print_impl(format("while (%) %", PrintExpression(while_statement->get_condition()), PrintBlock(while_statement->get_block())), context);
+	else if (auto* s = as<WhileStatement>(statement)) {
+		print_impl(format("while (%) %", PrintExpression(s->get_condition()), PrintBlock(s->get_block())), context);
 	}
-	else if (auto* return_statement = as<ReturnStatement>(statement)) {
-		const Expression* expression = return_statement->get_expression();
+	else if (auto* s = as<ReturnStatement>(statement)) {
+		const Expression* expression = s->get_expression();
 		if (expression) {
 			print_impl(format("return %;", PrintExpression(expression)), context);
 		}
@@ -120,8 +120,8 @@ void PrintStatement::print(Context& context) const {
 			print_impl("return;", context);
 		}
 	}
-	else if (auto* expression_statement = as<ExpressionStatement>(statement)) {
-		print_impl(format("%;", PrintExpression(expression_statement->get_expression())), context);
+	else if (auto* s = as<ExpressionStatement>(statement)) {
+		print_impl(format("%;", PrintExpression(s->get_expression())), context);
 	}
 }
 
