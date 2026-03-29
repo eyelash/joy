@@ -405,70 +405,84 @@ using WhileStatementCollector = MapCollector<StatementMapper<WhileStatement>, Tu
 using ReturnStatementCollector = MapCollector<StatementMapper<ReturnStatement>, TupleCollector<Reference<Expression>>>;
 using ExpressionStatementCollector = MapCollector<StatementMapper<ExpressionStatement>, TupleCollector<Reference<Expression>>>;
 
-constexpr auto statement_impl = collect<StatementCollector>(choice(
-	collect<BlockStatementCollector>(block),
-	collect<EmptyStatementCollector>(ignore(';')),
-	collect<LetStatementCollector>(sequence(
-		keyword("let"),
+constexpr auto block_statement = collect<BlockStatementCollector>(block);
+
+constexpr auto empty_statement = collect<EmptyStatementCollector>(ignore(';'));
+
+constexpr auto let_statement = collect<LetStatementCollector>(sequence(
+	keyword("let"),
+	whitespace,
+	expect_identifier,
+	whitespace,
+	optional(sequence(
+		ignore(':'),
 		whitespace,
-		expect_identifier,
-		whitespace,
-		optional(sequence(
-			ignore(':'),
-			whitespace,
-			tag<TupleIndex<1>>(type),
-			whitespace
-		)),
-		expect("="),
-		whitespace,
-		tag<TupleIndex<2>>(expression),
-		whitespace,
-		expect(";")
+		tag<TupleIndex<1>>(type),
+		whitespace
 	)),
-	collect<IfStatementCollector>(sequence(
-		keyword("if"),
+	expect("="),
+	whitespace,
+	tag<TupleIndex<2>>(expression),
+	whitespace,
+	expect(";")
+));
+
+constexpr auto if_statement = collect<IfStatementCollector>(sequence(
+	keyword("if"),
+	whitespace,
+	expect("("),
+	whitespace,
+	expression,
+	whitespace,
+	expect(")"),
+	whitespace,
+	tag<TupleIndex<1>>(statement),
+	whitespace,
+	optional(sequence(
+		keyword("else"),
 		whitespace,
-		expect("("),
-		whitespace,
-		expression,
-		whitespace,
-		expect(")"),
-		whitespace,
-		tag<TupleIndex<1>>(statement),
-		whitespace,
-		optional(sequence(
-			keyword("else"),
-			whitespace,
-			tag<TupleIndex<2>>(statement)
-		))
-	)),
-	collect<WhileStatementCollector>(sequence(
-		keyword("while"),
-		whitespace,
-		expect("("),
-		whitespace,
-		expression,
-		whitespace,
-		expect(")"),
-		whitespace,
-		statement
-	)),
-	collect<ReturnStatementCollector>(sequence(
-		keyword("return"),
-		whitespace,
-		optional(sequence(
-			not_(';'),
-			not_(end()),
-			expression,
-			whitespace
-		)),
-		expect(";")
-	)),
-	collect<ExpressionStatementCollector>(sequence(
-		expression,
-		whitespace,
-		expect(";")
+		tag<TupleIndex<2>>(statement)
 	))
+));
+
+constexpr auto while_statement = collect<WhileStatementCollector>(sequence(
+	keyword("while"),
+	whitespace,
+	expect("("),
+	whitespace,
+	expression,
+	whitespace,
+	expect(")"),
+	whitespace,
+	statement
+));
+
+constexpr auto return_statement = collect<ReturnStatementCollector>(sequence(
+	keyword("return"),
+	whitespace,
+	optional(sequence(
+		not_(';'),
+		not_(end()),
+		expression,
+		whitespace
+	)),
+	expect(";")
+));
+
+constexpr auto expression_statement = collect<ExpressionStatementCollector>(sequence(
+	expression,
+	whitespace,
+	expect(";")
+));
+
+constexpr auto statement_impl = collect<StatementCollector>(choice(
+	block_statement,
+	empty_statement,
+	let_statement,
+	if_statement,
+	while_statement,
+	return_statement,
+	expression_statement
 ));
 DEFINE_PARSER(statement, statement_impl)
 
