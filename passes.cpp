@@ -630,21 +630,36 @@ class Pass1 {
 		expression->set_type(type);
 		return std::move(expression);
 	}
-	void check_type(const Expression* expression, const Type* expected_type, bool& error) {
+	bool check_type(const Expression* expression, const Type* expected_type) {
 		if (expression && expected_type) {
 			if (expression->get_type() != expected_type) {
 				add_error(expression, "invalid type %, expected type %", PrintTypeName(expression->get_type()), PrintTypeName(expected_type));
-				error = true;
+				return false;
 			}
+		}
+		return true;
+	}
+	void check_type(const Expression* expression, const Type* expected_type, bool& error) {
+		if (!check_type(expression, expected_type)) {
+			error = true;
 		}
 	}
-	void check_name(const Expression* expression, bool& error) {
-		if (expression) {
-			if (!as<Name>(expression)) {
-				add_error(expression, "invalid expression, expected a name");
-				error = true;
-			}
+	Reference<Expression> handle_name(const Name* e) {
+		StringView name = e->get_name();
+		const Type* type = variables->look_up(name);
+		if (type == nullptr) {
+			add_error(e, "undefined variable \"%\"", name);
+			return Reference<Expression>();
 		}
+		return with_type(new Name(name.to_string()), type);
+	}
+	Reference<Expression> handle_name(const Expression* expression) {
+		const Name* name = as<Name>(expression);
+		if (name == nullptr) {
+			add_error(expression, "invalid expression, expected a name");
+			return Reference<Expression>();
+		}
+		return handle_name(name);
 	}
 	Reference<Expression> handle_expression_(const Expression* expression, const Type* expected_type) {
 		if (auto* e = as<IntLiteral>(expression)) {
@@ -664,11 +679,6 @@ class Pass1 {
 			return Reference<Expression>();
 		}
 		else if (auto* e = as<StructLiteral>(expression)) {
-			std::vector<StructLiteral::Member> members;
-			for (const StructLiteral::Member& member: e->get_members()) {
-				// TODO: propagate expected type
-				members.emplace_back(member.get_name().to_string(), handle_expression(member.get_expression()));
-			}
 			const Type* type;
 			if (e->get_type()) {
 				type = handle_type(e->get_type());
@@ -686,26 +696,27 @@ class Pass1 {
 				return Reference<Expression>();
 			}
 			const std::size_t field_count = structure_instantiation->get_members().size();
-			if (members.size() != field_count) {
+			if (e->get_members().size() != field_count) {
 				add_error(expression, "invalid number of fields, expected %", printer::print_plural("field", field_count));
 				return Reference<Expression>();
 			}
-			bool error = false;
+			std::vector<StructLiteral::Member> members;
 			for (std::size_t i = 0; i < field_count; ++i) {
-				const StructLiteral::Member& member = members[i];
+				const StructLiteral::Member& member = e->get_members()[i];
 				const StructureInstantiation::Member& expected_member = structure_instantiation->get_members()[i];
 				if (member.get_name() != expected_member.get_name()) {
 					add_error(expression, "invalid field name \"%\", expected \"%\"", member.get_name(), expected_member.get_name());
-					error = true;
+					return Reference<Expression>();
 				}
-				const Type* member_type = get_type(member.get_expression());
-				if (member_type && member_type != expected_member.get_type()) {
-					add_error(expression, "invalid type % for field \"%\", expected type %", PrintTypeName(member_type), member.get_name(), PrintTypeName(expected_member.get_type()));
-					error = true;
+				Reference<Expression> member_expression = handle_expression(member.get_expression(), expected_member.get_type());
+				if (member_expression == nullptr) {
+					return Reference<Expression>();
 				}
-			}
-			if (error) {
-				return Reference<Expression>();
+				if (member_expression->get_type() != expected_member.get_type()) {
+					add_error(member.get_expression(), "invalid type % for field \"%\", expected type %", PrintTypeName(member_expression->get_type()), member.get_name(), PrintTypeName(expected_member.get_type()));
+					return Reference<Expression>();
+				}
+				members.emplace_back(member.get_name().to_string(), std::move(member_expression));
 			}
 			return with_type(new StructLiteral(Reference<Expression>(), std::move(members)), type);
 		}
@@ -714,38 +725,30 @@ class Pass1 {
 			return Reference<Expression>();
 		}
 		else if (auto* e = as<Name>(expression)) {
-			StringView name = e->get_name();
-			const Type* type = variables->look_up(name);
-			if (type == nullptr) {
-				add_error(expression, "undefined variable \"%\"", name);
-				return Reference<Expression>();
-			}
-			return with_type(new Name(name.to_string()), type);
+			return handle_name(e);
 		}
 		else if (auto* e = as<BinaryExpression>(expression)) {
 			Reference<Expression> left = handle_expression(e->get_left());
 			Reference<Expression> right = handle_expression(e->get_right());
-			bool error = left == nullptr || right == nullptr;
-			if (left && right) {
-				if (!(as<IntType>(left->get_type()) && as<IntType>(right->get_type()))) {
-					add_error(expression, "invalid binary expression");
-					error = true;
-				}
-			}
-			if (error) {
+			if (left == nullptr || right == nullptr) {
 				return Reference<Expression>();
 			}
-			const Type* type = get_type(left);
-			return with_type(new BinaryExpression(e->get_operation(), std::move(left), std::move(right)), type);
+			if (as<IntType>(left->get_type()) && as<IntType>(right->get_type())) {
+				return with_type(new BinaryExpression(e->get_operation(), std::move(left), std::move(right)), get_int_type());
+			}
+			else {
+				add_error(expression, "invalid binary expression");
+				return Reference<Expression>();
+			}
 		}
 		else if (auto* e = as<Assignment>(expression)) {
-			Reference<Expression> left = handle_expression(e->get_left());
+			Reference<Expression> left = handle_name(e->get_left());
 			const Type* type = get_type(left);
 			Reference<Expression> right = handle_expression(e->get_right(), type);
-			bool error = left == nullptr || right == nullptr;
-			check_name(left, error);
-			check_type(right, type, error);
-			if (error) {
+			if (left == nullptr || right == nullptr) {
+				return Reference<Expression>();
+			}
+			if (!check_type(right, type)) {
 				return Reference<Expression>();
 			}
 			return with_type(new Assignment(std::move(left), std::move(right)), type);
@@ -840,9 +843,10 @@ class Pass1 {
 			Reference<Expression> condition = handle_expression(s->get_condition(), get_int_type());
 			Block then_block = handle_block(s->get_then_block());
 			Block else_block = handle_block(s->get_else_block());
-			bool error = condition == nullptr;
-			check_type(condition, get_int_type(), error);
-			if (error) {
+			if (condition == nullptr) {
+				return Reference<Statement>();
+			}
+			if (!check_type(condition, get_int_type())) {
 				return Reference<Statement>();
 			}
 			return new IfStatement(std::move(condition), std::move(then_block), std::move(else_block));
@@ -850,9 +854,10 @@ class Pass1 {
 		else if (auto* s = as<WhileStatement>(statement)) {
 			Reference<Expression> condition = handle_expression(s->get_condition(), get_int_type());
 			Block block = handle_block(s->get_block());
-			bool error = condition == nullptr;
-			check_type(condition, get_int_type(), error);
-			if (error) {
+			if (condition == nullptr) {
+				return Reference<Statement>();
+			}
+			if (!check_type(condition, get_int_type())) {
 				return Reference<Statement>();
 			}
 			return new WhileStatement(std::move(condition), std::move(block));
@@ -860,17 +865,17 @@ class Pass1 {
 		else if (auto* s = as<ReturnStatement>(statement)) {
 			const Type* return_type = current_function->get_return_type();
 			Reference<Expression> expression = handle_expression(s->get_expression(), return_type);
-			bool error = false;
-			check_type(expression, return_type, error);
-			if (error) {
+			if (expression == nullptr) {
+				return Reference<Statement>();
+			}
+			if (!check_type(expression, return_type)) {
 				return Reference<Statement>();
 			}
 			return new ReturnStatement(std::move(expression));
 		}
 		else if (auto* s = as<ExpressionStatement>(statement)) {
 			Reference<Expression> expression = handle_expression(s->get_expression());
-			bool error = expression == nullptr;
-			if (error) {
+			if (expression == nullptr) {
 				return Reference<Statement>();
 			}
 			return new ExpressionStatement(std::move(expression));
