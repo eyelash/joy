@@ -340,31 +340,22 @@ class Pass1 {
 		}
 		return expression->get_type();
 	}
-	class Unification {
-		const Function* function;
-		const std::vector<Reference<Expression>>& arguments;
-		const Type* return_type;
-		UnificationVariables& variables;
-	public:
-		Unification(const Function* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables): function(function), arguments(arguments), return_type(return_type), variables(variables) {}
-		bool run() {
-			if (function->get_arguments().size() != arguments.size()) {
+	static bool unification(const Function* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
+		if (function->get_arguments().size() != arguments.size()) {
+			return false;
+		}
+		for (std::size_t i = 0; i < arguments.size(); ++i) {
+			if (!match(variables, function->get_arguments()[i].get_type(), get_type(arguments[i]))) {
 				return false;
 			}
-			for (std::size_t i = 0; i < arguments.size(); ++i) {
-				const Expression* function_argument = function->get_arguments()[i].get_type();
-				if (!match(variables, function_argument, get_type(arguments[i]))) {
-					return false;
-				}
-			}
-			if (return_type) {
-				if (!match(variables, function->get_return_type(), return_type)) {
-					return false;
-				}
-			}
-			return variables.check();
 		}
-	};
+		if (return_type) {
+			if (!match(variables, function->get_return_type(), return_type)) {
+				return false;
+			}
+		}
+		return variables.check();
+	}
 	Program* program;
 	Errors* errors;
 	SingletonSet<VoidType> void_type;
@@ -546,7 +537,7 @@ class Pass1 {
 			if (const Function* function = as<Function>(entity)) {
 				if (function->get_name() == name) {
 					UnificationVariables unification_variables(function);
-					if (Unification(function, arguments, return_type, unification_variables).run()) {
+					if (unification(function, arguments, return_type, unification_variables)) {
 						match_function = function;
 						match_template_arguments = unification_variables.take();
 						++match_count;
@@ -599,7 +590,7 @@ class Pass1 {
 		return string->get_string();
 	}
 	const Type* get_member_type(const Type* struct_type, const StringView& member_name, const Expression* expression) {
-		if (struct_type == nullptr) {
+		if (struct_type == nullptr || !member_name) {
 			return nullptr;
 		}
 		auto* s = as<StructureInstantiation>(struct_type);
