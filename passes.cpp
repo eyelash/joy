@@ -205,6 +205,40 @@ public:
 	}
 };
 
+class UnificationVariables {
+	const std::vector<std::string>& names;
+	std::vector<const Type*> variables;
+public:
+	UnificationVariables(const std::vector<std::string>& names): names(names), variables(names.size()) {}
+	UnificationVariables(const Function* function): UnificationVariables(function->get_template_arguments()) {}
+	Index look_up(const StringView& name) const {
+		for (std::size_t i = 0; i < names.size(); ++i) {
+			if (name == names[i]) {
+				return i;
+			}
+		}
+		return Index();
+	}
+	bool set(std::size_t i, const Type* type) {
+		if (variables[i]) {
+			return variables[i] == type;
+		}
+		variables[i] = type;
+		return true;
+	}
+	bool check() const {
+		for (const Type* variable: variables) {
+			if (variable == nullptr) {
+				return false;
+			}
+		}
+		return true;
+	}
+	std::vector<const Type*> take() {
+		return std::move(variables);
+	}
+};
+
 class TypeCompare {
 public:
 	constexpr TypeCompare() {}
@@ -247,28 +281,15 @@ class Pass1 {
 		const Function* function;
 		const std::vector<Reference<Expression>>& arguments;
 		const Type* return_type;
-		std::vector<const Type*>& template_arguments;
-		Index look_up_variable(const StringView& name) {
-			for (std::size_t i = 0; i < function->get_template_arguments().size(); ++i) {
-				if (name == function->get_template_arguments()[i]) {
-					return i;
-				}
-			}
-			return Index();
-		}
+		UnificationVariables& variables;
 		bool match(const Expression* function_argument, const Type* argument) {
 			if (argument == nullptr) {
 				return false;
 			}
 			if (auto* e = as<Name>(function_argument)) {
 				StringView name = e->get_name();
-				if (const Index i = look_up_variable(name)) {
-					if (template_arguments[*i]) {
-						// variable already set
-						return template_arguments[*i] == argument;
-					}
-					template_arguments[*i] = argument;
-					return true;
+				if (const Index i = variables.look_up(name)) {
+					return variables.set(*i, argument);
 				}
 				if (as<VoidType>(argument)) {
 					return name == "Void";
@@ -336,13 +357,11 @@ class Pass1 {
 			return false;
 		}
 	public:
-		Unification(const Function* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, std::vector<const Type*>& template_arguments): function(function), arguments(arguments), return_type(return_type), template_arguments(template_arguments) {}
+		Unification(const Function* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables): function(function), arguments(arguments), return_type(return_type), variables(variables) {}
 		bool run() {
 			if (function->get_arguments().size() != arguments.size()) {
 				return false;
 			}
-			template_arguments.resize(function->get_template_arguments().size());
-			std::fill(template_arguments.begin(), template_arguments.end(), nullptr);
 			for (std::size_t i = 0; i < arguments.size(); ++i) {
 				const Expression* function_argument = function->get_arguments()[i].get_type();
 				if (!match(function_argument, get_type(arguments[i]))) {
@@ -354,13 +373,7 @@ class Pass1 {
 					return false;
 				}
 			}
-			for (const Type* argument: template_arguments) {
-				if (argument == nullptr) {
-					// not all arguments could be determined
-					return false;
-				}
-			}
-			return true;
+			return variables.check();
 		}
 	};
 	Program* program;
@@ -543,10 +556,10 @@ class Pass1 {
 		for (const Entity* entity: program->get_source_entities()) {
 			if (const Function* function = as<Function>(entity)) {
 				if (function->get_name() == name) {
-					std::vector<const Type*> template_arguments;
-					if (Unification(function, arguments, return_type, template_arguments).run()) {
+					UnificationVariables unification_variables(function);
+					if (Unification(function, arguments, return_type, unification_variables).run()) {
 						match_function = function;
-						match_template_arguments = std::move(template_arguments);
+						match_template_arguments = unification_variables.take();
 						++match_count;
 					}
 				}
