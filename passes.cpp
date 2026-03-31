@@ -626,10 +626,6 @@ class Pass1 {
 		}
 		return nullptr;
 	}
-	static Reference<Expression> with_type(Reference<Expression>&& expression, const Type* type) {
-		expression->set_type(type);
-		return std::move(expression);
-	}
 	bool check_type(const Expression* expression, const Type* expected_type) {
 		if (expression && expected_type) {
 			if (expression->get_type() != expected_type) {
@@ -651,7 +647,7 @@ class Pass1 {
 			add_error(e, "undefined variable \"%\"", name);
 			return Reference<Expression>();
 		}
-		return with_type(new Name(name.to_string()), type);
+		return new Name(name.to_string(), type);
 	}
 	Reference<Expression> handle_name(const Expression* expression) {
 		const Name* name = as<Name>(expression);
@@ -663,7 +659,7 @@ class Pass1 {
 	}
 	Reference<Expression> handle_expression_(const Expression* expression, const Type* expected_type) {
 		if (auto* e = as<IntLiteral>(expression)) {
-			return with_type(new IntLiteral(e->get_value()), get_int_type());
+			return new IntLiteral(e->get_value(), get_int_type());
 		}
 		else if (auto* e = as<CharLiteral>(expression)) {
 			StringView string_view = e->get_string();
@@ -672,7 +668,7 @@ class Pass1 {
 				add_error(expression, "char literal contains more than one code point");
 				return Reference<Expression>();
 			}
-			return with_type(new IntLiteral(value), get_int_type());
+			return new IntLiteral(value, get_int_type());
 		}
 		else if (auto* e = as<StringLiteral>(expression)) {
 			add_error(expression, "strings are not yet supported");
@@ -718,7 +714,7 @@ class Pass1 {
 				}
 				members.emplace_back(member.get_name().to_string(), std::move(member_expression));
 			}
-			return with_type(new StructLiteral(Reference<Expression>(), std::move(members)), type);
+			return new StructLiteral(Reference<Expression>(), std::move(members), type);
 		}
 		else if (auto* e = as<ArrayLiteral>(expression)) {
 			add_error(expression, "array literals are not yet supported");
@@ -734,7 +730,7 @@ class Pass1 {
 				return Reference<Expression>();
 			}
 			if (as<IntType>(left->get_type()) && as<IntType>(right->get_type())) {
-				return with_type(new BinaryExpression(e->get_operation(), std::move(left), std::move(right)), get_int_type());
+				return new BinaryExpression(e->get_operation(), std::move(left), std::move(right), get_int_type());
 			}
 			else {
 				add_error(expression, "invalid binary expression");
@@ -751,7 +747,7 @@ class Pass1 {
 			if (!check_type(right, type)) {
 				return Reference<Expression>();
 			}
-			return with_type(new Assignment(std::move(left), std::move(right)), type);
+			return new Assignment(std::move(left), std::move(right), type);
 		}
 		else if (auto* e = as<Call>(expression)) {
 			StringView name;
@@ -771,7 +767,7 @@ class Pass1 {
 			if (function == nullptr) {
 				return Reference<Expression>();
 			}
-			return with_type(new Call(new EntityReference(function), std::move(arguments)), get_return_type(function));
+			return new Call(new EntityReference(function), std::move(arguments), get_return_type(function));
 		}
 		else if (auto* e = as<Accessor>(expression)) {
 			Reference<Expression> left = handle_expression(e->get_left());
@@ -785,7 +781,7 @@ class Pass1 {
 				if (type == nullptr) {
 					return Reference<Expression>();
 				}
-				return with_type(new Accessor(std::move(left), new StringLiteral(member_name.to_string())), type);
+				return new Accessor(std::move(left), new StringLiteral(member_name.to_string()), type);
 			}
 			else {
 				add_error(expression, "invalid accessor");

@@ -138,7 +138,7 @@ class Expression: public Dynamic {
 	SourceLocation location;
 	const Type* type;
 public:
-	Expression(int type_id): Dynamic(type_id), type(nullptr) {}
+	Expression(int type_id, const Type* type = nullptr): Dynamic(type_id), type(type) {}
 	void set_location(const SourceLocation& location) {
 		this->location = location;
 	}
@@ -157,7 +157,7 @@ class IntLiteral final: public Expression {
 	std::int32_t value;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_INT_LITERAL;
-	IntLiteral(std::int32_t value): Expression(TYPE_ID), value(value) {}
+	IntLiteral(std::int32_t value, const Type* type = nullptr): Expression(TYPE_ID, type), value(value) {}
 	std::int32_t get_value() const {
 		return value;
 	}
@@ -167,7 +167,7 @@ class CharLiteral final: public Expression {
 	std::string string;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_CHAR_LITERAL;
-	CharLiteral(std::string&& string): Expression(TYPE_ID), string(std::move(string)) {}
+	CharLiteral(std::string&& string, const Type* type = nullptr): Expression(TYPE_ID, type), string(std::move(string)) {}
 	StringView get_string() const {
 		return string;
 	}
@@ -177,7 +177,7 @@ class StringLiteral final: public Expression {
 	std::string string;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_STRING_LITERAL;
-	StringLiteral(std::string&& string): Expression(TYPE_ID), string(std::move(string)) {}
+	StringLiteral(std::string&& string, const Type* type = nullptr): Expression(TYPE_ID, type), string(std::move(string)) {}
 	StringView get_string() const {
 		return string;
 	}
@@ -187,7 +187,7 @@ class ArrayLiteral final: public Expression {
 	std::vector<Reference<Expression>> elements;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_ARRAY_LITERAL;
-	ArrayLiteral(std::vector<Reference<Expression>>&& elements): Expression(TYPE_ID), elements(std::move(elements)) {}
+	ArrayLiteral(std::vector<Reference<Expression>>&& elements, const Type* type = nullptr): Expression(TYPE_ID, type), elements(std::move(elements)) {}
 	const std::vector<Reference<Expression>>& get_elements() const {
 		return elements;
 	}
@@ -212,7 +212,7 @@ private:
 	std::vector<Member> members;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_STRUCT_LITERAL;
-	StructLiteral(Reference<Expression>&& type, std::vector<Member>&& members): Expression(TYPE_ID), type(std::move(type)), members(std::move(members)) {}
+	StructLiteral(Reference<Expression>&& type, std::vector<Member>&& members, const Type* type_ = nullptr): Expression(TYPE_ID, type_), type(std::move(type)), members(std::move(members)) {}
 	const Expression* get_type() const {
 		return type;
 	}
@@ -225,7 +225,7 @@ class Name final: public Expression {
 	std::string name;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_NAME;
-	Name(std::string&& name): Expression(TYPE_ID), name(std::move(name)) {}
+	Name(std::string&& name, const Type* type = nullptr): Expression(TYPE_ID, type), name(std::move(name)) {}
 	StringView get_name() const {
 		return name;
 	}
@@ -251,7 +251,7 @@ class BinaryExpression final: public Expression {
 	Reference<Expression> right;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_BINARY_EXPRESSION;
-	BinaryExpression(BinaryOperation operation, Reference<Expression>&& left, Reference<Expression>&& right): Expression(TYPE_ID), operation(operation), left(std::move(left)), right(std::move(right)) {}
+	BinaryExpression(BinaryOperation operation, Reference<Expression>&& left, Reference<Expression>&& right, const Type* type = nullptr): Expression(TYPE_ID, type), operation(operation), left(std::move(left)), right(std::move(right)) {}
 	BinaryOperation get_operation() const {
 		return operation;
 	}
@@ -268,7 +268,7 @@ class Assignment final: public Expression {
 	Reference<Expression> right;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_ASSIGNMENT;
-	Assignment(Reference<Expression>&& left, Reference<Expression>&& right): Expression(TYPE_ID), left(std::move(left)), right(std::move(right)) {}
+	Assignment(Reference<Expression>&& left, Reference<Expression>&& right, const Type* type = nullptr): Expression(TYPE_ID, type), left(std::move(left)), right(std::move(right)) {}
 	const Expression* get_left() const {
 		return left;
 	}
@@ -282,7 +282,7 @@ class Call final: public Expression {
 	std::vector<Reference<Expression>> arguments;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_CALL;
-	Call(Reference<Expression>&& expression, std::vector<Reference<Expression>>&& arguments): Expression(TYPE_ID), expression(std::move(expression)), arguments(std::move(arguments)) {}
+	Call(Reference<Expression>&& expression, std::vector<Reference<Expression>>&& arguments, const Type* type = nullptr): Expression(TYPE_ID, type), expression(std::move(expression)), arguments(std::move(arguments)) {}
 	const Expression* get_expression() const {
 		return expression;
 	}
@@ -296,7 +296,7 @@ class Accessor final: public Expression {
 	Reference<Expression> right;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_ACCESSOR;
-	Accessor(Reference<Expression>&& left, Reference<Expression>&& right): Expression(TYPE_ID), left(std::move(left)), right(std::move(right)) {}
+	Accessor(Reference<Expression>&& left, Reference<Expression>&& right, const Type* type = nullptr): Expression(TYPE_ID, type), left(std::move(left)), right(std::move(right)) {}
 	const Expression* get_left() const {
 		return left;
 	}
