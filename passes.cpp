@@ -276,6 +276,15 @@ class Pass1 {
 				else if (as<IntType>(argument)) {
 					return name == "Int";
 				}
+				else if (auto* s = as<TupleType>(argument)) {
+					if (name != "Tuple") {
+						return false;
+					}
+					if (!s->get_element_types().empty()) {
+						return false;
+					}
+					return true;
+				}
 				else if (auto* s = as<StructureInstantiation>(argument)) {
 					if (name != s->get_structure()->get_name()) {
 						return false;
@@ -289,7 +298,27 @@ class Pass1 {
 			}
 			else if (auto* e = as<Call>(function_argument)) {
 				StringView name = as<Name>(e->get_expression())->get_name();
-				if (auto* s = as<StructureInstantiation>(argument)) {
+				if (as<VoidType>(argument)) {
+					return name == "Void" && e->get_arguments().empty();
+				}
+				else if (as<IntType>(argument)) {
+					return name == "Int" && e->get_arguments().empty();
+				}
+				else if (auto* s = as<TupleType>(argument)) {
+					if (name != "Tuple") {
+						return false;
+					}
+					if (e->get_arguments().size() != s->get_element_types().size()) {
+						return false;
+					}
+					for (std::size_t i = 0; i < e->get_arguments().size(); ++i) {
+						if (!match(e->get_arguments()[i], s->get_element_types()[i])) {
+							return false;
+						}
+					}
+					return true;
+				}
+				else if (auto* s = as<StructureInstantiation>(argument)) {
 					if (name != s->get_structure()->get_name()) {
 						return false;
 					}
