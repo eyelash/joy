@@ -239,6 +239,69 @@ public:
 	}
 };
 
+static bool match(UnificationVariables& variables, const Expression* expression, const Type* type) {
+	if (expression == nullptr || type == nullptr) {
+		return false;
+	}
+	if (auto* e = as<Name>(expression)) {
+		StringView name = e->get_name();
+		if (const Index i = variables.look_up(name)) {
+			return variables.set(*i, type);
+		}
+		if (as<VoidType>(type)) {
+			return name == "Void";
+		}
+		else if (as<IntType>(type)) {
+			return name == "Int";
+		}
+		else if (auto* s = as<TupleType>(type)) {
+			return name == "Tuple" && s->get_element_types().empty();
+		}
+		else if (auto* s = as<StructureInstantiation>(type)) {
+			return name == s->get_structure()->get_name() && s->get_template_arguments().empty();
+		}
+		return false;
+	}
+	else if (auto* e = as<Call>(expression)) {
+		StringView name = as<Name>(e->get_expression())->get_name();
+		if (as<VoidType>(type)) {
+			return name == "Void" && e->get_arguments().empty();
+		}
+		else if (as<IntType>(type)) {
+			return name == "Int" && e->get_arguments().empty();
+		}
+		else if (auto* s = as<TupleType>(type)) {
+			if (name != "Tuple") {
+				return false;
+			}
+			if (e->get_arguments().size() != s->get_element_types().size()) {
+				return false;
+			}
+			for (std::size_t i = 0; i < e->get_arguments().size(); ++i) {
+				if (!match(variables, e->get_arguments()[i], s->get_element_types()[i])) {
+					return false;
+				}
+			}
+			return true;
+		}
+		else if (auto* s = as<StructureInstantiation>(type)) {
+			if (name != s->get_structure()->get_name()) {
+				return false;
+			}
+			if (e->get_arguments().size() != s->get_template_arguments().size()) {
+				return false;
+			}
+			for (std::size_t i = 0; i < e->get_arguments().size(); ++i) {
+				if (!match(variables, e->get_arguments()[i], s->get_template_arguments()[i])) {
+					return false;
+				}
+			}
+			return true;
+		}
+	}
+	return false;
+}
+
 class TypeCompare {
 public:
 	constexpr TypeCompare() {}
@@ -282,80 +345,6 @@ class Pass1 {
 		const std::vector<Reference<Expression>>& arguments;
 		const Type* return_type;
 		UnificationVariables& variables;
-		bool match(const Expression* function_argument, const Type* argument) {
-			if (argument == nullptr) {
-				return false;
-			}
-			if (auto* e = as<Name>(function_argument)) {
-				StringView name = e->get_name();
-				if (const Index i = variables.look_up(name)) {
-					return variables.set(*i, argument);
-				}
-				if (as<VoidType>(argument)) {
-					return name == "Void";
-				}
-				else if (as<IntType>(argument)) {
-					return name == "Int";
-				}
-				else if (auto* s = as<TupleType>(argument)) {
-					if (name != "Tuple") {
-						return false;
-					}
-					if (!s->get_element_types().empty()) {
-						return false;
-					}
-					return true;
-				}
-				else if (auto* s = as<StructureInstantiation>(argument)) {
-					if (name != s->get_structure()->get_name()) {
-						return false;
-					}
-					if (!s->get_template_arguments().empty()) {
-						return false;
-					}
-					return true;
-				}
-				return false;
-			}
-			else if (auto* e = as<Call>(function_argument)) {
-				StringView name = as<Name>(e->get_expression())->get_name();
-				if (as<VoidType>(argument)) {
-					return name == "Void" && e->get_arguments().empty();
-				}
-				else if (as<IntType>(argument)) {
-					return name == "Int" && e->get_arguments().empty();
-				}
-				else if (auto* s = as<TupleType>(argument)) {
-					if (name != "Tuple") {
-						return false;
-					}
-					if (e->get_arguments().size() != s->get_element_types().size()) {
-						return false;
-					}
-					for (std::size_t i = 0; i < e->get_arguments().size(); ++i) {
-						if (!match(e->get_arguments()[i], s->get_element_types()[i])) {
-							return false;
-						}
-					}
-					return true;
-				}
-				else if (auto* s = as<StructureInstantiation>(argument)) {
-					if (name != s->get_structure()->get_name()) {
-						return false;
-					}
-					if (e->get_arguments().size() != s->get_template_arguments().size()) {
-						return false;
-					}
-					for (std::size_t i = 0; i < e->get_arguments().size(); ++i) {
-						if (!match(e->get_arguments()[i], s->get_template_arguments()[i])) {
-							return false;
-						}
-					}
-					return true;
-				}
-			}
-			return false;
-		}
 	public:
 		Unification(const Function* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables): function(function), arguments(arguments), return_type(return_type), variables(variables) {}
 		bool run() {
@@ -364,12 +353,12 @@ class Pass1 {
 			}
 			for (std::size_t i = 0; i < arguments.size(); ++i) {
 				const Expression* function_argument = function->get_arguments()[i].get_type();
-				if (!match(function_argument, get_type(arguments[i]))) {
+				if (!match(variables, function_argument, get_type(arguments[i]))) {
 					return false;
 				}
 			}
 			if (return_type) {
-				if (!match(function->get_return_type(), return_type)) {
+				if (!match(variables, function->get_return_type(), return_type)) {
 					return false;
 				}
 			}
