@@ -647,17 +647,17 @@ public:
 	}
 };
 
-template <class P, class T> class PrintCommaSeparated {
-	const std::vector<T>& v;
+template <class P, class I> class PrintCommaSeparated {
+	I first;
+	I last;
 public:
-	constexpr PrintCommaSeparated(const std::vector<T>& v): v(v) {}
+	PrintCommaSeparated(I first, I last): first(first), last(last) {}
 	void print(printer::Context& context) const {
-		auto i = v.begin();
-		auto end = v.end();
-		if (i != end) {
+		I i = first;
+		if (i != last) {
 			print_impl(P(*i), context);
 			++i;
-			while (i != end) {
+			while (i != last) {
 				print_impl(", ", context);
 				print_impl(P(*i), context);
 				++i;
@@ -665,8 +665,11 @@ public:
 		}
 	}
 };
-template <class P, class T> constexpr PrintCommaSeparated<P, T> comma_separated(const std::vector<T>& v) {
-	return PrintCommaSeparated<P, T>(v);
+template <class P, class I> PrintCommaSeparated<P, I> comma_separated(I first, I last) {
+	return PrintCommaSeparated<P, I>(first, last);
+}
+template <class P, class T> auto comma_separated(const std::vector<T>& v) {
+	return comma_separated<P>(v.begin(), v.end());
 }
 
 class PrintTypeName {
@@ -701,15 +704,6 @@ public:
 	}
 };
 
-/*class PrintFunctionArgumentTypeName {
-	const FunctionInstantiation::Argument* argument;
-public:
-	PrintFunctionArgumentTypeName(const FunctionInstantiation::Argument& argument): argument(&argument) {}
-	void print(printer::Context& context) const {
-		print_impl(PrintTypeName(argument->get_type()), context);
-	}
-};*/
-
 class PrintFunctionSignature {
 	const FunctionInstantiation* function;
 public:
@@ -719,9 +713,11 @@ public:
 		const StringView name = function->get_function()->get_name();
 		const std::vector<const Type*>& template_arguments = function->get_template_arguments();
 		print_impl(name, context);
-		/*if (!template_arguments.empty()) {
+		if (!template_arguments.empty()) {
 			print_impl(format("<%>", comma_separated<PrintTypeName>(template_arguments)), context);
 		}
-		print_impl(format("(%): %", comma_separated<PrintFunctionArgumentTypeName>(function->get_arguments()), PrintTypeName(function->get_return_type())), context);*/
+		auto arguments_first = function->get_variables().begin();
+		auto arguments_last = arguments_first + function->get_arguments();
+		print_impl(format("(%): %", comma_separated<PrintTypeName>(arguments_first, arguments_last), PrintTypeName(function->get_return_type())), context);
 	}
 };
