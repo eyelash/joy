@@ -481,8 +481,11 @@ class Pass1 {
 		if (name == "Void" && arguments.empty()) {
 			return get_void_type();
 		}
-		if (name == "Int" && arguments.empty()) {
+		else if (name == "Int" && arguments.empty()) {
 			return get_int_type();
+		}
+		else if (name == "Tuple") {
+			return get_tuple_type(std::move(arguments));
 		}
 		const Structure* match_structure = nullptr;
 		unsigned int match_count = 0;
@@ -588,6 +591,17 @@ class Pass1 {
 			return StringView();
 		}
 		return string->get_string();
+	}
+	const std::int32_t* get_constant_int(const Expression* expression) {
+		if (expression == nullptr) {
+			return nullptr;
+		}
+		const IntLiteral* int_literal = as<IntLiteral>(expression);
+		if (int_literal == nullptr) {
+			add_error(expression, "invalid expression, expected an integer literal");
+			return nullptr;
+		}
+		return &int_literal->get_value();
 	}
 	const Type* get_member_type(const Type* struct_type, const StringView& member_name, const Expression* expression) {
 		if (struct_type == nullptr || !member_name) {
@@ -717,8 +731,42 @@ class Pass1 {
 			return new StructLiteral(Reference<Expression>(), std::move(members), type);
 		}
 		else if (auto* e = as<ArrayLiteral>(expression)) {
-			add_error(expression, "array literals are not yet supported");
-			return Reference<Expression>();
+			if (auto* s = as<TupleType>(expected_type)) {
+				const std::size_t element_count = s->get_element_types().size();
+				if (e->get_elements().size() != element_count) {
+					add_error(expression, "invalid number of elements, expected %", printer::print_plural("element", element_count));
+					return Reference<Expression>();
+				}
+				std::vector<Reference<Expression>> elements;
+				for (std::size_t i = 0; i < element_count; ++i) {
+					const Expression* element = e->get_elements()[i];
+					const Type* expected_element_type = s->get_element_types()[i];
+					Reference<Expression> new_element = handle_expression(element, expected_element_type);
+					if (new_element == nullptr) {
+						return Reference<Expression>();
+					}
+					if (new_element->get_type() != expected_element_type) {
+						add_error(element, "invalid type %, expected type %", PrintTypeName(new_element->get_type()), PrintTypeName(expected_element_type));
+						return Reference<Expression>();
+					}
+					elements.push_back(std::move(new_element));
+				}
+				return new ArrayLiteral(std::move(elements), expected_type);
+			}
+			else {
+				std::vector<const Type*> element_types;
+				std::vector<Reference<Expression>> elements;
+				for (const Expression* element: e->get_elements()) {
+					Reference<Expression> new_element = handle_expression(element);
+					if (new_element == nullptr) {
+						return Reference<Expression>();
+					}
+					element_types.push_back(new_element->get_type());
+					elements.push_back(std::move(new_element));
+				}
+				const Type* type = get_tuple_type(std::move(element_types));
+				return new ArrayLiteral(std::move(elements), type);
+			}
 		}
 		else if (auto* e = as<Name>(expression)) {
 			return handle_name(e);
@@ -782,6 +830,18 @@ class Pass1 {
 					return Reference<Expression>();
 				}
 				return new Accessor(std::move(left), new StringLiteral(member_name.to_string()), type);
+			}
+			else if (auto* t = as<TupleType>(left_type)) {
+				const std::int32_t* index = get_constant_int(e->get_right());
+				if (index == nullptr) {
+					return Reference<Expression>();
+				}
+				if (*index < 0 || *index >= t->get_element_types().size()) {
+					add_error(expression, "index out of bounds");
+					return Reference<Expression>();
+				}
+				const Type* type = t->get_element_types()[*index];
+				return new Accessor(std::move(left), new IntLiteral(*index), type);
 			}
 			else {
 				add_error(expression, "invalid accessor");

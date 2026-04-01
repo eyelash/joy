@@ -43,6 +43,9 @@ public:
 		if (auto* e = as<IntLiteral>(expression)) {
 			print_impl(print_number(e->get_value()), context);
 		}
+		else if (auto* e = as<ArrayLiteral>(expression)) {
+			print_impl(format("((%){%})", PrintType(expression), comma_separated<PrintExpression>(e->get_elements())), context);
+		}
 		else if (auto* e = as<StructLiteral>(expression)) {
 			print_impl(format("((%){%})", PrintType(expression), comma_separated<PrintStructLiteralMember>(e->get_members())), context);
 		}
@@ -64,6 +67,10 @@ public:
 			if (as<StructureInstantiation>(e->get_left()->get_type())) {
 				const StringView member_name = as<StringLiteral>(e->get_right())->get_string();
 				print_impl(format("%.%", PrintExpression(e->get_left()), member_name), context);
+			}
+			else if (as<TupleType>(left_type)) {
+				const std::int32_t index = as<IntLiteral>(e->get_right())->get_value();
+				print_impl(format("%.v%", PrintExpression(e->get_left()), print_number(index)), context);
 			}
 		}
 	}
@@ -160,6 +167,9 @@ public:
 		else if (as<IntType>(entity)) {
 			print_impl(format("typedef int t%;", print_number(entity->get_id())), context);
 		}
+		else if (as<TupleType>(entity)) {
+			print_impl(format("typedef struct t% t%;", print_number(entity->get_id()), print_number(entity->get_id())), context);
+		}
 		else if (as<StructureInstantiation>(entity)) {
 			print_impl(format("typedef struct t% t%;", print_number(entity->get_id()), print_number(entity->get_id())), context);
 		}
@@ -179,7 +189,17 @@ class PrintDefinition {
 public:
 	PrintDefinition(const Entity* entity): entity(entity) {}
 	void print(Context& context) const {
-		if (auto* structure = as<StructureInstantiation>(entity)) {
+		if (auto* t = as<TupleType>(entity)) {
+			print_impl(ln(format("struct t% {", print_number(t->get_id()))), context);
+			context.increase_indentation();
+			for (std::size_t i = 0; i < t->get_element_types().size(); ++i) {
+				const Type* element_type = t->get_element_types()[i];
+				print_impl(ln(format("% v%;", PrintType(element_type), print_number(i))), context);
+			}
+			context.decrease_indentation();
+			print_impl(ln("};"), context);
+		}
+		else if (auto* structure = as<StructureInstantiation>(entity)) {
 			print_impl(ln(format("// %", PrintTypeName(structure))), context);
 			print_impl(ln(format("struct t% {", print_number(structure->get_id()))), context);
 			context.increase_indentation();

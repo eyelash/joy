@@ -158,7 +158,7 @@ class IntLiteral final: public Expression {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_INT_LITERAL;
 	IntLiteral(std::int32_t value, const Type* type = nullptr): Expression(TYPE_ID, type), value(value) {}
-	std::int32_t get_value() const {
+	const std::int32_t& get_value() const {
 		return value;
 	}
 };

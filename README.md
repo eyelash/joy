@@ -9,6 +9,7 @@ See [design.md](design.md).
 - [x] templates
 - [x] uniform function call syntax
 - [x] structs
+- [x] tuples
 - [ ] strings
 - [ ] arrays
 - [ ] union types
