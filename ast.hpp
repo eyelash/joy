@@ -647,7 +647,7 @@ public:
 	}
 };
 
-template <class P, class I> class PrintCommaSeparated {
+template <class P, class I, class = P> class PrintCommaSeparated {
 	I first;
 	I last;
 public:
@@ -661,6 +661,27 @@ public:
 				print_impl(", ", context);
 				print_impl(P(*i), context);
 				++i;
+			}
+		}
+	}
+};
+template <class P, class I> class PrintCommaSeparated<P, I, decltype(P(*std::declval<I>(), std::declval<unsigned int>()))> {
+	I first;
+	I last;
+public:
+	PrintCommaSeparated(I first, I last): first(first), last(last) {}
+	void print(printer::Context& context) const {
+		I i = first;
+		unsigned int index = 0;
+		if (i != last) {
+			print_impl(P(*i, index), context);
+			++i;
+			++index;
+			while (i != last) {
+				print_impl(", ", context);
+				print_impl(P(*i, index), context);
+				++i;
+				++index;
 			}
 		}
 	}

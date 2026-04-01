@@ -135,14 +135,15 @@ void PrintStatement::print(Context& context) const {
 	}
 }
 
-/*class PrintFunctionArgument {
-	const FunctionInstantiation::Argument* argument;
+class PrintFunctionArgument {
+	const Type* type;
+	unsigned int index;
 public:
-	PrintFunctionArgument(const FunctionInstantiation::Argument& argument): argument(&argument) {}
+	PrintFunctionArgument(const Type* type, unsigned int index): type(type), index(index) {}
 	void print(Context& context) const {
-		print_impl(format("% %", PrintType(argument->get_type()), argument->get_name()), context);
+		print_impl(format("% v%", PrintType(type), print_number(index)), context);
 	}
-};*/
+};
 
 class PrintFunctionArguments {
 	const FunctionInstantiation* function;
@@ -154,12 +155,9 @@ public:
 			print_impl("void", context);
 		}
 		else {
-			for (unsigned int i = 0; i < function->get_arguments(); ++i) {
-				if (i > 0) {
-					print_impl(", ", context);
-				}
-				print_impl(format("% v%", PrintType(function->get_variable(i)), print_number(i)), context);
-			}
+			auto arguments_first = function->get_variables().begin();
+			auto arguments_last = arguments_first + function->get_arguments();
+			print_impl(comma_separated<PrintFunctionArgument>(arguments_first, arguments_last), context);
 		}
 	}
 };
