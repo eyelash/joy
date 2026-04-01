@@ -48,20 +48,20 @@ public:
 	}
 };
 
-class ScopeMap {
+template <class T> class ScopeMap {
 	ScopeMap* parent;
-	std::map<StringView, const Type*> map;
+	std::map<StringView, T> map;
 public:
 	ScopeMap(ScopeMap* parent = nullptr): parent(parent) {}
 	ScopeMap* get_parent() const {
 		return parent;
 	}
-	void insert(const StringView& name, const Type* value) {
+	void set(const StringView& name, T value) {
 		if (value) {
-			map.emplace(name, value);
+			map[name] = value;
 		}
 	}
-	const Type* look_up(const StringView& name) const {
+	T look_up(const StringView& name) const {
 		auto iterator = map.find(name);
 		if (iterator != map.end()) {
 			return iterator->second;
@@ -69,7 +69,7 @@ public:
 		if (parent) {
 			return parent->look_up(name);
 		}
-		return nullptr;
+		return T();
 	}
 };
 
@@ -141,6 +141,9 @@ public:
 		else if (auto* e = as<Name>(expression)) {
 			return new Name(e->get_name().to_string());
 		}
+		else if (auto* e = as<Variable>(expression)) {
+			return new Variable(e->get_index());
+		}
 		else if (auto* e = as<BinaryExpression>(expression)) {
 			return new BinaryExpression(e->get_operation(), copy_expression(e->get_left()), copy_expression(e->get_right()));
 		}
@@ -182,7 +185,7 @@ public:
 			return new EmptyStatement();
 		}
 		else if (auto* s = as<LetStatement>(statement)) {
-			return new LetStatement(s->get_name().to_string(), copy_expression(s->get_type()), copy_expression(s->get_expression()));
+			return new LetStatement(copy_expression(s->get_variable()), copy_expression(s->get_type()), copy_expression(s->get_expression()));
 		}
 		else if (auto* s = as<IfStatement>(statement)) {
 			Reference<Expression> condition = copy_expression(s->get_condition());
@@ -366,9 +369,9 @@ class Pass1 {
 	const BuiltinFunction* builtin_function_print_int = nullptr;
 	Instantiations<Structure, StructureInstantiation> structure_instantiations;
 	Instantiations<Function, FunctionInstantiation> function_instantiations;
-	ScopeMap* variables = nullptr;
-	ScopeMap* type_variables = nullptr;
-	const FunctionInstantiation* current_function = nullptr;
+	ScopeMap<Index>* variables = nullptr;
+	ScopeMap<const Type*>* type_variables = nullptr;
+	FunctionInstantiation* current_function = nullptr;
 	template <class... T> void add_error(const Expression* expression, const char* s, T... t) {
 		errors->add_error(program->get_path().c_str(), get_location(expression), printer::format(s, t...));
 	}
@@ -383,10 +386,10 @@ class Pass1 {
 		StructureInstantiation* new_structure = new StructureInstantiation(structure);
 		auto previous_type_variables = this->type_variables;
 		// template arguments
-		ScopeMap type_variables;
+		ScopeMap<const Type*> type_variables;
 		for (std::size_t i = 0; i < key.get_arguments().size(); ++i) {
 			new_structure->add_template_argument(key.get_arguments()[i]);
-			type_variables.insert(structure->get_template_arguments()[i], key.get_arguments()[i]);
+			type_variables.set(structure->get_template_arguments()[i], key.get_arguments()[i]);
 		}
 		this->type_variables = &type_variables;
 		// members
@@ -411,18 +414,18 @@ class Pass1 {
 		auto previous_type_variables = this->type_variables;
 		auto previous_current_function = this->current_function;
 		// template arguments
-		ScopeMap type_variables;
+		ScopeMap<const Type*> type_variables;
 		for (std::size_t i = 0; i < key.get_arguments().size(); ++i) {
 			new_function->add_template_argument(key.get_arguments()[i]);
-			type_variables.insert(function->get_template_arguments()[i], key.get_arguments()[i]);
+			type_variables.set(function->get_template_arguments()[i], key.get_arguments()[i]);
 		}
 		this->type_variables = &type_variables;
 		// arguments
-		ScopeMap variables;
+		ScopeMap<Index> variables;
 		for (const Function::Argument& argument: function->get_arguments()) {
 			const Type* argument_type = handle_type(argument.get_type());
-			new_function->add_argument(argument.get_name(), argument_type);
-			variables.insert(argument.get_name(), argument_type);
+			const unsigned int index = new_function->add_argument(argument_type);
+			variables.set(argument.get_name(), index);
 		}
 		this->variables = &variables;
 		// return type
@@ -656,12 +659,13 @@ class Pass1 {
 	}
 	Reference<Expression> handle_name(const Name* e) {
 		StringView name = e->get_name();
-		const Type* type = variables->look_up(name);
-		if (type == nullptr) {
+		const Index index = variables->look_up(name);
+		if (!index) {
 			add_error(e, "undefined variable \"%\"", name);
 			return Reference<Expression>();
 		}
-		return new Name(name.to_string(), type);
+		const Type* type = current_function->get_variable(*index);
+		return new Variable(*index, type);
 	}
 	Reference<Expression> handle_name(const Expression* expression) {
 		const Name* name = as<Name>(expression);
@@ -863,7 +867,7 @@ class Pass1 {
 	}
 	Block handle_block(const Block* block) {
 		std::vector<Reference<Statement>> statements;
-		ScopeMap new_scope(variables);
+		ScopeMap<Index> new_scope(variables);
 		variables = &new_scope;
 		for (const Statement* statement: block->get_statements()) {
 			Reference<Statement> new_statement = handle_statement(statement);
@@ -882,6 +886,7 @@ class Pass1 {
 			return new EmptyStatement();
 		}
 		else if (auto* s = as<LetStatement>(statement)) {
+			const StringView name = as<Name>(s->get_variable())->get_name();
 			const Type* type = handle_type(s->get_type());
 			Reference<Expression> expression = handle_expression(s->get_expression(), type);
 			if (type == nullptr) {
@@ -889,11 +894,12 @@ class Pass1 {
 			}
 			bool error = type == nullptr || expression == nullptr;
 			check_type(expression, type, error);
-			variables->insert(s->get_name(), type);
+			const unsigned int index = current_function->add_variable(type);
+			variables->set(name, index);
 			if (error) {
 				return Reference<Statement>();
 			}
-			return new LetStatement(s->get_name().to_string(), Reference<Expression>(), std::move(expression));
+			return new LetStatement(new Variable(index), Reference<Expression>(), std::move(expression));
 		}
 		else if (auto* s = as<IfStatement>(statement)) {
 			Reference<Expression> condition = handle_expression(s->get_condition(), get_int_type());

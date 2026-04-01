@@ -52,6 +52,9 @@ public:
 		else if (auto* e = as<Name>(expression)) {
 			print_impl(e->get_name(), context);
 		}
+		else if (auto* e = as<Variable>(expression)) {
+			print_impl(format("v%", print_number(e->get_index())), context);
+		}
 		else if (auto* e = as<BinaryExpression>(expression)) {
 			print_impl(format("(% % %)", PrintExpression(e->get_left()), print_operation(e->get_operation()), PrintExpression(e->get_right())), context);
 		}
@@ -110,7 +113,7 @@ void PrintStatement::print(Context& context) const {
 		print_impl(';', context);
 	}
 	else if (auto* s = as<LetStatement>(statement)) {
-		print_impl(format("% % = %;", PrintType(s->get_expression()), s->get_name(), PrintExpression(s->get_expression())), context);
+		print_impl(format("% % = %;", PrintType(s->get_expression()), PrintExpression(s->get_variable()), PrintExpression(s->get_expression())), context);
 	}
 	else if (auto* s = as<IfStatement>(statement)) {
 		print_impl(format("if (%) % else %", PrintExpression(s->get_condition()), PrintBlock(s->get_then_block()), PrintBlock(s->get_else_block())), context);
@@ -132,14 +135,14 @@ void PrintStatement::print(Context& context) const {
 	}
 }
 
-class PrintFunctionArgument {
+/*class PrintFunctionArgument {
 	const FunctionInstantiation::Argument* argument;
 public:
 	PrintFunctionArgument(const FunctionInstantiation::Argument& argument): argument(&argument) {}
 	void print(Context& context) const {
 		print_impl(format("% %", PrintType(argument->get_type()), argument->get_name()), context);
 	}
-};
+};*/
 
 class PrintFunctionArguments {
 	const FunctionInstantiation* function;
@@ -147,11 +150,16 @@ public:
 	PrintFunctionArguments(const FunctionInstantiation* function): function(function) {}
 	PrintFunctionArguments(const FunctionInstantiation& function): function(&function) {}
 	void print(Context& context) const {
-		if (function->get_arguments().empty()) {
+		if (function->get_arguments() == 0) {
 			print_impl("void", context);
 		}
 		else {
-			print_impl(comma_separated<PrintFunctionArgument>(function->get_arguments()), context);
+			for (unsigned int i = 0; i < function->get_arguments(); ++i) {
+				if (i > 0) {
+					print_impl(", ", context);
+				}
+				print_impl(format("% v%", PrintType(function->get_variable(i)), print_number(i)), context);
+			}
 		}
 	}
 };

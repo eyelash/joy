@@ -59,6 +59,7 @@ enum {
 	TYPE_ID_ARRAY_LITERAL,
 	TYPE_ID_STRUCT_LITERAL,
 	TYPE_ID_NAME,
+	TYPE_ID_VARIABLE,
 	TYPE_ID_BINARY_EXPRESSION,
 	TYPE_ID_ASSIGNMENT,
 	TYPE_ID_CALL,
@@ -231,6 +232,16 @@ public:
 	}
 };
 
+class Variable final: public Expression {
+	unsigned int index;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_VARIABLE;
+	Variable(unsigned int index, const Type* type = nullptr): Expression(TYPE_ID, type), index(index) {}
+	unsigned int get_index() const {
+		return index;
+	}
+};
+
 enum class BinaryOperation {
 	ADD,
 	SUB,
@@ -352,14 +363,15 @@ public:
 };
 
 class LetStatement final: public Statement {
-	std::string name;
+	Reference<Expression> variable;
 	Reference<Expression> type;
 	Reference<Expression> expression;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_LET_STATEMENT;
-	LetStatement(std::string&& name, Reference<Expression>&& type, Reference<Expression>&& expression): Statement(TYPE_ID), name(std::move(name)), type(std::move(type)), expression(std::move(expression)) {}
-	StringView get_name() const {
-		return name;
+	LetStatement(Reference<Expression>&& variable, Reference<Expression>&& type, Reference<Expression>&& expression): Statement(TYPE_ID), variable(std::move(variable)), type(std::move(type)), expression(std::move(expression)) {}
+	LetStatement(std::string&& name, Reference<Expression>&& type, Reference<Expression>&& expression): Statement(TYPE_ID), variable(new Name(std::move(name))), type(std::move(type)), expression(std::move(expression)) {}
+	const Expression* get_variable() const {
+		return variable;
 	}
 	const Expression* get_type() const {
 		return type;
@@ -509,23 +521,10 @@ public:
 };
 
 class FunctionInstantiation final: public Entity {
-public:
-	class Argument {
-		StringView name;
-		const Type* type;
-	public:
-		Argument(const StringView& name, const Type* type): name(name), type(type) {}
-		StringView get_name() const {
-			return name;
-		}
-		const Type* get_type() const {
-			return type;
-		}
-	};
-private:
 	const Function* function;
 	std::vector<const Type*> template_arguments;
-	std::vector<Argument> arguments;
+	unsigned int arguments = 0;
+	std::vector<const Type*> variables;
 	const Type* return_type;
 	Block block;
 public:
@@ -540,11 +539,23 @@ public:
 	const std::vector<const Type*>& get_template_arguments() const {
 		return template_arguments;
 	}
-	void add_argument(const StringView& name, const Type* type) {
-		arguments.emplace_back(name, type);
+	unsigned int add_argument(const Type* type) {
+		++arguments;
+		return add_variable(type);
 	}
-	const std::vector<Argument>& get_arguments() const {
+	unsigned int get_arguments() const {
 		return arguments;
+	}
+	unsigned int add_variable(const Type* type) {
+		const unsigned int index = variables.size();
+		variables.push_back(type);
+		return index;
+	}
+	const std::vector<const Type*>& get_variables() const {
+		return variables;
+	}
+	const Type* get_variable(unsigned int index) const {
+		return variables[index];
 	}
 	void set_return_type(const Type* return_type) {
 		this->return_type = return_type;
@@ -690,14 +701,14 @@ public:
 	}
 };
 
-class PrintFunctionArgumentTypeName {
+/*class PrintFunctionArgumentTypeName {
 	const FunctionInstantiation::Argument* argument;
 public:
 	PrintFunctionArgumentTypeName(const FunctionInstantiation::Argument& argument): argument(&argument) {}
 	void print(printer::Context& context) const {
 		print_impl(PrintTypeName(argument->get_type()), context);
 	}
-};
+};*/
 
 class PrintFunctionSignature {
 	const FunctionInstantiation* function;
@@ -708,9 +719,9 @@ public:
 		const StringView name = function->get_function()->get_name();
 		const std::vector<const Type*>& template_arguments = function->get_template_arguments();
 		print_impl(name, context);
-		if (!template_arguments.empty()) {
+		/*if (!template_arguments.empty()) {
 			print_impl(format("<%>", comma_separated<PrintTypeName>(template_arguments)), context);
 		}
-		print_impl(format("(%): %", comma_separated<PrintFunctionArgumentTypeName>(function->get_arguments()), PrintTypeName(function->get_return_type())), context);
+		print_impl(format("(%): %", comma_separated<PrintFunctionArgumentTypeName>(function->get_arguments()), PrintTypeName(function->get_return_type())), context);*/
 	}
 };
