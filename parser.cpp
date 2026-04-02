@@ -374,7 +374,7 @@ static constexpr auto block = collect<BlockCollector>(sequence(
 ));
 
 using EmptyStatementCollector = MapCollector<StatementMapper<EmptyStatement>, TupleCollector<>>;
-using LetStatementCollector = MapCollector<StatementMapper<LetStatement>, TupleCollector<std::string, Reference<Expression>, Reference<Expression>>>;
+using LetStatementCollector = MapCollector<StatementMapper<LetStatement>, TupleCollector<Reference<Expression>, Reference<Expression>, Reference<Expression>>>;
 using IfStatementCollector = MapCollector<StatementMapper<IfStatement>, TupleCollector<Reference<Expression>, Block, Block>>;
 using WhileStatementCollector = MapCollector<StatementMapper<WhileStatement>, TupleCollector<Reference<Expression>, Block>>;
 using ReturnStatementCollector = MapCollector<StatementMapper<ReturnStatement>, TupleCollector<Reference<Expression>>>;
@@ -385,7 +385,7 @@ constexpr auto empty_statement = collect<EmptyStatementCollector>(ignore(';'));
 constexpr auto let_statement = collect<LetStatementCollector>(sequence(
 	keyword("let"),
 	whitespace,
-	expect_identifier,
+	tag<TupleIndex<0>>(map<ExpressionMapper<Name>>(expect_identifier)),
 	whitespace,
 	optional(sequence(
 		ignore(':'),

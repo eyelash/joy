@@ -151,13 +151,11 @@ public:
 	PrintFunctionArguments(const FunctionInstantiation* function): function(function) {}
 	PrintFunctionArguments(const FunctionInstantiation& function): function(&function) {}
 	void print(Context& context) const {
-		if (function->get_arguments() == 0) {
+		if (function->get_arguments().empty()) {
 			print_impl("void", context);
 		}
 		else {
-			auto arguments_first = function->get_variables().begin();
-			auto arguments_last = arguments_first + function->get_arguments();
-			print_impl(comma_separated<PrintFunctionArgument>(arguments_first, arguments_last), context);
+			print_impl(comma_separated<PrintFunctionArgument>(function->get_arguments()), context);
 		}
 	}
 };
@@ -172,6 +170,12 @@ public:
 		}
 		else if (as<IntType>(entity)) {
 			print_impl(format("typedef int t%;", print_number(entity->get_id())), context);
+		}
+		else if (as<StringType>(entity)) {
+			print_impl(format("typedef struct t% t%;", print_number(entity->get_id()), print_number(entity->get_id())), context);
+		}
+		else if (as<ArrayType>(entity)) {
+			print_impl(format("typedef struct t% t%;", print_number(entity->get_id()), print_number(entity->get_id())), context);
 		}
 		else if (as<TupleType>(entity)) {
 			print_impl(format("typedef struct t% t%;", print_number(entity->get_id()), print_number(entity->get_id())), context);
@@ -195,7 +199,15 @@ class PrintDefinition {
 public:
 	PrintDefinition(const Entity* entity): entity(entity) {}
 	void print(Context& context) const {
-		if (auto* t = as<TupleType>(entity)) {
+		if (as<StringType>(entity)) {
+			// TODO
+			print_impl(ln(format("struct t% {};", print_number(entity->get_id()))), context);
+		}
+		else if (as<ArrayType>(entity)) {
+			// TODO
+			print_impl(ln(format("struct t% {};", print_number(entity->get_id()))), context);
+		}
+		else if (auto* t = as<TupleType>(entity)) {
 			print_impl(ln(format("struct t% {", print_number(t->get_id()))), context);
 			context.increase_indentation();
 			for (std::size_t i = 0; i < t->get_element_types().size(); ++i) {

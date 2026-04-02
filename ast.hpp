@@ -369,7 +369,6 @@ class LetStatement final: public Statement {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_LET_STATEMENT;
 	LetStatement(Reference<Expression>&& variable, Reference<Expression>&& type, Reference<Expression>&& expression): Statement(TYPE_ID), variable(std::move(variable)), type(std::move(type)), expression(std::move(expression)) {}
-	LetStatement(std::string&& name, Reference<Expression>&& type, Reference<Expression>&& expression): Statement(TYPE_ID), variable(new Name(std::move(name))), type(std::move(type)), expression(std::move(expression)) {}
 	const Expression* get_variable() const {
 		return variable;
 	}
@@ -456,11 +455,7 @@ private:
 	Block block;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_FUNCTION;
-	Function(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): Entity(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), arguments(std::move(arguments)), return_type(std::move(return_type)), block(std::move(block)) {
-		if (this->return_type == nullptr) {
-			this->return_type = new Name("Void");
-		}
-	}
+	Function(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): Entity(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), arguments(std::move(arguments)), return_type(std::move(return_type)), block(std::move(block)) {}
 	StringView get_name() const {
 		return name;
 	}
@@ -533,6 +528,9 @@ public:
 	const Function* get_function() const {
 		return function;
 	}
+	StringView get_name() const {
+		return function->get_name();
+	}
 	void add_template_argument(const Type* type) {
 		template_arguments.push_back(type);
 	}
@@ -543,8 +541,8 @@ public:
 		++arguments;
 		return add_variable(type);
 	}
-	unsigned int get_arguments() const {
-		return arguments;
+	Range<std::vector<const Type*>::const_iterator> get_arguments() const {
+		return Range<std::vector<const Type*>::const_iterator>(variables.begin(), variables.begin() + arguments);
 	}
 	unsigned int add_variable(const Type* type) {
 		const unsigned int index = variables.size();
@@ -689,6 +687,9 @@ public:
 template <class P, class I> PrintCommaSeparated<P, I> comma_separated(I first, I last) {
 	return PrintCommaSeparated<P, I>(first, last);
 }
+template <class P, class I> PrintCommaSeparated<P, I> comma_separated(const Range<I>& range) {
+	return PrintCommaSeparated<P, I>(range.begin(), range.end());
+}
 template <class P, class T> auto comma_separated(const std::vector<T>& v) {
 	return comma_separated<P>(v.begin(), v.end());
 }
@@ -731,14 +732,11 @@ public:
 	PrintFunctionSignature(const FunctionInstantiation* function): function(function) {}
 	void print(printer::Context& context) const {
 		using namespace printer;
-		const StringView name = function->get_function()->get_name();
 		const std::vector<const Type*>& template_arguments = function->get_template_arguments();
-		print_impl(name, context);
+		print_impl(function->get_name(), context);
 		if (!template_arguments.empty()) {
 			print_impl(format("<%>", comma_separated<PrintTypeName>(template_arguments)), context);
 		}
-		auto arguments_first = function->get_variables().begin();
-		auto arguments_last = arguments_first + function->get_arguments();
-		print_impl(format("(%): %", comma_separated<PrintTypeName>(arguments_first, arguments_last), PrintTypeName(function->get_return_type())), context);
+		print_impl(format("(%): %", comma_separated<PrintTypeName>(function->get_arguments()), PrintTypeName(function->get_return_type())), context);
 	}
 };

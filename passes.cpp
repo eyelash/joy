@@ -209,13 +209,13 @@ public:
 };
 
 class UnificationVariables {
-	const std::vector<std::string>& names;
+	const std::string* names;
 	std::vector<const Type*> variables;
 public:
-	UnificationVariables(const std::vector<std::string>& names): names(names), variables(names.size()) {}
-	UnificationVariables(const Function* function): UnificationVariables(function->get_template_arguments()) {}
+	UnificationVariables(const std::vector<std::string>& names): names(names.data()), variables(names.size()) {}
+	UnificationVariables(): names(nullptr) {}
 	Index look_up(const StringView& name) const {
-		for (std::size_t i = 0; i < names.size(); ++i) {
+		for (std::size_t i = 0; i < variables.size(); ++i) {
 			if (name == names[i]) {
 				return i;
 			}
@@ -242,6 +242,18 @@ public:
 	}
 };
 
+static bool match(UnificationVariables& variables, const Expression* expression, const Type* type);
+static bool match(UnificationVariables& variables, const std::vector<Reference<Expression>>& expressions, const std::vector<const Type*>& types) {
+	if (expressions.size() != types.size()) {
+		return false;
+	}
+	for (std::size_t i = 0; i < expressions.size(); ++i) {
+		if (!match(variables, expressions[i], types[i])) {
+			return false;
+		}
+	}
+	return true;
+}
 static bool match(UnificationVariables& variables, const Expression* expression, const Type* type) {
 	if (expression == nullptr || type == nullptr) {
 		return false;
@@ -257,8 +269,11 @@ static bool match(UnificationVariables& variables, const Expression* expression,
 		else if (as<IntType>(type)) {
 			return name == "Int";
 		}
-		else if (auto* s = as<TupleType>(type)) {
-			return name == "Tuple" && s->get_element_types().empty();
+		else if (as<StringType>(type)) {
+			return name == "String";
+		}
+		else if (auto* t = as<TupleType>(type)) {
+			return name == "Tuple" && t->get_element_types().empty();
 		}
 		else if (auto* s = as<StructureInstantiation>(type)) {
 			return name == s->get_structure()->get_name() && s->get_template_arguments().empty();
@@ -273,33 +288,29 @@ static bool match(UnificationVariables& variables, const Expression* expression,
 		else if (as<IntType>(type)) {
 			return name == "Int" && e->get_arguments().empty();
 		}
-		else if (auto* s = as<TupleType>(type)) {
+		else if (as<StringType>(type)) {
+			return name == "String" && e->get_arguments().empty();
+		}
+		else if (auto* s = as<ArrayType>(type)) {
+			if (name != "Array") {
+				return false;
+			}
+			if (e->get_arguments().size() != 1) {
+				return false;
+			}
+			return match(variables, e->get_arguments()[0], s->get_element_type());
+		}
+		else if (auto* t = as<TupleType>(type)) {
 			if (name != "Tuple") {
 				return false;
 			}
-			if (e->get_arguments().size() != s->get_element_types().size()) {
-				return false;
-			}
-			for (std::size_t i = 0; i < e->get_arguments().size(); ++i) {
-				if (!match(variables, e->get_arguments()[i], s->get_element_types()[i])) {
-					return false;
-				}
-			}
-			return true;
+			return match(variables, e->get_arguments(), t->get_element_types());
 		}
 		else if (auto* s = as<StructureInstantiation>(type)) {
 			if (name != s->get_structure()->get_name()) {
 				return false;
 			}
-			if (e->get_arguments().size() != s->get_template_arguments().size()) {
-				return false;
-			}
-			for (std::size_t i = 0; i < e->get_arguments().size(); ++i) {
-				if (!match(variables, e->get_arguments()[i], s->get_template_arguments()[i])) {
-					return false;
-				}
-			}
-			return true;
+			return match(variables, e->get_arguments(), s->get_template_arguments());
 		}
 	}
 	return false;
@@ -352,7 +363,7 @@ class Pass1 {
 				return false;
 			}
 		}
-		if (return_type) {
+		if (function->get_return_type() && return_type) {
 			if (!match(variables, function->get_return_type(), return_type)) {
 				return false;
 			}
@@ -429,7 +440,12 @@ class Pass1 {
 		}
 		this->variables = &variables;
 		// return type
-		new_function->set_return_type(handle_type(function->get_return_type()));
+		if (function->get_return_type()) {
+			new_function->set_return_type(handle_type(function->get_return_type()));
+		}
+		else {
+			new_function->set_return_type(get_void_type());
+		}
 		// block
 		this->current_function = new_function;
 		function_instantiations.insert(std::move(key), new_function);
@@ -487,6 +503,12 @@ class Pass1 {
 		else if (name == "Int" && arguments.empty()) {
 			return get_int_type();
 		}
+		else if (name == "String" && arguments.empty()) {
+			return get_string_type();
+		}
+		else if (name == "Array" && arguments.size() == 1) {
+			return get_array_type(arguments[0]);
+		}
 		else if (name == "Tuple") {
 			return get_tuple_type(std::move(arguments));
 		}
@@ -542,7 +564,7 @@ class Pass1 {
 		for (const Entity* entity: program->get_source_entities()) {
 			if (const Function* function = as<Function>(entity)) {
 				if (function->get_name() == name) {
-					UnificationVariables unification_variables(function);
+					UnificationVariables unification_variables(function->get_template_arguments());
 					if (unification(function, arguments, return_type, unification_variables)) {
 						match_function = function;
 						match_template_arguments = unification_variables.take();
@@ -652,11 +674,6 @@ class Pass1 {
 		}
 		return true;
 	}
-	void check_type(const Expression* expression, const Type* expected_type, bool& error) {
-		if (!check_type(expression, expected_type)) {
-			error = true;
-		}
-	}
 	Reference<Expression> handle_name(const Name* e) {
 		StringView name = e->get_name();
 		const Index index = variables->look_up(name);
@@ -665,6 +682,9 @@ class Pass1 {
 			return Reference<Expression>();
 		}
 		const Type* type = current_function->get_variable(*index);
+		if (type == nullptr) {
+			return Reference<Expression>();
+		}
 		return new Variable(*index, type);
 	}
 	Reference<Expression> handle_name(const Expression* expression) {
@@ -889,14 +909,16 @@ class Pass1 {
 			const StringView name = as<Name>(s->get_variable())->get_name();
 			const Type* type = handle_type(s->get_type());
 			Reference<Expression> expression = handle_expression(s->get_expression(), type);
-			if (type == nullptr) {
+			if (s->get_type() == nullptr) {
 				type = get_type(expression);
 			}
-			bool error = type == nullptr || expression == nullptr;
-			check_type(expression, type, error);
+			// add the variable even if type is null
 			const unsigned int index = current_function->add_variable(type);
 			variables->set(name, index);
-			if (error) {
+			if (type == nullptr || expression == nullptr) {
+				return Reference<Statement>();
+			}
+			if (!check_type(expression, type)) {
 				return Reference<Statement>();
 			}
 			return new LetStatement(new Variable(index), Reference<Expression>(), std::move(expression));
@@ -927,11 +949,19 @@ class Pass1 {
 		else if (auto* s = as<ReturnStatement>(statement)) {
 			const Type* return_type = current_function->get_return_type();
 			Reference<Expression> expression = handle_expression(s->get_expression(), return_type);
-			if (expression == nullptr) {
-				return Reference<Statement>();
+			if (s->get_expression()) {
+				if (expression == nullptr) {
+					return Reference<Statement>();
+				}
+				if (!check_type(expression, return_type)) {
+					return Reference<Statement>();
+				}
 			}
-			if (!check_type(expression, return_type)) {
-				return Reference<Statement>();
+			else {
+				if (!as<VoidType>(return_type)) {
+					add_error(Reference<Expression>(), "return without value in function \"%\" with return type %", current_function->get_name(), PrintTypeName(return_type));
+					return Reference<Statement>();
+				}
 			}
 			return new ReturnStatement(std::move(expression));
 		}
