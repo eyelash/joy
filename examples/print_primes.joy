@@ -2,7 +2,7 @@ func print(n: Int) {
 	__builtin_joy_print_int(n);
 }
 
-func is_prime(n: Int): Int {
+func is_prime(n: Int): Bool {
 	let i = 2;
 	while (i * i <= n) {
 		if (n % i == 0) {

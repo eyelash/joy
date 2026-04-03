@@ -267,7 +267,7 @@ static bool match(UnificationVariables& variables, const Expression* expression,
 			return name == "Void";
 		}
 		else if (as<IntType>(type)) {
-			return name == "Int";
+			return name == "Int" || name == "Bool";
 		}
 		else if (as<StringType>(type)) {
 			return name == "String";
@@ -286,7 +286,7 @@ static bool match(UnificationVariables& variables, const Expression* expression,
 			return name == "Void" && e->get_arguments().empty();
 		}
 		else if (as<IntType>(type)) {
-			return name == "Int" && e->get_arguments().empty();
+			return (name == "Int" || name == "Bool") && e->get_arguments().empty();
 		}
 		else if (as<StringType>(type)) {
 			return name == "String" && e->get_arguments().empty();
@@ -500,7 +500,7 @@ class Pass1 {
 		if (name == "Void" && arguments.empty()) {
 			return get_void_type();
 		}
-		else if (name == "Int" && arguments.empty()) {
+		else if ((name == "Int" || name == "Bool") && arguments.empty()) {
 			return get_int_type();
 		}
 		else if (name == "String" && arguments.empty()) {
