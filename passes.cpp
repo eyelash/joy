@@ -363,6 +363,24 @@ class Pass1 {
 		}
 		return false;
 	}
+	static bool is_final_statement(const Block* block) {
+		if (block->get_statements().empty()) {
+			return false;
+		}
+		return is_final_statement(block->get_statements().back());
+	}
+	static bool is_final_statement(const Statement* statement) {
+		if (as<ReturnStatement>(statement)) {
+			return true;
+		}
+		else if (auto* s = as<BlockStatement>(statement)) {
+			return is_final_statement(s->get_block());
+		}
+		else if (auto* s = as<IfStatement>(statement)) {
+			return is_final_statement(s->get_then_block()) && is_final_statement(s->get_else_block());
+		}
+		return false;
+	}
 	static bool unification(const Function* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
 		if (function->get_arguments().size() != arguments.size()) {
 			return false;
@@ -394,6 +412,9 @@ class Pass1 {
 	FunctionInstantiation* current_function = nullptr;
 	template <class... T> void add_error(const Expression* expression, const char* s, T... t) {
 		errors->add_error(program->get_path().c_str(), get_location(expression), printer::format(s, t...));
+	}
+	template <class... T> void add_warning(const Expression* expression, const char* s, T... t) {
+		errors->add_warning(program->get_path().c_str(), get_location(expression), printer::format(s, t...));
 	}
 	const Type* instantiate_structure(const Structure* structure, std::vector<const Type*>&& template_arguments) {
 		if (template_arguments.size() != structure->get_template_arguments().size()) {
@@ -898,10 +919,19 @@ class Pass1 {
 		std::vector<Reference<Statement>> statements;
 		ScopeMap<Index> new_scope(variables);
 		variables = &new_scope;
-		for (const Statement* statement: block->get_statements()) {
+		for (std::size_t i = 0; i < block->get_statements().size(); ++i) {
+			const Statement* statement = block->get_statements()[i];
 			Reference<Statement> new_statement = handle_statement(statement);
-			if (new_statement && !is_empty_statement(new_statement)) {
-				statements.push_back(std::move(new_statement));
+			if (new_statement == nullptr || is_empty_statement(new_statement)) {
+				continue;
+			}
+			const bool is_final = is_final_statement(new_statement);
+			statements.push_back(std::move(new_statement));
+			if (is_final) {
+				if (i + 1 < block->get_statements().size()) {
+					add_warning(Reference<Expression>(), "unreachable code in function \"%\"", current_function->get_name());
+				}
+				break;
 			}
 		}
 		variables = variables->get_parent();
