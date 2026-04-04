@@ -344,6 +344,9 @@ public:
 	const std::vector<Reference<Statement>>& get_statements() const {
 		return statements;
 	}
+	void add_statement(Reference<Statement>&& statement) {
+		statements.push_back(std::move(statement));
+	}
 };
 
 class BlockStatement final: public Statement {
@@ -563,6 +566,9 @@ public:
 	}
 	void set_block(Block&& block) {
 		this->block = std::move(block);
+	}
+	Block* get_block() {
+		return &block;
 	}
 	const Block* get_block() const {
 		return &block;

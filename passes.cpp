@@ -480,6 +480,14 @@ class Pass1 {
 		this->current_function = new_function;
 		function_instantiations.insert(std::move(key), new_function);
 		new_function->set_block(handle_block(function->get_block()));
+		if (!is_final_statement(new_function->get_block())) {
+			if (as<VoidType>(new_function->get_return_type())) {
+				new_function->get_block()->add_statement(new ReturnStatement());
+			}
+			else {
+				add_error(Reference<Expression>(), "missing return in function \"%\"", function->get_name());
+			}
+		}
 		this->variables = previous_variables;
 		this->type_variables = previous_type_variables;
 		this->current_function = previous_current_function;
