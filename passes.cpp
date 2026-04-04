@@ -354,6 +354,15 @@ class Pass1 {
 		}
 		return expression->get_type();
 	}
+	static bool is_empty_statement(const Statement* statement) {
+		if (as<EmptyStatement>(statement)) {
+			return true;
+		}
+		else if (auto* s = as<BlockStatement>(statement)) {
+			return s->get_block()->get_statements().empty();
+		}
+		return false;
+	}
 	static bool unification(const Function* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
 		if (function->get_arguments().size() != arguments.size()) {
 			return false;
@@ -891,7 +900,7 @@ class Pass1 {
 		variables = &new_scope;
 		for (const Statement* statement: block->get_statements()) {
 			Reference<Statement> new_statement = handle_statement(statement);
-			if (new_statement) {
+			if (new_statement && !is_empty_statement(new_statement)) {
 				statements.push_back(std::move(new_statement));
 			}
 		}
