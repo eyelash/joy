@@ -527,7 +527,7 @@ class FunctionInstantiation final: public Entity {
 	Block block;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_FUNCTION_INSTANTIATION;
-	FunctionInstantiation(const Function* function): Entity(TYPE_ID), function(function) {}
+	FunctionInstantiation(const Function* function): Entity(TYPE_ID), function(function), return_type(nullptr) {}
 	const Function* get_function() const {
 		return function;
 	}

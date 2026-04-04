@@ -473,14 +473,14 @@ class Pass1 {
 		if (function->get_return_type()) {
 			new_function->set_return_type(handle_type(function->get_return_type()));
 		}
-		else {
-			new_function->set_return_type(get_void_type());
-		}
 		// block
 		this->current_function = new_function;
 		function_instantiations.insert(std::move(key), new_function);
 		new_function->set_block(handle_block(function->get_block()));
 		if (!is_final_statement(new_function->get_block())) {
+			if (new_function->get_return_type() == nullptr) {
+				new_function->set_return_type(get_void_type());
+			}
 			if (as<VoidType>(new_function->get_return_type())) {
 				new_function->get_block()->add_statement(new ReturnStatement());
 			}
@@ -877,7 +877,12 @@ class Pass1 {
 			if (function == nullptr) {
 				return Reference<Expression>();
 			}
-			return new Call(new EntityReference(function), std::move(arguments), get_return_type(function));
+			const Type* return_type = get_return_type(function);
+			if (return_type == nullptr) {
+				add_error(expression, "recursive call to function with deduced return type");
+				return Reference<Expression>();
+			}
+			return new Call(new EntityReference(function), std::move(arguments), return_type);
 		}
 		else if (auto* e = as<Accessor>(expression)) {
 			Reference<Expression> left = handle_expression(e->get_left());
@@ -1000,11 +1005,19 @@ class Pass1 {
 				if (expression == nullptr) {
 					return Reference<Statement>();
 				}
+				if (return_type == nullptr) {
+					return_type = expression->get_type();
+					current_function->set_return_type(return_type);
+				}
 				if (!check_type(expression, return_type)) {
 					return Reference<Statement>();
 				}
 			}
 			else {
+				if (return_type == nullptr) {
+					return_type = get_void_type();
+					current_function->set_return_type(return_type);
+				}
 				if (!as<VoidType>(return_type)) {
 					add_error(Reference<Expression>(), "return without value in function \"%\" with return type %", current_function->get_name(), PrintTypeName(return_type));
 					return Reference<Statement>();
