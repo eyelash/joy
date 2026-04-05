@@ -410,6 +410,7 @@ class Pass1 {
 	ScopeMap<Index>* variables = nullptr;
 	ScopeMap<const Type*>* type_variables = nullptr;
 	FunctionInstantiation* current_function = nullptr;
+	const WhileStatement* current_loop = nullptr;
 	template <class... T> void add_error(const Expression* expression, const char* s, T... t) {
 		errors->add_error(program->get_path().c_str(), get_location(expression), printer::format(s, t...));
 	}
@@ -988,8 +989,11 @@ class Pass1 {
 			return new IfStatement(std::move(condition), std::move(then_block), std::move(else_block));
 		}
 		else if (auto* s = as<WhileStatement>(statement)) {
+			auto previous_current_loop = this->current_loop;
+			this->current_loop = s;
 			Reference<Expression> condition = handle_expression(s->get_condition(), get_int_type());
 			Block block = handle_block(s->get_block());
+			this->current_loop = previous_current_loop;
 			if (condition == nullptr) {
 				return Reference<Statement>();
 			}
