@@ -378,6 +378,8 @@ using LetStatementCollector = MapCollector<StatementMapper<LetStatement>, TupleC
 using IfStatementCollector = MapCollector<StatementMapper<IfStatement>, TupleCollector<Reference<Expression>, Block, Block>>;
 using WhileStatementCollector = MapCollector<StatementMapper<WhileStatement>, TupleCollector<Reference<Expression>, Block>>;
 using ReturnStatementCollector = MapCollector<StatementMapper<ReturnStatement>, TupleCollector<Reference<Expression>>>;
+using BreakStatementCollector = MapCollector<StatementMapper<BreakStatement>, TupleCollector<>>;
+using ContinueStatementCollector = MapCollector<StatementMapper<ContinueStatement>, TupleCollector<>>;
 using ExpressionStatementCollector = MapCollector<StatementMapper<ExpressionStatement>, TupleCollector<Reference<Expression>>>;
 
 constexpr auto empty_statement = collect<EmptyStatementCollector>(ignore(';'));
@@ -442,6 +444,18 @@ constexpr auto return_statement = collect<ReturnStatementCollector>(sequence(
 	expect(";")
 ));
 
+constexpr auto break_statement = collect<BreakStatementCollector>(sequence(
+	keyword("break"),
+	whitespace,
+	expect(";")
+));
+
+constexpr auto continue_statement = collect<ContinueStatementCollector>(sequence(
+	keyword("continue"),
+	whitespace,
+	expect(";")
+));
+
 constexpr auto expression_statement = collect<ExpressionStatementCollector>(sequence(
 	expression,
 	whitespace,
@@ -455,6 +469,8 @@ constexpr auto statement_impl = choice(
 	if_statement,
 	while_statement,
 	return_statement,
+	break_statement,
+	continue_statement,
 	expression_statement
 );
 DEFINE_PARSER(statement, statement_impl)
@@ -466,6 +482,8 @@ constexpr auto branch_impl = choice(
 		if_statement,
 		while_statement,
 		return_statement,
+		break_statement,
+		continue_statement,
 		expression_statement
 	))
 );

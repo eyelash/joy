@@ -71,6 +71,8 @@ enum {
 	TYPE_ID_IF_STATEMENT,
 	TYPE_ID_WHILE_STATEMENT,
 	TYPE_ID_RETURN_STATEMENT,
+	TYPE_ID_BREAK_STATEMENT,
+	TYPE_ID_CONTINUE_STATEMENT,
 	TYPE_ID_EXPRESSION_STATEMENT,
 	TYPE_ID_FUNCTION,
 	TYPE_ID_STRUCTURE,
@@ -424,6 +426,18 @@ public:
 	const Expression* get_expression() const {
 		return expression;
 	}
+};
+
+class BreakStatement final: public Statement {
+public:
+	static constexpr int TYPE_ID = TYPE_ID_BREAK_STATEMENT;
+	BreakStatement(): Statement(TYPE_ID) {}
+};
+
+class ContinueStatement final: public Statement {
+public:
+	static constexpr int TYPE_ID = TYPE_ID_CONTINUE_STATEMENT;
+	ContinueStatement(): Statement(TYPE_ID) {}
 };
 
 class ExpressionStatement final: public Statement {

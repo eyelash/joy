@@ -202,6 +202,12 @@ public:
 			Reference<Expression> expression = copy_expression(s->get_expression());
 			return new ReturnStatement(std::move(expression));
 		}
+		else if (auto* s = as<BreakStatement>(statement)) {
+			return new BreakStatement();
+		}
+		else if (auto* s = as<ContinueStatement>(statement)) {
+			return new ContinueStatement();
+		}
 		else if (auto* s = as<ExpressionStatement>(statement)) {
 			return new ExpressionStatement(copy_expression(s->get_expression()));
 		}
@@ -371,6 +377,12 @@ class Pass1 {
 	}
 	static bool is_final_statement(const Statement* statement) {
 		if (as<ReturnStatement>(statement)) {
+			return true;
+		}
+		else if (as<BreakStatement>(statement)) {
+			return true;
+		}
+		else if (as<ContinueStatement>(statement)) {
 			return true;
 		}
 		else if (auto* s = as<BlockStatement>(statement)) {
@@ -1028,6 +1040,20 @@ class Pass1 {
 				}
 			}
 			return new ReturnStatement(std::move(expression));
+		}
+		else if (auto* s = as<BreakStatement>(statement)) {
+			if (current_loop == nullptr) {
+				add_error(Reference<Expression>(), "break statement outside of a loop in function \"%\"", current_function->get_name());
+				return Reference<Statement>();
+			}
+			return new BreakStatement();
+		}
+		else if (auto* s = as<ContinueStatement>(statement)) {
+			if (current_loop == nullptr) {
+				add_error(Reference<Expression>(), "continue statement outside of a loop in function \"%\"", current_function->get_name());
+				return Reference<Statement>();
+			}
+			return new ContinueStatement();
 		}
 		else if (auto* s = as<ExpressionStatement>(statement)) {
 			Reference<Expression> expression = handle_expression(s->get_expression());

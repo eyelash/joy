@@ -130,6 +130,12 @@ void PrintStatement::print(Context& context) const {
 			print_impl("return;", context);
 		}
 	}
+	else if (auto* s = as<BreakStatement>(statement)) {
+		print_impl("break;", context);
+	}
+	else if (auto* s = as<ContinueStatement>(statement)) {
+		print_impl("continue;", context);
+	}
 	else if (auto* s = as<ExpressionStatement>(statement)) {
 		print_impl(format("%;", PrintExpression(s->get_expression())), context);
 	}
