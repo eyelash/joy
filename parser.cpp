@@ -492,23 +492,25 @@ DEFINE_PARSER(branch, branch_impl)
 using FunctionCollector = MapCollector<EntityMapper<Function>, TupleCollector<std::string, std::vector<std::string>, std::vector<Function::Argument>, Reference<Expression>, Block>>;
 using FunctionArgumentCollector = MapCollector<ConstructorMapper<Function::Argument>, TupleCollector<std::string, Reference<Expression>>>;
 
+constexpr auto template_arguments = collect<VectorCollector<std::string>>(sequence(
+	ignore('<'),
+	whitespace,
+	comma_separated(sequence(
+		not_('>'),
+		not_(end()),
+		expect_identifier
+	)),
+	whitespace,
+	expect(">")
+));
+
 constexpr auto function = collect<FunctionCollector>(sequence(
 	keyword("func"),
 	whitespace,
 	expect_identifier,
 	whitespace,
-	optional(sequence(
-		ignore('<'),
-		whitespace,
-		collect<VectorCollector<std::string>>(comma_separated(sequence(
-			not_('>'),
-			not_(end()),
-			expect_identifier
-		))),
-		whitespace,
-		expect(">"),
-		whitespace
-	)),
+	optional(template_arguments),
+	whitespace,
 	expect("("),
 	whitespace,
 	collect<VectorCollector<Function::Argument>>(comma_separated(
@@ -545,18 +547,8 @@ constexpr auto structure = collect<StructureCollector>(sequence(
 	whitespace,
 	expect_identifier,
 	whitespace,
-	optional(sequence(
-		ignore('<'),
-		whitespace,
-		collect<VectorCollector<std::string>>(comma_separated(sequence(
-			not_('>'),
-			not_(end()),
-			expect_identifier
-		))),
-		whitespace,
-		expect(">"),
-		whitespace
-	)),
+	optional(template_arguments),
+	whitespace,
 	expect("{"),
 	whitespace,
 	collect<VectorCollector<Structure::Member>>(comma_separated(
@@ -574,6 +566,22 @@ constexpr auto structure = collect<StructureCollector>(sequence(
 	expect("}")
 ));
 
+using TypeAliasCollector = MapCollector<EntityMapper<TypeAlias>, TupleCollector<std::string, std::vector<std::string>, Reference<Expression>>>;
+
+constexpr auto type_alias = collect<TypeAliasCollector>(sequence(
+	keyword("type"),
+	whitespace,
+	expect_identifier,
+	whitespace,
+	optional(template_arguments),
+	whitespace,
+	expect("="),
+	whitespace,
+	type,
+	whitespace,
+	expect(";")
+));
+
 using ProgramCollector = MapCollector<ReferenceMapper<Program>, VectorCollector<Reference<Entity>>>;
 
 constexpr auto program = collect<ProgramCollector>(sequence(
@@ -583,6 +591,7 @@ constexpr auto program = collect<ProgramCollector>(sequence(
 		choice(
 			function,
 			structure,
+			type_alias,
 			error("expected a toplevel declaration")
 		),
 		whitespace

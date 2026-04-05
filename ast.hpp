@@ -76,6 +76,7 @@ enum {
 	TYPE_ID_EXPRESSION_STATEMENT,
 	TYPE_ID_FUNCTION,
 	TYPE_ID_STRUCTURE,
+	TYPE_ID_TYPE_ALIAS,
 	TYPE_ID_BUILTIN_FUNCTION,
 	TYPE_ID_FUNCTION_INSTANTIATION,
 	TYPE_ID_STRUCTURE_INSTANTIATION,
@@ -519,6 +520,24 @@ public:
 	}
 	const std::vector<Member>& get_members() const {
 		return members;
+	}
+};
+
+class TypeAlias final: public Entity {
+	std::string name;
+	std::vector<std::string> template_arguments;
+	Reference<Expression> type;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_TYPE_ALIAS;
+	TypeAlias(std::string&& name, std::vector<std::string>&& template_arguments, Reference<Expression>&& type): Entity(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), type(std::move(type)) {}
+	StringView get_name() const {
+		return name;
+	}
+	const std::vector<std::string>& get_template_arguments() const {
+		return template_arguments;
+	}
+	const Expression* get_type() const {
+		return type;
 	}
 };
 
