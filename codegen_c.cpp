@@ -109,9 +109,6 @@ void PrintStatement::print(Context& context) const {
 	if (auto* s = as<BlockStatement>(statement)) {
 		print_impl(PrintBlock(s->get_block()), context);
 	}
-	else if (auto* s = as<EmptyStatement>(statement)) {
-		print_impl(';', context);
-	}
 	else if (auto* s = as<LetStatement>(statement)) {
 		print_impl(format("% % = %;", PrintType(s->get_expression()), PrintExpression(s->get_variable()), PrintExpression(s->get_expression())), context);
 	}

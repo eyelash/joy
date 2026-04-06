@@ -66,7 +66,6 @@ enum {
 	TYPE_ID_ACCESSOR,
 	TYPE_ID_ENTITY_REFERENCE,
 	TYPE_ID_BLOCK_STATEMENT,
-	TYPE_ID_EMPTY_STATEMENT,
 	TYPE_ID_LET_STATEMENT,
 	TYPE_ID_IF_STATEMENT,
 	TYPE_ID_WHILE_STATEMENT,
@@ -356,16 +355,11 @@ class BlockStatement final: public Statement {
 	Block block;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_BLOCK_STATEMENT;
+	BlockStatement(): Statement(TYPE_ID) {}
 	BlockStatement(Block&& block): Statement(TYPE_ID), block(std::move(block)) {}
 	const Block* get_block() const {
 		return &block;
 	}
-};
-
-class EmptyStatement final: public Statement {
-public:
-	static constexpr int TYPE_ID = TYPE_ID_EMPTY_STATEMENT;
-	EmptyStatement(): Statement(TYPE_ID) {}
 };
 
 class LetStatement final: public Statement {

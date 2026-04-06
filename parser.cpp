@@ -373,7 +373,7 @@ static constexpr auto block = collect<BlockCollector>(sequence(
 	expect("}")
 ));
 
-using EmptyStatementCollector = MapCollector<StatementMapper<EmptyStatement>, TupleCollector<>>;
+using EmptyStatementCollector = MapCollector<StatementMapper<BlockStatement>, TupleCollector<>>;
 using LetStatementCollector = MapCollector<StatementMapper<LetStatement>, TupleCollector<Reference<Expression>, Reference<Expression>, Reference<Expression>>>;
 using IfStatementCollector = MapCollector<StatementMapper<IfStatement>, TupleCollector<Reference<Expression>, Block, Block>>;
 using WhileStatementCollector = MapCollector<StatementMapper<WhileStatement>, TupleCollector<Reference<Expression>, Block>>;

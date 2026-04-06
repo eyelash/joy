@@ -181,9 +181,6 @@ public:
 		if (auto* s = as<BlockStatement>(statement)) {
 			return new BlockStatement(copy_block(s->get_block()));
 		}
-		else if (auto* s = as<EmptyStatement>(statement)) {
-			return new EmptyStatement();
-		}
 		else if (auto* s = as<LetStatement>(statement)) {
 			return new LetStatement(copy_expression(s->get_variable()), copy_expression(s->get_type()), copy_expression(s->get_expression()));
 		}
@@ -361,10 +358,7 @@ class Pass1 {
 		return expression->get_type();
 	}
 	static bool is_empty_statement(const Statement* statement) {
-		if (as<EmptyStatement>(statement)) {
-			return true;
-		}
-		else if (auto* s = as<BlockStatement>(statement)) {
+		if (auto* s = as<BlockStatement>(statement)) {
 			return s->get_block()->get_statements().empty();
 		}
 		return false;
@@ -966,9 +960,6 @@ class Pass1 {
 	Reference<Statement> handle_statement(const Statement* statement) {
 		if (auto* s = as<BlockStatement>(statement)) {
 			return new BlockStatement(handle_block(s->get_block()));
-		}
-		else if (auto* s = as<EmptyStatement>(statement)) {
-			return new EmptyStatement();
 		}
 		else if (auto* s = as<LetStatement>(statement)) {
 			const StringView name = as<Name>(s->get_variable())->get_name();
