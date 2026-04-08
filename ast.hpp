@@ -125,6 +125,10 @@ public:
 	const Type* get_element_type() const {
 		return element_type;
 	}
+	using Key = const Type*;
+	Key get_key() const {
+		return element_type;
+	}
 };
 
 class TupleType final: public Type {
@@ -133,6 +137,10 @@ public:
 	static constexpr int TYPE_ID = TYPE_ID_TUPLE_TYPE;
 	TupleType(std::vector<const Type*>&& element_types): Type(TYPE_ID), element_types(std::move(element_types)) {}
 	const std::vector<const Type*>& get_element_types() const {
+		return element_types;
+	}
+	using Key = const std::vector<const Type*>&;
+	Key get_key() const {
 		return element_types;
 	}
 };

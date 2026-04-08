@@ -322,23 +322,14 @@ static bool match(UnificationVariables& variables, const Expression* expression,
 class TypeCompare {
 public:
 	constexpr TypeCompare() {}
-	bool operator ()(const ArrayType* lhs, const ArrayType* rhs) const {
-		return std::less<const Type*>()(lhs->get_element_type(), rhs->get_element_type());
+	template <class T> bool operator ()(const T* lhs, const T* rhs) const {
+		return std::less<typename T::Key>()(lhs->get_key(), rhs->get_key());
 	}
-	bool operator ()(const ArrayType* lhs, const Type* rhs) const {
-		return std::less<const Type*>()(lhs->get_element_type(), rhs);
+	template <class T> bool operator ()(const T* lhs, typename T::Key rhs) const {
+		return std::less<typename T::Key>()(lhs->get_key(), rhs);
 	}
-	bool operator ()(const Type* lhs, const ArrayType* rhs) const {
-		return std::less<const Type*>()(lhs, rhs->get_element_type());
-	}
-	bool operator ()(const TupleType* lhs, const TupleType* rhs) const {
-		return std::less<std::vector<const Type*>>()(lhs->get_element_types(), rhs->get_element_types());
-	}
-	bool operator ()(const TupleType* lhs, const std::vector<const Type*>& rhs) const {
-		return std::less<std::vector<const Type*>>()(lhs->get_element_types(), rhs);
-	}
-	bool operator ()(const std::vector<const Type*>& lhs, const TupleType* rhs) const {
-		return std::less<std::vector<const Type*>>()(lhs, rhs->get_element_types());
+	template <class T> bool operator ()(typename T::Key lhs, const T* rhs) const {
+		return std::less<typename T::Key>()(lhs, rhs->get_key());
 	}
 	using is_transparent = std::true_type;
 };
