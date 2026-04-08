@@ -2,6 +2,7 @@
 
 #include "parsley/common.hpp"
 #include "parsley/printer.hpp"
+#include <algorithm>
 
 class Error {
 	std::string path;
@@ -654,6 +655,13 @@ class Program final: public Dynamic {
 	std::vector<Reference<Entity>> entities;
 	unsigned int current_id = 0;
 	const Entity* main_function = nullptr;
+	class IdCompare {
+	public:
+		constexpr IdCompare() {}
+		template <class T> bool operator ()(const Reference<T>& t, unsigned int id) const {
+			return t->get_id() < id;
+		}
+	};
 public:
 	static constexpr int TYPE_ID = TYPE_ID_PROGRAM;
 	Program(): Dynamic(TYPE_ID) {}
@@ -673,6 +681,13 @@ public:
 	}
 	const std::vector<Reference<Entity>>& get_entities() const {
 		return entities;
+	}
+	const Entity* get_entity_by_id(unsigned int id) const {
+		auto iter = std::lower_bound(entities.begin(), entities.end(), id, IdCompare());
+		if (iter != entities.end() && (*iter)->get_id() == id) {
+			return *iter;
+		}
+		return nullptr;
 	}
 	unsigned int get_next_id() {
 		++current_id;
