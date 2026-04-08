@@ -115,6 +115,90 @@ public:
 
 template <class T, class TI = T> using Instantiations = Map<InstantiationKey<T>, TI>;
 
+template <class T> class EntityKey {
+	typename T::Key key;
+public:
+	template <class... A> EntityKey(A&&... a): key(std::forward<A>(a)...) {}
+	const typename T::Key& get_key() const {
+		return key;
+	}
+};
+
+class EntityCompare {
+	template <class T> static typename T::Key get_key(const Entity* entity) {
+		return static_cast<const T*>(entity)->get_key();
+	}
+	template <class T> static const typename T::Key& get_key(const EntityKey<T>& key) {
+		return key.get_key();
+	}
+public:
+	constexpr EntityCompare() {}
+	bool operator ()(const Entity* lhs, const Entity* rhs) const {
+		const int lhs_type_id = lhs->get_type_id();
+		const int rhs_type_id = rhs->get_type_id();
+		if (lhs_type_id != rhs_type_id) {
+			return lhs_type_id < rhs_type_id;
+		}
+		if (lhs_type_id == VoidType::TYPE_ID) {
+			return get_key<VoidType>(lhs) < get_key<VoidType>(rhs);
+		}
+		else if (lhs_type_id == IntType::TYPE_ID) {
+			return get_key<IntType>(lhs) < get_key<IntType>(rhs);
+		}
+		else if (lhs_type_id == StringType::TYPE_ID) {
+			return get_key<StringType>(lhs) < get_key<StringType>(rhs);
+		}
+		else if (lhs_type_id == ArrayType::TYPE_ID) {
+			return get_key<ArrayType>(lhs) < get_key<ArrayType>(rhs);
+		}
+		else if (lhs_type_id == TupleType::TYPE_ID) {
+			return get_key<TupleType>(lhs) < get_key<TupleType>(rhs);
+		}
+		else if (lhs_type_id == FunctionInstantiation::TYPE_ID) {
+			return get_key<FunctionInstantiation>(lhs) < get_key<FunctionInstantiation>(rhs);
+		}
+		else if (lhs_type_id == StructureInstantiation::TYPE_ID) {
+			return get_key<StructureInstantiation>(lhs) < get_key<StructureInstantiation>(rhs);
+		}
+		return false;
+	}
+	template <class T> bool operator ()(const Entity* lhs, const EntityKey<T>& rhs) const {
+		const int lhs_type_id = lhs->get_type_id();
+		constexpr int rhs_type_id = T::TYPE_ID;
+		if (lhs_type_id != rhs_type_id) {
+			return lhs_type_id < rhs_type_id;
+		}
+		return get_key<T>(lhs) < get_key<T>(rhs);
+	}
+	template <class T> bool operator ()(const EntityKey<T>& lhs, const Entity* rhs) const {
+		constexpr int lhs_type_id = T::TYPE_ID;
+		const int rhs_type_id = rhs->get_type_id();
+		if (lhs_type_id != rhs_type_id) {
+			return lhs_type_id < rhs_type_id;
+		}
+		return get_key<T>(lhs) < get_key<T>(rhs);
+	}
+	using is_transparent = std::true_type;
+};
+
+class Interner {
+	std::set<const Entity*, EntityCompare> set;
+public:
+	void insert(const Entity* entity) {
+		set.insert(entity);
+	}
+	template <class T> const T* look_up(const EntityKey<T>& key) const {
+		auto iterator = set.find(key);
+		if (iterator != set.end()) {
+			return static_cast<const T*>(*iterator);
+		}
+		return nullptr;
+	}
+	template <class T, class... A> const T* look_up(A&&... a) const {
+		return look_up(EntityKey<T>(std::forward<A>(a)...));
+	}
+};
+
 class Copy {
 public:
 	static Reference<Expression> copy_expression_(const Expression* expression) {
@@ -395,14 +479,7 @@ class Pass1 {
 	}
 	Program* program;
 	Errors* errors;
-	SingletonSet<VoidType> void_type;
-	SingletonSet<IntType> int_type;
-	SingletonSet<StringType> string_type;
-	Set<ArrayType, TypeCompare> array_types;
-	Set<TupleType, TypeCompare> tuple_types;
-	const BuiltinFunction* builtin_function_print_int = nullptr;
-	Instantiations<Structure, StructureInstantiation> structure_instantiations;
-	Instantiations<Function, FunctionInstantiation> function_instantiations;
+	Interner interner;
 	ScopeMap<Index>* variables = nullptr;
 	ScopeMap<const Type*>* type_variables = nullptr;
 	FunctionInstantiation* current_function = nullptr;
@@ -417,21 +494,20 @@ class Pass1 {
 		if (template_arguments.size() != structure->get_template_arguments().size()) {
 			return nullptr;
 		}
-		InstantiationKey<Structure> key(structure, std::move(template_arguments));
-		if (const StructureInstantiation* new_structure = structure_instantiations.look_up(key)) {
+		if (const StructureInstantiation* new_structure = interner.look_up<StructureInstantiation>(structure, template_arguments)) {
 			return new_structure;
 		}
 		StructureInstantiation* new_structure = new StructureInstantiation(structure);
 		auto previous_type_variables = this->type_variables;
 		// template arguments
 		ScopeMap<const Type*> type_variables;
-		for (std::size_t i = 0; i < key.get_arguments().size(); ++i) {
-			new_structure->add_template_argument(key.get_arguments()[i]);
-			type_variables.set(structure->get_template_arguments()[i], key.get_arguments()[i]);
+		for (std::size_t i = 0; i < template_arguments.size(); ++i) {
+			new_structure->add_template_argument(template_arguments[i]);
+			type_variables.set(structure->get_template_arguments()[i], template_arguments[i]);
 		}
 		this->type_variables = &type_variables;
 		// members
-		structure_instantiations.insert(std::move(key), new_structure);
+		interner.insert(new_structure);
 		for (const Structure::Member& member: structure->get_members()) {
 			new_structure->add_member(member.get_name(), handle_type(member.get_type()));
 		}
@@ -443,8 +519,7 @@ class Pass1 {
 		if (template_arguments.size() != function->get_template_arguments().size()) {
 			return nullptr;
 		}
-		InstantiationKey<Function> key(function, std::move(template_arguments));
-		if (const FunctionInstantiation* new_function = function_instantiations.look_up(key)) {
+		if (const FunctionInstantiation* new_function = interner.look_up<FunctionInstantiation>(function, template_arguments)) {
 			return new_function;
 		}
 		FunctionInstantiation* new_function = new FunctionInstantiation(function);
@@ -453,9 +528,9 @@ class Pass1 {
 		auto previous_current_function = this->current_function;
 		// template arguments
 		ScopeMap<const Type*> type_variables;
-		for (std::size_t i = 0; i < key.get_arguments().size(); ++i) {
-			new_function->add_template_argument(key.get_arguments()[i]);
-			type_variables.set(function->get_template_arguments()[i], key.get_arguments()[i]);
+		for (std::size_t i = 0; i < template_arguments.size(); ++i) {
+			new_function->add_template_argument(template_arguments[i]);
+			type_variables.set(function->get_template_arguments()[i], template_arguments[i]);
 		}
 		this->type_variables = &type_variables;
 		// arguments
@@ -472,7 +547,7 @@ class Pass1 {
 		}
 		// block
 		this->current_function = new_function;
-		function_instantiations.insert(std::move(key), new_function);
+		interner.insert(new_function);
 		new_function->set_block(handle_block(function->get_block()));
 		if (!is_final_statement(new_function->get_block())) {
 			if (new_function->get_return_type() == nullptr) {
@@ -491,37 +566,29 @@ class Pass1 {
 		program->add_entity(new_function);
 		return new_function;
 	}
-	template <class T, class S, class... A> const Type* get_builtin_type(S& set, A&&... arguments) {
-		if (const Type* type = set.look_up(arguments...)) {
-			return type;
+	template <class T, class... A> const T* get_builtin_entity(A&&... a) {
+		if (const T* t = interner.look_up<T>(a...)) {
+			return t;
 		}
-		T* t = new T(std::forward<A>(arguments)...);
+		T* t = new T(std::forward<A>(a)...);
 		program->add_entity(t);
-		set.insert(t);
+		interner.insert(t);
 		return t;
 	}
-	const BuiltinFunction* get_builtin_function(const BuiltinFunction*& function, const char* name) {
-		if (function == nullptr) {
-			BuiltinFunction* f = new BuiltinFunction(name);
-			program->add_entity(f);
-			function = f;
-		}
-		return function;
-	}
 	const Type* get_void_type() {
-		return get_builtin_type<VoidType>(void_type);
+		return get_builtin_entity<VoidType>();
 	}
 	const Type* get_int_type() {
-		return get_builtin_type<IntType>(int_type);
+		return get_builtin_entity<IntType>();
 	}
 	const Type* get_string_type() {
-		return get_builtin_type<StringType>(string_type);
+		return get_builtin_entity<StringType>();
 	}
 	const Type* get_array_type(const Type* element_type) {
-		return get_builtin_type<ArrayType>(array_types, element_type);
+		return get_builtin_entity<ArrayType>(element_type);
 	}
 	const Type* get_tuple_type(std::vector<const Type*>&& element_types) {
-		return get_builtin_type<TupleType>(tuple_types, std::move(element_types));
+		return get_builtin_entity<TupleType>(std::move(element_types));
 	}
 	const Type* get_type(const StringView& name, std::vector<const Type*>&& arguments, const Expression* expression = nullptr) {
 		if (!name) {
@@ -590,7 +657,7 @@ class Pass1 {
 				add_error(expression, "invalid argument type %, expected type Int", PrintTypeName(argument_type));
 				return nullptr;
 			}
-			return get_builtin_function(builtin_function_print_int, "__builtin_joy_print_int");
+			return get_builtin_entity<BuiltinFunction>("__builtin_joy_print_int");
 		}
 		const Function* match_function = nullptr;
 		std::vector<const Type*> match_template_arguments;

@@ -4,6 +4,14 @@
 #include "parsley/printer.hpp"
 #include <algorithm>
 
+class Unit {
+public:
+	constexpr Unit() {}
+	constexpr bool operator <(Unit rhs) const {
+		return false;
+	}
+};
+
 class Error {
 	std::string path;
 	SourceLocation location;
@@ -104,18 +112,30 @@ class VoidType final: public Type {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_VOID_TYPE;
 	VoidType(): Type(TYPE_ID) {}
+	using Key = Unit;
+	Key get_key() const {
+		return Unit();
+	}
 };
 
 class IntType final: public Type {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_INT_TYPE;
 	IntType(): Type(TYPE_ID) {}
+	using Key = Unit;
+	Key get_key() const {
+		return Unit();
+	}
 };
 
 class StringType final: public Type {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_STRING_TYPE;
 	StringType(): Type(TYPE_ID) {}
+	using Key = Unit;
+	Key get_key() const {
+		return Unit();
+	}
 };
 
 class ArrayType final: public Type {
@@ -552,6 +572,10 @@ public:
 	StringView get_name() const {
 		return name;
 	}
+	using Key = StringView;
+	Key get_key() const {
+		return name;
+	}
 };
 
 class FunctionInstantiation final: public Entity {
@@ -609,6 +633,10 @@ public:
 	const Block* get_block() const {
 		return &block;
 	}
+	using Key = std::pair<const Function*, const std::vector<const Type*>&>;
+	Key get_key() const {
+		return Key(function, template_arguments);
+	}
 };
 
 class StructureInstantiation final: public Type {
@@ -646,6 +674,10 @@ public:
 	}
 	const std::vector<Member>& get_members() const {
 		return members;
+	}
+	using Key = std::pair<const Structure*, const std::vector<const Type*>&>;
+	Key get_key() const {
+		return Key(structure, template_arguments);
 	}
 };
 
