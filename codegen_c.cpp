@@ -232,7 +232,6 @@ public:
 		}
 		else if (const BuiltinFunction* function = as<BuiltinFunction>(entity)) {
 			if (function->get_name() == "__builtin_joy_print_int") {
-				print_impl(ln("int printf(const char*, ...);"), context);
 				print_impl(ln(format("static void f%(int n) {", print_number(function->get_id()))), context);
 				print_impl(indented(ln("printf(\"%d\\n\", n);")), context);
 				print_impl(ln('}'), context);
@@ -250,6 +249,7 @@ class PrintProgram {
 public:
 	PrintProgram(const Program* program): program(program) {}
 	void print(Context& context) const {
+		print_impl(ln("#include <stdio.h>"), context);
 		for (const Entity* entity: program->get_entities()) {
 			print_impl(ln(PrintDeclaration(entity)), context);
 		}

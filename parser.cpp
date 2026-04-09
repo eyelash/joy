@@ -215,7 +215,7 @@ constexpr auto array_literal = collect<ArrayLiteralCollector>(sequence(
 	expect("]")
 ));
 
-using StructLiteralCollector = MapCollector<TagMapper<NudTag<StructLiteral>>, TupleCollector<Reference<Expression>, std::vector<StructLiteral::Member>>>;
+using StructLiteralCollector = MapCollector<ExpressionMapper<StructLiteral>, TupleCollector<Reference<Expression>, std::vector<StructLiteral::Member>>>;
 using StructLiteralMemberCollector = MapCollector<ConstructorMapper<StructLiteral::Member>, TupleCollector<std::string, Reference<Expression>>>;
 
 constexpr auto struct_literal = collect<StructLiteralCollector>(sequence(

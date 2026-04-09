@@ -4,14 +4,6 @@
 #include "parsley/printer.hpp"
 #include <algorithm>
 
-class Unit {
-public:
-	constexpr Unit() {}
-	constexpr bool operator <(Unit rhs) const {
-		return false;
-	}
-};
-
 class Error {
 	std::string path;
 	SourceLocation location;
@@ -587,15 +579,12 @@ class FunctionInstantiation final: public Entity {
 	Block block;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_FUNCTION_INSTANTIATION;
-	FunctionInstantiation(const Function* function): Entity(TYPE_ID), function(function), return_type(nullptr) {}
+	FunctionInstantiation(const Function* function, std::vector<const Type*>&& template_arguments): Entity(TYPE_ID), function(function), template_arguments(std::move(template_arguments)), return_type(nullptr) {}
 	const Function* get_function() const {
 		return function;
 	}
 	StringView get_name() const {
 		return function->get_name();
-	}
-	void add_template_argument(const Type* type) {
-		template_arguments.push_back(type);
 	}
 	const std::vector<const Type*>& get_template_arguments() const {
 		return template_arguments;
@@ -659,12 +648,9 @@ private:
 	std::vector<Member> members;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_STRUCTURE_INSTANTIATION;
-	StructureInstantiation(const Structure* structure): Type(TYPE_ID), structure(structure) {}
+	StructureInstantiation(const Structure* structure, std::vector<const Type*>&& template_arguments): Type(TYPE_ID), structure(structure), template_arguments(std::move(template_arguments)) {}
 	const Structure* get_structure() const {
 		return structure;
-	}
-	void add_template_argument(const Type* type) {
-		template_arguments.push_back(type);
 	}
 	const std::vector<const Type*>& get_template_arguments() const {
 		return template_arguments;

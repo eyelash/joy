@@ -3,32 +3,6 @@
 #include <set>
 #include <map>
 
-template <class T, class Compare = std::less<>> class Set {
-	std::set<const T*, Compare> set;
-public:
-	void insert(const T* value) {
-		set.insert(value);
-	}
-	template <class K> const T* look_up(const K& key) const {
-		auto iterator = set.find(key);
-		if (iterator != set.end()) {
-			return *iterator;
-		}
-		return nullptr;
-	}
-};
-
-template <class T> class SingletonSet {
-	const T* value = nullptr;
-public:
-	void insert(const T* value) {
-		this->value = value;
-	}
-	const T* look_up() const {
-		return value;
-	}
-};
-
 template <class Key, class T> class Map {
 	std::map<Key, const T*> map;
 public:
@@ -99,21 +73,6 @@ public:
 		return nullptr;
 	}
 };
-
-template <class T> class InstantiationKey {
-	std::pair<const T*, std::vector<const Type*>> key;
-public:
-	// TODO: does this move actually work?
-	InstantiationKey(const T* t, std::vector<const Type*>&& arguments): key(t, std::move(arguments)) {}
-	bool operator <(const InstantiationKey& key) const {
-		return this->key < key.key;
-	}
-	const std::vector<const Type*>& get_arguments() const {
-		return key.second;
-	}
-};
-
-template <class T, class TI = T> using Instantiations = Map<InstantiationKey<T>, TI>;
 
 template <class T> class EntityKey {
 	typename T::Key key;
@@ -402,21 +361,6 @@ static bool match(UnificationVariables& variables, const Expression* expression,
 	return false;
 }
 
-class TypeCompare {
-public:
-	constexpr TypeCompare() {}
-	template <class T> bool operator ()(const T* lhs, const T* rhs) const {
-		return std::less<typename T::Key>()(lhs->get_key(), rhs->get_key());
-	}
-	template <class T> bool operator ()(const T* lhs, typename T::Key rhs) const {
-		return std::less<typename T::Key>()(lhs->get_key(), rhs);
-	}
-	template <class T> bool operator ()(typename T::Key lhs, const T* rhs) const {
-		return std::less<typename T::Key>()(lhs, rhs->get_key());
-	}
-	using is_transparent = std::true_type;
-};
-
 // name resolution, type checking, and template instantiation
 class Pass1 {
 	static SourceLocation get_location(const Expression* expression) {
@@ -497,13 +441,12 @@ class Pass1 {
 		if (const StructureInstantiation* new_structure = interner.look_up<StructureInstantiation>(structure, template_arguments)) {
 			return new_structure;
 		}
-		StructureInstantiation* new_structure = new StructureInstantiation(structure);
+		StructureInstantiation* new_structure = new StructureInstantiation(structure, std::move(template_arguments));
 		auto previous_type_variables = this->type_variables;
 		// template arguments
 		ScopeMap<const Type*> type_variables;
-		for (std::size_t i = 0; i < template_arguments.size(); ++i) {
-			new_structure->add_template_argument(template_arguments[i]);
-			type_variables.set(structure->get_template_arguments()[i], template_arguments[i]);
+		for (std::size_t i = 0; i < structure->get_template_arguments().size(); ++i) {
+			type_variables.set(structure->get_template_arguments()[i], new_structure->get_template_arguments()[i]);
 		}
 		this->type_variables = &type_variables;
 		// members
@@ -522,15 +465,14 @@ class Pass1 {
 		if (const FunctionInstantiation* new_function = interner.look_up<FunctionInstantiation>(function, template_arguments)) {
 			return new_function;
 		}
-		FunctionInstantiation* new_function = new FunctionInstantiation(function);
+		FunctionInstantiation* new_function = new FunctionInstantiation(function, std::move(template_arguments));
 		auto previous_variables = this->variables;
 		auto previous_type_variables = this->type_variables;
 		auto previous_current_function = this->current_function;
 		// template arguments
 		ScopeMap<const Type*> type_variables;
-		for (std::size_t i = 0; i < template_arguments.size(); ++i) {
-			new_function->add_template_argument(template_arguments[i]);
-			type_variables.set(function->get_template_arguments()[i], template_arguments[i]);
+		for (std::size_t i = 0; i < function->get_template_arguments().size(); ++i) {
+			type_variables.set(function->get_template_arguments()[i], new_function->get_template_arguments()[i]);
 		}
 		this->type_variables = &type_variables;
 		// arguments
