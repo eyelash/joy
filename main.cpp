@@ -12,6 +12,7 @@ static void compile(const std::string& path, Errors& errors) {
 	if (errors) {
 		return;
 	}
+	memory_management(program);
 	std::ofstream output(path + ".c");
 	codegen_c(output, program);
 }

@@ -1071,3 +1071,83 @@ public:
 void pass1(Program* program, Errors& errors) {
 	Pass1(program, &errors).run();
 }
+
+class MemoryManagement {
+	Program* program;
+	std::size_t loop_depth = 0;
+	void handle_function(FunctionInstantiation* function) {
+		Block* block = function->get_block();
+		for (std::size_t i = 0; i < function->get_arguments().size(); ++i) {
+			const unsigned int variable = i;
+			destroy_variable(block, 0, variable, true);
+		}
+		find_variables(block);
+	}
+	void find_variables(Block* block) {
+		for (std::size_t i = 0; i < block->get_statements().size(); ++i) {
+			Statement* statement = block->get_statements()[i];
+			if (auto* s = as<BlockStatement>(statement)) {
+				find_variables(s->get_block());
+			}
+			else if (auto* s = as<LetStatement>(statement)) {
+				const unsigned int variable = as<Variable>(s->get_variable())->get_index();
+				destroy_variable(block, i + 1, variable, true);
+			}
+			else if (auto* s = as<IfStatement>(statement)) {
+				find_variables(s->get_then_block());
+				find_variables(s->get_else_block());
+			}
+			else if (auto* s = as<WhileStatement>(statement)) {
+				find_variables(s->get_block());
+			}
+		}
+	}
+	void destroy_variable(Block* block, std::size_t i, unsigned int variable, bool destroy) {
+		for (; i < block->get_statements().size(); ++i) {
+			Statement* statement = block->get_statements()[i];
+			if (auto* s = as<BlockStatement>(statement)) {
+				destroy_variable(s->get_block(), 0, variable, false);
+			}
+			else if (auto* s = as<IfStatement>(statement)) {
+				destroy_variable(s->get_then_block(), 0, variable, false);
+				destroy_variable(s->get_else_block(), 0, variable, false);
+			}
+			else if (auto* s = as<WhileStatement>(statement)) {
+				++loop_depth;
+				destroy_variable(s->get_block(), 0, variable, false);
+				--loop_depth;
+			}
+		}
+		Statement* last_statement = block->get_last_statement();
+		if (as<ReturnStatement>(last_statement)) {
+			destroy = true;
+		}
+		else if (as<BreakStatement>(last_statement) && loop_depth == 0) {
+			destroy = true;
+		}
+		else if (as<ContinueStatement>(last_statement) && loop_depth == 0) {
+			destroy = true;
+		}
+		if (destroy) {
+			if (ReturnStatement* return_statement = as<ReturnStatement>(last_statement)) {
+				return_statement->add_destroy_variable(variable);
+			}
+			else {
+				block->add_statement(new DestroyStatement(variable));
+			}
+		}
+	}
+public:
+	MemoryManagement(Program* program): program(program) {}
+	void run() {
+		for (Entity* entity: program->get_entities()) {
+			if (FunctionInstantiation* function = as<FunctionInstantiation>(entity)) {
+				handle_function(function);
+			}
+		}
+	}
+};
+
+void memory_management(Program* program) {
+	MemoryManagement(program).run();
+}

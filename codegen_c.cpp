@@ -53,13 +53,14 @@ public:
 			print_impl(e->get_name(), context);
 		}
 		else if (auto* e = as<Variable>(expression)) {
-			print_impl(format("v%", print_number(e->get_index())), context);
+			print_impl(format("COPY(v%)", print_number(e->get_index())), context);
 		}
 		else if (auto* e = as<BinaryExpression>(expression)) {
 			print_impl(format("(% % %)", PrintExpression(e->get_left()), print_operation(e->get_operation()), PrintExpression(e->get_right())), context);
 		}
 		else if (auto* e = as<Assignment>(expression)) {
-			print_impl(format("(% = %)", PrintExpression(e->get_left()), PrintExpression(e->get_right())), context);
+			const unsigned int index = as<Variable>(e->get_left())->get_index();
+			print_impl(format("ASSIGN(v%, %)", print_number(index), PrintExpression(e->get_right())), context);
 		}
 		else if (auto* e = as<Call>(expression)) {
 			const Entity* function = as<EntityReference>(e->get_expression())->get_entity();
@@ -110,7 +111,8 @@ void PrintStatement::print(Context& context) const {
 		print_impl(PrintBlock(s->get_block()), context);
 	}
 	else if (auto* s = as<LetStatement>(statement)) {
-		print_impl(format("% % = %;", PrintType(s->get_expression()), PrintExpression(s->get_variable()), PrintExpression(s->get_expression())), context);
+		const unsigned int index = as<Variable>(s->get_variable())->get_index();
+		print_impl(format("% v% = %;", PrintType(s->get_expression()), print_number(index), PrintExpression(s->get_expression())), context);
 	}
 	else if (auto* s = as<IfStatement>(statement)) {
 		print_impl(format("if (%) % else %", PrintExpression(s->get_condition()), PrintBlock(s->get_then_block()), PrintBlock(s->get_else_block())), context);
@@ -121,7 +123,13 @@ void PrintStatement::print(Context& context) const {
 	else if (auto* s = as<ReturnStatement>(statement)) {
 		const Expression* expression = s->get_expression();
 		if (expression) {
-			print_impl(format("return %;", PrintExpression(expression)), context);
+			print_impl(ln(format("% r = %;", PrintType(expression), PrintExpression(expression))), context);
+		}
+		for (unsigned int variable: s->get_destroy_variables()) {
+			print_impl(ln(format("DESTROY(v%);", print_number(variable))), context);
+		}
+		if (expression) {
+			print_impl("return r;", context);
 		}
 		else {
 			print_impl("return;", context);
@@ -134,7 +142,10 @@ void PrintStatement::print(Context& context) const {
 		print_impl("continue;", context);
 	}
 	else if (auto* s = as<ExpressionStatement>(statement)) {
-		print_impl(format("%;", PrintExpression(s->get_expression())), context);
+		print_impl(format("DESTROY(%);", PrintExpression(s->get_expression())), context);
+	}
+	else if (auto* s = as<DestroyStatement>(statement)) {
+		print_impl(format("DESTROY(v%);", print_number(s->get_index())), context);
 	}
 }
 
@@ -250,6 +261,10 @@ public:
 	PrintProgram(const Program* program): program(program) {}
 	void print(Context& context) const {
 		print_impl(ln("#include <stdio.h>"), context);
+		print_impl(ln("#define COPY(x) (x)"), context);
+		print_impl(ln("#define MOVE(x) (x)"), context);
+		print_impl(ln("#define DESTROY(x) ((void)(x))"), context);
+		print_impl(ln("#define ASSIGN(x, y) ((x) = (y))"), context);
 		for (const Entity* entity: program->get_entities()) {
 			print_impl(ln(PrintDeclaration(entity)), context);
 		}

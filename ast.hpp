@@ -74,6 +74,7 @@ enum {
 	TYPE_ID_BREAK_STATEMENT,
 	TYPE_ID_CONTINUE_STATEMENT,
 	TYPE_ID_EXPRESSION_STATEMENT,
+	TYPE_ID_DESTROY_STATEMENT,
 	TYPE_ID_FUNCTION,
 	TYPE_ID_STRUCTURE,
 	TYPE_ID_TYPE_ALIAS,
@@ -370,6 +371,12 @@ public:
 	void add_statement(Reference<Statement>&& statement) {
 		statements.push_back(std::move(statement));
 	}
+	Statement* get_last_statement() const {
+		if (statements.empty()) {
+			return nullptr;
+		}
+		return statements.back();
+	}
 };
 
 class BlockStatement final: public Statement {
@@ -378,6 +385,9 @@ public:
 	static constexpr int TYPE_ID = TYPE_ID_BLOCK_STATEMENT;
 	BlockStatement(): Statement(TYPE_ID) {}
 	BlockStatement(Block&& block): Statement(TYPE_ID), block(std::move(block)) {}
+	Block* get_block() {
+		return &block;
+	}
 	const Block* get_block() const {
 		return &block;
 	}
@@ -411,6 +421,12 @@ public:
 	const Expression* get_condition() const {
 		return condition;
 	}
+	Block* get_then_block() {
+		return &then_block;
+	}
+	Block* get_else_block() {
+		return &else_block;
+	}
 	const Block* get_then_block() const {
 		return &then_block;
 	}
@@ -428,6 +444,9 @@ public:
 	const Expression* get_condition() const {
 		return condition;
 	}
+	Block* get_block() {
+		return &block;
+	}
 	const Block* get_block() const {
 		return &block;
 	}
@@ -435,12 +454,19 @@ public:
 
 class ReturnStatement final: public Statement {
 	Reference<Expression> expression;
+	std::vector<unsigned int> destroy_variables;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_RETURN_STATEMENT;
 	ReturnStatement(Reference<Expression>&& expression): Statement(TYPE_ID), expression(std::move(expression)) {}
 	ReturnStatement(): Statement(TYPE_ID) {}
 	const Expression* get_expression() const {
 		return expression;
+	}
+	const std::vector<unsigned int>& get_destroy_variables() const {
+		return destroy_variables;
+	}
+	void add_destroy_variable(unsigned int variable) {
+		destroy_variables.push_back(variable);
 	}
 };
 
@@ -463,6 +489,16 @@ public:
 	ExpressionStatement(Reference<Expression>&& expression): Statement(TYPE_ID), expression(std::move(expression)) {}
 	const Expression* get_expression() const {
 		return expression;
+	}
+};
+
+class DestroyStatement final: public Statement {
+	unsigned int index;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_DESTROY_STATEMENT;
+	DestroyStatement(unsigned int index): Statement(TYPE_ID), index(index) {}
+	unsigned int get_index() const {
+		return index;
 	}
 };
 
