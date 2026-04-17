@@ -441,7 +441,8 @@ class Pass1 {
 	Errors* errors;
 	Interner interner;
 	ScopeMap<Index>* variables = nullptr;
-	ScopeMap<const Type*>* type_variables = nullptr;
+	ScopeMap<Index>* type_variables = nullptr;
+	Entity* current_entity = nullptr;
 	FunctionInstantiation* current_function = nullptr;
 	const WhileStatement* current_loop = nullptr;
 	template <class... T> void add_error(const Expression* expression, const char* s, T... t) {
@@ -459,10 +460,12 @@ class Pass1 {
 		}
 		StructureInstantiation* new_structure = new StructureInstantiation(structure, std::move(template_arguments));
 		auto previous_type_variables = this->type_variables;
+		auto previous_current_entity = this->current_entity;
+		this->current_entity = new_structure;
 		// template arguments
-		ScopeMap<const Type*> type_variables;
+		ScopeMap<Index> type_variables;
 		for (std::size_t i = 0; i < structure->get_template_arguments().size(); ++i) {
-			type_variables.set(structure->get_template_arguments()[i], new_structure->get_template_arguments()[i]);
+			type_variables.set(structure->get_template_arguments()[i], i);
 		}
 		this->type_variables = &type_variables;
 		// members
@@ -471,6 +474,7 @@ class Pass1 {
 			new_structure->add_member(member.get_name(), handle_type(member.get_type()));
 		}
 		this->type_variables = previous_type_variables;
+		this->current_entity = previous_current_entity;
 		program->add_entity(new_structure);
 		return new_structure;
 	}
@@ -480,10 +484,12 @@ class Pass1 {
 		}
 		BuiltinFunctionInstantiation* new_function = new BuiltinFunctionInstantiation(function, std::move(template_arguments));
 		auto previous_type_variables = this->type_variables;
+		auto previous_current_entity = this->current_entity;
+		this->current_entity = new_function;
 		// template arguments
-		ScopeMap<const Type*> type_variables;
+		ScopeMap<Index> type_variables;
 		for (std::size_t i = 0; i < function->get_template_arguments().size(); ++i) {
-			type_variables.set(function->get_template_arguments()[i], new_function->get_template_arguments()[i]);
+			type_variables.set(function->get_template_arguments()[i], i);
 		}
 		this->type_variables = &type_variables;
 		// arguments
@@ -493,6 +499,7 @@ class Pass1 {
 		// return type
 		new_function->set_return_type(handle_type(function->get_return_type()));
 		this->type_variables = previous_type_variables;
+		this->current_entity = previous_current_entity;
 		program->add_entity(new_function);
 		return new_function;
 	}
@@ -506,11 +513,14 @@ class Pass1 {
 		FunctionInstantiation* new_function = new FunctionInstantiation(function, std::move(template_arguments));
 		auto previous_variables = this->variables;
 		auto previous_type_variables = this->type_variables;
+		auto previous_current_entity = this->current_entity;
 		auto previous_current_function = this->current_function;
+		this->current_entity = new_function;
+		this->current_function = new_function;
 		// template arguments
-		ScopeMap<const Type*> type_variables;
+		ScopeMap<Index> type_variables;
 		for (std::size_t i = 0; i < function->get_template_arguments().size(); ++i) {
-			type_variables.set(function->get_template_arguments()[i], new_function->get_template_arguments()[i]);
+			type_variables.set(function->get_template_arguments()[i], i);
 		}
 		this->type_variables = &type_variables;
 		// arguments
@@ -526,7 +536,6 @@ class Pass1 {
 			new_function->set_return_type(handle_type(function->get_return_type()));
 		}
 		// block
-		this->current_function = new_function;
 		interner.insert(new_function);
 		new_function->set_block(handle_block(function->get_block()));
 		if (!is_final_statement(new_function->get_block())) {
@@ -542,6 +551,7 @@ class Pass1 {
 		}
 		this->variables = previous_variables;
 		this->type_variables = previous_type_variables;
+		this->current_entity = previous_current_entity;
 		this->current_function = previous_current_function;
 		program->add_entity(new_function);
 		return new_function;
@@ -734,8 +744,16 @@ class Pass1 {
 			return nullptr;
 		}
 		if (auto* e = as<Name>(expression)) {
-			if (const Type* type = type_variables->look_up(e->get_name())) {
-				return type;
+			if (Index index = type_variables->look_up(e->get_name())) {
+				if (auto* e = as<StructureInstantiation>(current_entity)) {
+					return e->get_template_arguments()[*index];
+				}
+				else if (auto* e = as<BuiltinFunctionInstantiation>(current_entity)) {
+					return e->get_template_arguments()[*index];
+				}
+				else if (auto* e = as<FunctionInstantiation>(current_entity)) {
+					return e->get_template_arguments()[*index];
+				}
 			}
 			return get_type(e->get_name(), std::vector<const Type*>(), expression);
 		}
