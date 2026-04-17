@@ -405,37 +405,27 @@ class Pass1 {
 		}
 		return false;
 	}
-	static bool unification(const BuiltinFunction* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
-		if (function->get_arguments().size() != arguments.size()) {
+	static bool unification(const std::vector<NamedType>& function_arguments, const Expression* function_return_type, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
+		if (function_arguments.size() != arguments.size()) {
 			return false;
 		}
 		for (std::size_t i = 0; i < arguments.size(); ++i) {
-			if (!match(variables, function->get_arguments()[i], get_type(arguments[i]))) {
+			if (!match(variables, function_arguments[i].get_type(), get_type(arguments[i]))) {
 				return false;
 			}
 		}
-		if (function->get_return_type() && return_type) {
-			if (!match(variables, function->get_return_type(), return_type)) {
+		if (function_return_type && return_type) {
+			if (!match(variables, function_return_type, return_type)) {
 				return false;
 			}
 		}
 		return variables.check();
 	}
+	static bool unification(const BuiltinFunction* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
+		return unification(function->get_arguments(), function->get_return_type(), arguments, return_type, variables);
+	}
 	static bool unification(const Function* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
-		if (function->get_arguments().size() != arguments.size()) {
-			return false;
-		}
-		for (std::size_t i = 0; i < arguments.size(); ++i) {
-			if (!match(variables, function->get_arguments()[i].get_type(), get_type(arguments[i]))) {
-				return false;
-			}
-		}
-		if (function->get_return_type() && return_type) {
-			if (!match(variables, function->get_return_type(), return_type)) {
-				return false;
-			}
-		}
-		return variables.check();
+		return unification(function->get_arguments(), function->get_return_type(), arguments, return_type, variables);
 	}
 	Program* program;
 	Errors* errors;
@@ -470,7 +460,7 @@ class Pass1 {
 		this->type_variables = &type_variables;
 		// members
 		interner.insert(new_structure);
-		for (const Structure::Member& member: structure->get_members()) {
+		for (const NamedType& member: structure->get_members()) {
 			new_structure->add_member(member.get_name(), handle_type(member.get_type()));
 		}
 		this->type_variables = previous_type_variables;
@@ -493,8 +483,8 @@ class Pass1 {
 		}
 		this->type_variables = &type_variables;
 		// arguments
-		for (const Expression* argument: function->get_arguments()) {
-			new_function->add_argument(handle_type(argument));
+		for (const NamedType& argument: function->get_arguments()) {
+			new_function->add_argument(handle_type(argument.get_type()));
 		}
 		// return type
 		new_function->set_return_type(handle_type(function->get_return_type()));
@@ -525,9 +515,8 @@ class Pass1 {
 		this->type_variables = &type_variables;
 		// arguments
 		ScopeMap<Index> variables;
-		for (const Function::Argument& argument: function->get_arguments()) {
-			const Type* argument_type = handle_type(argument.get_type());
-			const unsigned int index = new_function->add_argument(argument_type);
+		for (const NamedType& argument: function->get_arguments()) {
+			const unsigned int index = new_function->add_argument(handle_type(argument.get_type()));
 			variables.set(argument.get_name(), index);
 		}
 		this->variables = &variables;
