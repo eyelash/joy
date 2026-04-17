@@ -75,10 +75,11 @@ enum {
 	TYPE_ID_CONTINUE_STATEMENT,
 	TYPE_ID_EXPRESSION_STATEMENT,
 	TYPE_ID_DESTROY_STATEMENT,
+	TYPE_ID_BUILTIN_FUNCTION,
 	TYPE_ID_FUNCTION,
 	TYPE_ID_STRUCTURE,
 	TYPE_ID_TYPE_ALIAS,
-	TYPE_ID_BUILTIN_FUNCTION,
+	TYPE_ID_BUILTIN_FUNCTION_INSTANTIATION,
 	TYPE_ID_FUNCTION_INSTANTIATION,
 	TYPE_ID_STRUCTURE_INSTANTIATION,
 	TYPE_ID_PROGRAM
@@ -502,6 +503,28 @@ public:
 	}
 };
 
+class BuiltinFunction final: public Entity {
+	std::string name;
+	std::vector<std::string> template_arguments;
+	std::vector<Reference<Expression>> arguments;
+	Reference<Expression> return_type;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_BUILTIN_FUNCTION;
+	BuiltinFunction(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Reference<Expression>>&& arguments, Reference<Expression>&& return_type): Entity(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), arguments(std::move(arguments)), return_type(std::move(return_type)) {}
+	StringView get_name() const {
+		return name;
+	}
+	const std::vector<std::string>& get_template_arguments() const {
+		return template_arguments;
+	}
+	const std::vector<Reference<Expression>>& get_arguments() const {
+		return arguments;
+	}
+	const Expression* get_return_type() const {
+		return return_type;
+	}
+};
+
 class Function final: public Entity {
 public:
 	class Argument {
@@ -592,17 +615,38 @@ public:
 	}
 };
 
-class BuiltinFunction final: public Entity {
-	const char* name;
+class BuiltinFunctionInstantiation final: public Entity {
+	const BuiltinFunction* function;
+	std::vector<const Type*> template_arguments;
+	std::vector<const Type*> arguments;
+	const Type* return_type;
 public:
-	static constexpr int TYPE_ID = TYPE_ID_BUILTIN_FUNCTION;
-	BuiltinFunction(const char* name): Entity(TYPE_ID), name(name) {}
-	StringView get_name() const {
-		return name;
+	static constexpr int TYPE_ID = TYPE_ID_BUILTIN_FUNCTION_INSTANTIATION;
+	BuiltinFunctionInstantiation(const BuiltinFunction* function, std::vector<const Type*>&& template_arguments): Entity(TYPE_ID), function(function), template_arguments(std::move(template_arguments)), return_type(nullptr) {}
+	const BuiltinFunction* get_function() const {
+		return function;
 	}
-	using Key = StringView;
+	StringView get_name() const {
+		return function->get_name();
+	}
+	const std::vector<const Type*>& get_template_arguments() const {
+		return template_arguments;
+	}
+	void add_argument(const Type* type) {
+		return arguments.push_back(type);
+	}
+	Range<std::vector<const Type*>::const_iterator> get_arguments() const {
+		return Range<std::vector<const Type*>::const_iterator>(arguments.begin(), arguments.end());
+	}
+	void set_return_type(const Type* return_type) {
+		this->return_type = return_type;
+	}
+	const Type* get_return_type() const {
+		return return_type;
+	}
+	using Key = std::pair<const BuiltinFunction*, const std::vector<const Type*>&>;
 	Key get_key() const {
-		return name;
+		return Key(function, template_arguments);
 	}
 };
 

@@ -405,6 +405,22 @@ class Pass1 {
 		}
 		return false;
 	}
+	static bool unification(const BuiltinFunction* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
+		if (function->get_arguments().size() != arguments.size()) {
+			return false;
+		}
+		for (std::size_t i = 0; i < arguments.size(); ++i) {
+			if (!match(variables, function->get_arguments()[i], get_type(arguments[i]))) {
+				return false;
+			}
+		}
+		if (function->get_return_type() && return_type) {
+			if (!match(variables, function->get_return_type(), return_type)) {
+				return false;
+			}
+		}
+		return variables.check();
+	}
 	static bool unification(const Function* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
 		if (function->get_arguments().size() != arguments.size()) {
 			return false;
@@ -457,6 +473,28 @@ class Pass1 {
 		this->type_variables = previous_type_variables;
 		program->add_entity(new_structure);
 		return new_structure;
+	}
+	const BuiltinFunctionInstantiation* instantiate_builtin_function(const BuiltinFunction* function, std::vector<const Type*>&& template_arguments) {
+		if (const BuiltinFunctionInstantiation* new_function = interner.look_up<BuiltinFunctionInstantiation>(function, template_arguments)) {
+			return new_function;
+		}
+		BuiltinFunctionInstantiation* new_function = new BuiltinFunctionInstantiation(function, std::move(template_arguments));
+		auto previous_type_variables = this->type_variables;
+		// template arguments
+		ScopeMap<const Type*> type_variables;
+		for (std::size_t i = 0; i < function->get_template_arguments().size(); ++i) {
+			type_variables.set(function->get_template_arguments()[i], new_function->get_template_arguments()[i]);
+		}
+		this->type_variables = &type_variables;
+		// arguments
+		for (const Expression* argument: function->get_arguments()) {
+			new_function->add_argument(handle_type(argument));
+		}
+		// return type
+		new_function->set_return_type(handle_type(function->get_return_type()));
+		this->type_variables = previous_type_variables;
+		program->add_entity(new_function);
+		return new_function;
 	}
 	const FunctionInstantiation* instantiate_function(const Function* function, std::vector<const Type*>&& template_arguments) {
 		if (template_arguments.size() != function->get_template_arguments().size()) {
@@ -589,24 +627,22 @@ class Pass1 {
 				return nullptr;
 			}
 		}
-		if (name == "__builtin_joy_print_int") {
-			if (arguments.size() != 1) {
-				add_error(expression, "invalid number of arguments, expected 1 argument");
-				return nullptr;
-			}
-			const Type* argument_type = get_type(arguments[0]);
-			if (!as<IntType>(argument_type)) {
-				add_error(expression, "invalid argument type %, expected type Int", PrintTypeName(argument_type));
-				return nullptr;
-			}
-			return get_builtin_entity<BuiltinFunction>("__builtin_joy_print_int");
-		}
-		const Function* match_function = nullptr;
+		const Entity* match_function = nullptr;
 		std::vector<const Type*> match_template_arguments;
 		unsigned int match_count = 0;
 		// TODO: optimize
 		for (const Entity* entity: program->get_source_entities()) {
-			if (const Function* function = as<Function>(entity)) {
+			if (const BuiltinFunction* function = as<BuiltinFunction>(entity)) {
+				if (function->get_name() == name) {
+					UnificationVariables unification_variables(function->get_template_arguments());
+					if (unification(function, arguments, return_type, unification_variables)) {
+						match_function = function;
+						match_template_arguments = unification_variables.take();
+						++match_count;
+					}
+				}
+			}
+			else if (const Function* function = as<Function>(entity)) {
 				if (function->get_name() == name) {
 					UnificationVariables unification_variables(function->get_template_arguments());
 					if (unification(function, arguments, return_type, unification_variables)) {
@@ -626,7 +662,13 @@ class Pass1 {
 			}
 			return nullptr;
 		}
-		return instantiate_function(match_function, std::move(match_template_arguments));
+		if (auto* f = as<BuiltinFunction>(match_function)) {
+			return instantiate_builtin_function(f, std::move(match_template_arguments));
+		}
+		else if (auto* f = as<Function>(match_function)) {
+			return instantiate_function(f, std::move(match_template_arguments));
+		}
+		return nullptr;
 	}
 	StringView get_name(const Expression* expression) {
 		if (expression == nullptr) {
@@ -640,10 +682,8 @@ class Pass1 {
 		return name->get_name();
 	}
 	const Type* get_return_type(const Entity* function) {
-		if (auto* f = as<BuiltinFunction>(function)) {
-			if (f->get_name() == "__builtin_joy_print_int") {
-				return get_void_type();
-			}
+		if (auto* f = as<BuiltinFunctionInstantiation>(function)) {
+			return f->get_return_type();
 		}
 		else if (auto* f = as<FunctionInstantiation>(function)) {
 			return f->get_return_type();

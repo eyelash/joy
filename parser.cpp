@@ -582,6 +582,45 @@ constexpr auto type_alias = collect<TypeAliasCollector>(sequence(
 	expect(";")
 ));
 
+using BuiltinFunctionCollector = MapCollector<EntityMapper<BuiltinFunction>, TupleCollector<std::string, std::vector<std::string>, std::vector<Reference<Expression>>, Reference<Expression>>>;
+
+constexpr auto builtin = sequence(
+	keyword("builtin"),
+	whitespace,
+	choice(
+		collect<BuiltinFunctionCollector>(sequence(
+			keyword("func"),
+			whitespace,
+			expect_identifier,
+			whitespace,
+			optional(template_arguments),
+			whitespace,
+			expect("("),
+			whitespace,
+			collect<VectorCollector<Reference<Expression>>>(comma_separated(
+				sequence(
+					not_(')'),
+					not_(end()),
+					ignore(expect_identifier),
+					whitespace,
+					expect(":"),
+					whitespace,
+					type
+				)
+			)),
+			whitespace,
+			expect(")"),
+			whitespace,
+			expect(":"),
+			whitespace,
+			type,
+			whitespace,
+			expect(";")
+		)),
+		error("invalid builtin")
+	)
+);
+
 using ProgramCollector = MapCollector<ReferenceMapper<Program>, VectorCollector<Reference<Entity>>>;
 
 constexpr auto program = collect<ProgramCollector>(sequence(
@@ -592,6 +631,7 @@ constexpr auto program = collect<ProgramCollector>(sequence(
 			function,
 			structure,
 			type_alias,
+			builtin,
 			error("expected a toplevel declaration")
 		),
 		whitespace

@@ -160,16 +160,16 @@ public:
 };
 
 class PrintFunctionArguments {
-	const FunctionInstantiation* function;
+	Range<std::vector<const Type*>::const_iterator> arguments;
 public:
-	PrintFunctionArguments(const FunctionInstantiation* function): function(function) {}
-	PrintFunctionArguments(const FunctionInstantiation& function): function(&function) {}
+	PrintFunctionArguments(const BuiltinFunctionInstantiation* function): arguments(function->get_arguments()) {}
+	PrintFunctionArguments(const FunctionInstantiation* function): arguments(function->get_arguments()) {}
 	void print(Context& context) const {
-		if (function->get_arguments().empty()) {
+		if (arguments.empty()) {
 			print_impl("void", context);
 		}
 		else {
-			print_impl(comma_separated<PrintFunctionArgument>(function->get_arguments()), context);
+			print_impl(comma_separated<PrintFunctionArgument>(arguments), context);
 		}
 	}
 };
@@ -197,10 +197,8 @@ public:
 		else if (as<StructureInstantiation>(entity)) {
 			print_impl(format("typedef struct t% t%;", print_number(entity->get_id()), print_number(entity->get_id())), context);
 		}
-		else if (const BuiltinFunction* function = as<BuiltinFunction>(entity)) {
-			if (function->get_name() == "__builtin_joy_print_int") {
-				print_impl(format("static void f%(int n);", print_number(function->get_id())), context);
-			}
+		else if (const BuiltinFunctionInstantiation* function = as<BuiltinFunctionInstantiation>(entity)) {
+			print_impl(format("static % f%(%);", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function)), context);
 		}
 		else if (const FunctionInstantiation* function = as<FunctionInstantiation>(entity)) {
 			print_impl(format("static % f%(%);", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function)), context);
@@ -241,12 +239,15 @@ public:
 			context.decrease_indentation();
 			print_impl(ln("};"), context);
 		}
-		else if (const BuiltinFunction* function = as<BuiltinFunction>(entity)) {
+		else if (const BuiltinFunctionInstantiation* function = as<BuiltinFunctionInstantiation>(entity)) {
+			print_impl(ln(format("// %", function->get_name())), context);
+			print_impl(ln(format("static % f%(%) {", PrintType(function->get_return_type()), print_number(function->get_id()), PrintFunctionArguments(function))), context);
+			context.increase_indentation();
 			if (function->get_name() == "__builtin_joy_print_int") {
-				print_impl(ln(format("static void f%(int n) {", print_number(function->get_id()))), context);
-				print_impl(indented(ln("printf(\"%d\\n\", n);")), context);
-				print_impl(ln('}'), context);
+				print_impl(ln("printf(\"%d\\n\", v0);"), context);
 			}
+			context.decrease_indentation();
+			print_impl(ln('}'), context);
 		}
 		else if (const FunctionInstantiation* function = as<FunctionInstantiation>(entity)) {
 			print_impl(ln(format("// %", PrintFunctionSignature(function))), context);
