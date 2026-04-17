@@ -52,8 +52,8 @@ enum {
 	TYPE_ID_VOID_TYPE,
 	TYPE_ID_INT_TYPE,
 	TYPE_ID_STRING_TYPE,
-	TYPE_ID_ARRAY_TYPE,
-	TYPE_ID_TUPLE_TYPE,
+	TYPE_ID_ARRAY_TYPE_INSTANTIATION,
+	TYPE_ID_TUPLE_TYPE_INSTANTIATION,
 	TYPE_ID_INT_LITERAL,
 	TYPE_ID_CHAR_LITERAL,
 	TYPE_ID_STRING_LITERAL,
@@ -132,11 +132,11 @@ public:
 	}
 };
 
-class ArrayType final: public Type {
+class ArrayTypeInstantiation final: public Type {
 	const Type* element_type;
 public:
-	static constexpr int TYPE_ID = TYPE_ID_ARRAY_TYPE;
-	ArrayType(const Type* element_type): Type(TYPE_ID), element_type(element_type) {}
+	static constexpr int TYPE_ID = TYPE_ID_ARRAY_TYPE_INSTANTIATION;
+	ArrayTypeInstantiation(const Type* element_type): Type(TYPE_ID), element_type(element_type) {}
 	const Type* get_element_type() const {
 		return element_type;
 	}
@@ -146,11 +146,11 @@ public:
 	}
 };
 
-class TupleType final: public Type {
+class TupleTypeInstantiation final: public Type {
 	std::vector<const Type*> element_types;
 public:
-	static constexpr int TYPE_ID = TYPE_ID_TUPLE_TYPE;
-	TupleType(std::vector<const Type*>&& element_types): Type(TYPE_ID), element_types(std::move(element_types)) {}
+	static constexpr int TYPE_ID = TYPE_ID_TUPLE_TYPE_INSTANTIATION;
+	TupleTypeInstantiation(std::vector<const Type*>&& element_types): Type(TYPE_ID), element_types(std::move(element_types)) {}
 	const std::vector<const Type*>& get_element_types() const {
 		return element_types;
 	}
@@ -863,10 +863,10 @@ public:
 		else if (as<StringType>(type)) {
 			print_impl("String", context);
 		}
-		else if (auto* t = as<ArrayType>(type)) {
+		else if (auto* t = as<ArrayTypeInstantiation>(type)) {
 			print_impl(format("Array<%>", PrintTypeName(t->get_element_type())), context);
 		}
-		else if (auto* t = as<TupleType>(type)) {
+		else if (auto* t = as<TupleTypeInstantiation>(type)) {
 			print_impl(format("Tuple<%>", comma_separated<PrintTypeName>(t->get_element_types())), context);
 		}
 		else if (auto* s = as<StructureInstantiation>(type)) {

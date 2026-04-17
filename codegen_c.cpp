@@ -72,7 +72,7 @@ public:
 				const StringView member_name = as<StringLiteral>(e->get_right())->get_string();
 				print_impl(format("%.%", PrintExpression(e->get_left()), member_name), context);
 			}
-			else if (as<TupleType>(left_type)) {
+			else if (as<TupleTypeInstantiation>(left_type)) {
 				const std::int32_t index = as<IntLiteral>(e->get_right())->get_value();
 				print_impl(format("%.v%", PrintExpression(e->get_left()), print_number(index)), context);
 			}
@@ -188,10 +188,10 @@ public:
 		else if (as<StringType>(entity)) {
 			print_impl(format("typedef struct t% t%;", print_number(entity->get_id()), print_number(entity->get_id())), context);
 		}
-		else if (as<ArrayType>(entity)) {
+		else if (as<ArrayTypeInstantiation>(entity)) {
 			print_impl(format("typedef struct t% t%;", print_number(entity->get_id()), print_number(entity->get_id())), context);
 		}
-		else if (as<TupleType>(entity)) {
+		else if (as<TupleTypeInstantiation>(entity)) {
 			print_impl(format("typedef struct t% t%;", print_number(entity->get_id()), print_number(entity->get_id())), context);
 		}
 		else if (as<StructureInstantiation>(entity)) {
@@ -215,11 +215,11 @@ public:
 			// TODO
 			print_impl(ln(format("struct t% {};", print_number(entity->get_id()))), context);
 		}
-		else if (as<ArrayType>(entity)) {
+		else if (as<ArrayTypeInstantiation>(entity)) {
 			// TODO
 			print_impl(ln(format("struct t% {};", print_number(entity->get_id()))), context);
 		}
-		else if (auto* t = as<TupleType>(entity)) {
+		else if (auto* t = as<TupleTypeInstantiation>(entity)) {
 			print_impl(ln(format("struct t% {", print_number(t->get_id()))), context);
 			context.increase_indentation();
 			for (std::size_t i = 0; i < t->get_element_types().size(); ++i) {

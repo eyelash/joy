@@ -107,11 +107,11 @@ public:
 		else if (lhs_type_id == StringType::TYPE_ID) {
 			return get_key<StringType>(lhs) < get_key<StringType>(rhs);
 		}
-		else if (lhs_type_id == ArrayType::TYPE_ID) {
-			return get_key<ArrayType>(lhs) < get_key<ArrayType>(rhs);
+		else if (lhs_type_id == ArrayTypeInstantiation::TYPE_ID) {
+			return get_key<ArrayTypeInstantiation>(lhs) < get_key<ArrayTypeInstantiation>(rhs);
 		}
-		else if (lhs_type_id == TupleType::TYPE_ID) {
-			return get_key<TupleType>(lhs) < get_key<TupleType>(rhs);
+		else if (lhs_type_id == TupleTypeInstantiation::TYPE_ID) {
+			return get_key<TupleTypeInstantiation>(lhs) < get_key<TupleTypeInstantiation>(rhs);
 		}
 		else if (lhs_type_id == FunctionInstantiation::TYPE_ID) {
 			return get_key<FunctionInstantiation>(lhs) < get_key<FunctionInstantiation>(rhs);
@@ -317,7 +317,7 @@ static bool match(UnificationVariables& variables, const Expression* expression,
 		else if (as<StringType>(type)) {
 			return name == "String";
 		}
-		else if (auto* t = as<TupleType>(type)) {
+		else if (auto* t = as<TupleTypeInstantiation>(type)) {
 			return name == "Tuple" && t->get_element_types().empty();
 		}
 		else if (auto* s = as<StructureInstantiation>(type)) {
@@ -336,7 +336,7 @@ static bool match(UnificationVariables& variables, const Expression* expression,
 		else if (as<StringType>(type)) {
 			return name == "String" && e->get_arguments().empty();
 		}
-		else if (auto* s = as<ArrayType>(type)) {
+		else if (auto* s = as<ArrayTypeInstantiation>(type)) {
 			if (name != "Array") {
 				return false;
 			}
@@ -345,7 +345,7 @@ static bool match(UnificationVariables& variables, const Expression* expression,
 			}
 			return match(variables, e->get_arguments()[0], s->get_element_type());
 		}
-		else if (auto* t = as<TupleType>(type)) {
+		else if (auto* t = as<TupleTypeInstantiation>(type)) {
 			if (name != "Tuple") {
 				return false;
 			}
@@ -565,10 +565,10 @@ class Pass1 {
 		return get_builtin_entity<StringType>();
 	}
 	const Type* get_array_type(const Type* element_type) {
-		return get_builtin_entity<ArrayType>(element_type);
+		return get_builtin_entity<ArrayTypeInstantiation>(element_type);
 	}
 	const Type* get_tuple_type(std::vector<const Type*>&& element_types) {
-		return get_builtin_entity<TupleType>(std::move(element_types));
+		return get_builtin_entity<TupleTypeInstantiation>(std::move(element_types));
 	}
 	const Type* get_type(const StringView& name, std::vector<const Type*>&& arguments, const Expression* expression = nullptr) {
 		if (!name) {
@@ -839,7 +839,7 @@ class Pass1 {
 			return new StructLiteral(Reference<Expression>(), std::move(members), type);
 		}
 		else if (auto* e = as<ArrayLiteral>(expression)) {
-			if (auto* s = as<TupleType>(expected_type)) {
+			if (auto* s = as<TupleTypeInstantiation>(expected_type)) {
 				const std::size_t element_count = s->get_element_types().size();
 				if (e->get_elements().size() != element_count) {
 					add_error(expression, "invalid number of elements, expected %", printer::print_plural("element", element_count));
@@ -944,7 +944,7 @@ class Pass1 {
 				}
 				return new Accessor(std::move(left), new StringLiteral(member_name.to_string()), type);
 			}
-			else if (auto* t = as<TupleType>(left_type)) {
+			else if (auto* t = as<TupleTypeInstantiation>(left_type)) {
 				const std::int32_t* index = get_constant_int(e->get_right());
 				if (index == nullptr) {
 					return Reference<Expression>();
