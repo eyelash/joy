@@ -271,14 +271,6 @@ class UnificationVariables {
 public:
 	UnificationVariables(const std::vector<std::string>& names): names(names.data()), variables(names.size()) {}
 	UnificationVariables(): names(nullptr) {}
-	Index look_up(const StringView& name) const {
-		for (std::size_t i = 0; i < variables.size(); ++i) {
-			if (name == names[i]) {
-				return i;
-			}
-		}
-		return Index();
-	}
 	bool set(std::size_t i, const Type* type) {
 		if (variables[i]) {
 			return variables[i] == type;
@@ -315,86 +307,31 @@ static bool match(UnificationVariables& variables, const Expression* expression,
 	if (expression == nullptr || type == nullptr) {
 		return false;
 	}
-	if (auto* e = as<Name>(expression)) {
-		StringView name = e->get_name();
-		if (const Index i = variables.look_up(name)) {
-			return variables.set(*i, type);
-		}
-		if (as<VoidType>(type)) {
-			return name == "Void";
-		}
-		else if (as<IntType>(type)) {
-			return name == "Int" || name == "Bool";
-		}
-		else if (as<StringType>(type)) {
-			return name == "String";
-		}
-		else if (auto* t = as<TupleTypeInstantiation>(type)) {
-			return name == "Tuple" && t->get_element_types().empty();
-		}
-		else if (auto* s = as<StructureInstantiation>(type)) {
-			return name == s->get_structure()->get_name() && s->get_template_arguments().empty();
-		}
-		return false;
-	}
-	else if (auto* e = as<Variable>(expression)) {
+	if (auto* e = as<Variable>(expression)) {
 		return variables.set(e->get_index(), type);
 	}
 	else if (auto* e = as<Call>(expression)) {
-		if (as<EntityReference>(e->get_expression())) {
-			const Entity* entity = as<EntityReference>(e->get_expression())->get_entity();
-			if (as<VoidType>(entity)) {
-				return as<VoidType>(type);
-			}
-			else if (as<IntType>(entity)) {
-				return as<IntType>(type);
-			}
-			else if (as<StringType>(entity)) {
-				return as<StringType>(type);
-			}
-			else if (as<ArrayType>(entity)) {
-				auto* t = as<ArrayTypeInstantiation>(type);
-				return t && match(variables, e->get_arguments()[0], t->get_element_type());
-			}
-			else if (as<TupleType>(entity)) {
-				auto* t = as<TupleTypeInstantiation>(type);
-				return t && match(variables, e->get_arguments(), t->get_element_types());
-			}
-			else if (as<Structure>(entity)) {
-				auto* t = as<StructureInstantiation>(type);
-				return t && entity == t->get_structure() && match(variables, e->get_arguments(), t->get_template_arguments());
-			}
+		const Entity* entity = as<EntityReference>(e->get_expression())->get_entity();
+		if (as<VoidType>(entity)) {
+			return as<VoidType>(type);
 		}
-		StringView name = as<Name>(e->get_expression())->get_name();
-		if (as<VoidType>(type)) {
-			return name == "Void" && e->get_arguments().empty();
+		else if (as<IntType>(entity)) {
+			return as<IntType>(type);
 		}
-		else if (as<IntType>(type)) {
-			return (name == "Int" || name == "Bool") && e->get_arguments().empty();
+		else if (as<StringType>(entity)) {
+			return as<StringType>(type);
 		}
-		else if (as<StringType>(type)) {
-			return name == "String" && e->get_arguments().empty();
+		else if (as<ArrayType>(entity)) {
+			auto* t = as<ArrayTypeInstantiation>(type);
+			return t && match(variables, e->get_arguments()[0], t->get_element_type());
 		}
-		else if (auto* s = as<ArrayTypeInstantiation>(type)) {
-			if (name != "Array") {
-				return false;
-			}
-			if (e->get_arguments().size() != 1) {
-				return false;
-			}
-			return match(variables, e->get_arguments()[0], s->get_element_type());
+		else if (as<TupleType>(entity)) {
+			auto* t = as<TupleTypeInstantiation>(type);
+			return t && match(variables, e->get_arguments(), t->get_element_types());
 		}
-		else if (auto* t = as<TupleTypeInstantiation>(type)) {
-			if (name != "Tuple") {
-				return false;
-			}
-			return match(variables, e->get_arguments(), t->get_element_types());
-		}
-		else if (auto* s = as<StructureInstantiation>(type)) {
-			if (name != s->get_structure()->get_name()) {
-				return false;
-			}
-			return match(variables, e->get_arguments(), s->get_template_arguments());
+		else if (as<Structure>(entity)) {
+			auto* t = as<StructureInstantiation>(type);
+			return t && entity == t->get_structure() && match(variables, e->get_arguments(), t->get_template_arguments());
 		}
 	}
 	return false;
@@ -444,33 +381,36 @@ class Pass1 {
 		}
 		return false;
 	}
-	static bool unification(const std::vector<NamedType>& function_arguments, const Expression* function_return_type, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
+	bool unification(const std::vector<std::string>& variable_names, std::vector<NamedType>& function_arguments, Reference<Expression>& function_return_type, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
 		if (function_arguments.size() != arguments.size()) {
 			return false;
 		}
 		for (std::size_t i = 0; i < arguments.size(); ++i) {
+			ensure_resolved_type(variable_names, function_arguments[i].get_type());
 			if (!match(variables, function_arguments[i].get_type(), get_type(arguments[i]))) {
 				return false;
 			}
 		}
-		if (function_return_type && return_type) {
-			if (!match(variables, function_return_type, return_type)) {
-				return false;
+		if (function_return_type) {
+			ensure_resolved_type(variable_names, function_return_type);
+			if (return_type) {
+				if (!match(variables, function_return_type, return_type)) {
+					return false;
+				}
 			}
 		}
 		return variables.check();
 	}
-	static bool unification(const BuiltinFunction* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
-		return unification(function->get_arguments(), function->get_return_type(), arguments, return_type, variables);
+	bool unification(BuiltinFunction* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
+		return unification(function->get_template_arguments(), function->get_arguments(), function->get_return_type(), arguments, return_type, variables);
 	}
-	static bool unification(const Function* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
-		return unification(function->get_arguments(), function->get_return_type(), arguments, return_type, variables);
+	bool unification(Function* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
+		return unification(function->get_template_arguments(), function->get_arguments(), function->get_return_type(), arguments, return_type, variables);
 	}
 	Program* program;
 	Errors* errors;
 	Interner interner;
 	ScopeMap<Index>* variables = nullptr;
-	ScopeMap<Index>* type_variables = nullptr;
 	Entity* current_entity = nullptr;
 	FunctionInstantiation* current_function = nullptr;
 	const WhileStatement* current_loop = nullptr;
@@ -578,7 +518,7 @@ class Pass1 {
 			return Copy::copy_expression(type_variables[e->get_index()]);
 		}
 		else if (auto* e = as<Call>(expression)) {
-			const Entity* entity = as<EntityReference>(e->get_expression())->get_entity();
+			Entity* entity = as<EntityReference>(e->get_expression())->get_entity();
 			std::vector<Reference<Expression>> arguments;
 			for (const Expression* argument: e->get_arguments()) {
 				arguments.push_back(process_type(type_variables, argument));
@@ -596,7 +536,7 @@ class Pass1 {
 			return type_variables[e->get_index()];
 		}
 		else if (auto* e = as<Call>(expression)) {
-			const Entity* entity = as<EntityReference>(e->get_expression())->get_entity();
+			Entity* entity = as<EntityReference>(e->get_expression())->get_entity();
 			std::vector<const Type*> arguments;
 			for (const Expression* argument: e->get_arguments()) {
 				arguments.push_back(process_type(type_variables, argument));
@@ -622,7 +562,7 @@ class Pass1 {
 		}
 		return nullptr;
 	}
-	const Type* instantiate_structure(const Structure* structure, std::vector<const Type*>&& template_arguments) {
+	const Type* instantiate_structure(Structure* structure, std::vector<const Type*>&& template_arguments) {
 		if (template_arguments.size() != structure->get_template_arguments().size()) {
 			return nullptr;
 		}
@@ -630,80 +570,58 @@ class Pass1 {
 			return new_structure;
 		}
 		StructureInstantiation* new_structure = new StructureInstantiation(structure, std::move(template_arguments));
-		auto previous_type_variables = this->type_variables;
 		auto previous_current_entity = this->current_entity;
 		this->current_entity = new_structure;
-		// template arguments
-		ScopeMap<Index> type_variables;
-		for (std::size_t i = 0; i < structure->get_template_arguments().size(); ++i) {
-			type_variables.set(structure->get_template_arguments()[i], i);
-		}
-		this->type_variables = &type_variables;
 		// members
 		interner.insert(new_structure);
-		for (const NamedType& member: structure->get_members()) {
-			new_structure->add_member(member.get_name(), handle_type(member.get_type()));
+		for (NamedType& member: structure->get_members()) {
+			ensure_resolved_type(structure->get_template_arguments(), member.get_type());
+			new_structure->add_member(member.get_name(), process_type(new_structure->get_template_arguments(), member.get_type()));
 		}
-		this->type_variables = previous_type_variables;
 		this->current_entity = previous_current_entity;
 		program->add_entity(new_structure);
 		return new_structure;
 	}
-	const BuiltinFunctionInstantiation* instantiate_builtin_function(const BuiltinFunction* function, std::vector<const Type*>&& template_arguments) {
-		if (const BuiltinFunctionInstantiation* new_function = interner.look_up<BuiltinFunctionInstantiation>(function, template_arguments)) {
+	BuiltinFunctionInstantiation* instantiate_builtin_function(const BuiltinFunction* function, std::vector<const Type*>&& template_arguments) {
+		if (BuiltinFunctionInstantiation* new_function = interner.look_up<BuiltinFunctionInstantiation>(function, template_arguments)) {
 			return new_function;
 		}
 		BuiltinFunctionInstantiation* new_function = new BuiltinFunctionInstantiation(function, std::move(template_arguments));
-		auto previous_type_variables = this->type_variables;
 		auto previous_current_entity = this->current_entity;
 		this->current_entity = new_function;
-		// template arguments
-		ScopeMap<Index> type_variables;
-		for (std::size_t i = 0; i < function->get_template_arguments().size(); ++i) {
-			type_variables.set(function->get_template_arguments()[i], i);
-		}
-		this->type_variables = &type_variables;
 		// arguments
 		for (const NamedType& argument: function->get_arguments()) {
-			new_function->add_argument(handle_type(argument.get_type()));
+			new_function->add_argument(process_type(new_function->get_template_arguments(), argument.get_type()));
 		}
 		// return type
-		new_function->set_return_type(handle_type(function->get_return_type()));
-		this->type_variables = previous_type_variables;
+		new_function->set_return_type(process_type(new_function->get_template_arguments(), function->get_return_type()));
 		this->current_entity = previous_current_entity;
 		program->add_entity(new_function);
 		return new_function;
 	}
-	const FunctionInstantiation* instantiate_function(const Function* function, std::vector<const Type*>&& template_arguments) {
+	FunctionInstantiation* instantiate_function(const Function* function, std::vector<const Type*>&& template_arguments) {
 		if (template_arguments.size() != function->get_template_arguments().size()) {
 			return nullptr;
 		}
-		if (const FunctionInstantiation* new_function = interner.look_up<FunctionInstantiation>(function, template_arguments)) {
+		if (FunctionInstantiation* new_function = interner.look_up<FunctionInstantiation>(function, template_arguments)) {
 			return new_function;
 		}
 		FunctionInstantiation* new_function = new FunctionInstantiation(function, std::move(template_arguments));
 		auto previous_variables = this->variables;
-		auto previous_type_variables = this->type_variables;
 		auto previous_current_entity = this->current_entity;
 		auto previous_current_function = this->current_function;
 		this->current_entity = new_function;
 		this->current_function = new_function;
-		// template arguments
-		ScopeMap<Index> type_variables;
-		for (std::size_t i = 0; i < function->get_template_arguments().size(); ++i) {
-			type_variables.set(function->get_template_arguments()[i], i);
-		}
-		this->type_variables = &type_variables;
 		// arguments
 		ScopeMap<Index> variables;
 		for (const NamedType& argument: function->get_arguments()) {
-			const unsigned int index = new_function->add_argument(handle_type(argument.get_type()));
+			const unsigned int index = new_function->add_argument(process_type(new_function->get_template_arguments(), argument.get_type()));
 			variables.set(argument.get_name(), index);
 		}
 		this->variables = &variables;
 		// return type
 		if (function->get_return_type()) {
-			new_function->set_return_type(handle_type(function->get_return_type()));
+			new_function->set_return_type(process_type(new_function->get_template_arguments(), function->get_return_type()));
 		}
 		// block
 		interner.insert(new_function);
@@ -720,7 +638,6 @@ class Pass1 {
 			}
 		}
 		this->variables = previous_variables;
-		this->type_variables = previous_type_variables;
 		this->current_entity = previous_current_entity;
 		this->current_function = previous_current_function;
 		program->add_entity(new_function);
@@ -750,55 +667,7 @@ class Pass1 {
 	const Type* get_tuple_type(std::vector<const Type*>&& element_types) {
 		return get_builtin_entity<TupleTypeInstantiation>(std::move(element_types));
 	}
-	const Type* get_type(const StringView& name, std::vector<const Type*>&& arguments, const Expression* expression = nullptr) {
-		if (!name) {
-			return nullptr;
-		}
-		for (const Type* argument: arguments) {
-			if (argument == nullptr) {
-				return nullptr;
-			}
-		}
-		if (name == "Void" && arguments.empty()) {
-			return get_void_type();
-		}
-		else if ((name == "Int" || name == "Bool") && arguments.empty()) {
-			return get_int_type();
-		}
-		else if (name == "String" && arguments.empty()) {
-			return get_string_type();
-		}
-		else if (name == "Array" && arguments.size() == 1) {
-			return get_array_type(arguments[0]);
-		}
-		else if (name == "Tuple") {
-			return get_tuple_type(std::move(arguments));
-		}
-		const Structure* match_structure = nullptr;
-		unsigned int match_count = 0;
-		// TODO: optimize
-		for (const Entity* entity: program->get_source_entities()) {
-			if (const Structure* structure = as<Structure>(entity)) {
-				if (structure->get_name() == name) {
-					if (structure->get_template_arguments().size() == arguments.size()) {
-						match_structure = structure;
-						++match_count;
-					}
-				}
-			}
-		}
-		if (match_count != 1) {
-			if (match_count == 0) {
-				add_error(expression, "no matching struct \"%\" found", name);
-			}
-			else {
-				add_error(expression, "% matching structs \"%\" found", printer::print_number(match_count), name);
-			}
-			return nullptr;
-		}
-		return instantiate_structure(match_structure, std::move(arguments));
-	}
-	const Entity* get_function(const StringView& name, const std::vector<Reference<Expression>>& arguments, const Type* return_type, const Expression* expression = nullptr) {
+	Entity* get_function(const StringView& name, const std::vector<Reference<Expression>>& arguments, const Type* return_type, const Expression* expression = nullptr) {
 		if (!name) {
 			return nullptr;
 		}
@@ -811,8 +680,8 @@ class Pass1 {
 		std::vector<const Type*> match_template_arguments;
 		unsigned int match_count = 0;
 		// TODO: optimize
-		for (const Entity* entity: program->get_source_entities()) {
-			if (const BuiltinFunction* function = as<BuiltinFunction>(entity)) {
+		for (Entity* entity: program->get_source_entities()) {
+			if (BuiltinFunction* function = as<BuiltinFunction>(entity)) {
 				if (function->get_name() == name) {
 					UnificationVariables unification_variables(function->get_template_arguments());
 					if (unification(function, arguments, return_type, unification_variables)) {
@@ -822,7 +691,7 @@ class Pass1 {
 					}
 				}
 			}
-			else if (const Function* function = as<Function>(entity)) {
+			else if (Function* function = as<Function>(entity)) {
 				if (function->get_name() == name) {
 					UnificationVariables unification_variables(function->get_template_arguments());
 					if (unification(function, arguments, return_type, unification_variables)) {
@@ -909,34 +778,6 @@ class Pass1 {
 		add_error(expression, "struct % does not have a field named \"%\"", PrintTypeName(struct_type), member_name);
 		return nullptr;
 	}
-	const Type* handle_type(const Expression* expression) {
-		if (expression == nullptr) {
-			return nullptr;
-		}
-		if (auto* e = as<Name>(expression)) {
-			if (Index index = type_variables->look_up(e->get_name())) {
-				if (auto* e = as<StructureInstantiation>(current_entity)) {
-					return e->get_template_arguments()[*index];
-				}
-				else if (auto* e = as<BuiltinFunctionInstantiation>(current_entity)) {
-					return e->get_template_arguments()[*index];
-				}
-				else if (auto* e = as<FunctionInstantiation>(current_entity)) {
-					return e->get_template_arguments()[*index];
-				}
-			}
-			return get_type(e->get_name(), std::vector<const Type*>(), expression);
-		}
-		else if (auto* e = as<Call>(expression)) {
-			StringView name = get_name(e->get_expression());
-			std::vector<const Type*> arguments;
-			for (const Expression* argument: e->get_arguments()) {
-				arguments.push_back(handle_type(argument));
-			}
-			return get_type(name, std::move(arguments), expression);
-		}
-		return nullptr;
-	}
 	bool check_type(const Expression* expression, const Type* expected_type) {
 		if (expression && expected_type) {
 			if (expression->get_type() != expected_type) {
@@ -987,7 +828,7 @@ class Pass1 {
 		else if (auto* e = as<StructLiteral>(expression)) {
 			const Type* type;
 			if (e->get_type()) {
-				type = handle_type(e->get_type());
+				type = process_type(current_function->get_template_arguments(), resolve_type(current_function->get_template_argument_names(), e->get_type()));
 			}
 			else {
 				type = expected_type;
@@ -1107,7 +948,7 @@ class Pass1 {
 			for (const Expression* argument: e->get_arguments()) {
 				arguments.push_back(handle_expression(argument));
 			}
-			const Entity* function = get_function(name, arguments, expected_type, expression);
+			Entity* function = get_function(name, arguments, expected_type, expression);
 			if (function == nullptr) {
 				return Reference<Expression>();
 			}
@@ -1167,7 +1008,7 @@ class Pass1 {
 		ScopeMap<Index> new_scope(variables);
 		variables = &new_scope;
 		for (std::size_t i = 0; i < block->get_statements().size(); ++i) {
-			const Statement* statement = block->get_statements()[i];
+			Statement* statement = block->get_statements()[i];
 			Reference<Statement> new_statement = handle_statement(statement);
 			if (new_statement == nullptr || is_empty_statement(new_statement)) {
 				continue;
@@ -1184,13 +1025,14 @@ class Pass1 {
 		variables = variables->get_parent();
 		return Block(std::move(statements));
 	}
-	Reference<Statement> handle_statement(const Statement* statement) {
+	Reference<Statement> handle_statement(Statement* statement) {
 		if (auto* s = as<BlockStatement>(statement)) {
 			return new BlockStatement(handle_block(s->get_block()));
 		}
 		else if (auto* s = as<LetStatement>(statement)) {
 			const StringView name = as<Name>(s->get_variable())->get_name();
-			const Type* type = handle_type(s->get_type());
+			ensure_resolved_type(current_function->get_template_argument_names(), s->get_type());
+			const Type* type = process_type(current_function->get_template_arguments(), s->get_type());
 			Reference<Expression> expression = handle_expression(s->get_expression(), type);
 			if (s->get_type() == nullptr) {
 				type = get_type(expression);

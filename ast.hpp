@@ -364,11 +364,11 @@ public:
 };
 
 class EntityReference final: public Expression {
-	const Entity* entity;
+	Entity* entity;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_ENTITY_REFERENCE;
-	EntityReference(const Entity* entity): Expression(TYPE_ID), entity(entity) {}
-	const Entity* get_entity() const {
+	EntityReference(Entity* entity): Expression(TYPE_ID), entity(entity) {}
+	Entity* get_entity() const {
 		return entity;
 	}
 };
@@ -425,6 +425,9 @@ public:
 	LetStatement(Reference<Expression>&& variable, Reference<Expression>&& type, Reference<Expression>&& expression): Statement(TYPE_ID), variable(std::move(variable)), type(std::move(type)), expression(std::move(expression)) {}
 	const Expression* get_variable() const {
 		return variable;
+	}
+	Reference<Expression>& get_type() {
+		return type;
 	}
 	const Expression* get_type() const {
 		return type;
@@ -693,6 +696,9 @@ public:
 	}
 	StringView get_name() const {
 		return function->get_name();
+	}
+	const std::vector<std::string>& get_template_argument_names() const {
+		return function->get_template_arguments();
 	}
 	const std::vector<const Type*>& get_template_arguments() const {
 		return template_arguments;
