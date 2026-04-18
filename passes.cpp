@@ -107,8 +107,14 @@ public:
 		else if (lhs_type_id == StringType::TYPE_ID) {
 			return get_key<StringType>(lhs) < get_key<StringType>(rhs);
 		}
+		else if (lhs_type_id == ArrayType::TYPE_ID) {
+			return get_key<ArrayType>(lhs) < get_key<ArrayType>(rhs);
+		}
 		else if (lhs_type_id == ArrayTypeInstantiation::TYPE_ID) {
 			return get_key<ArrayTypeInstantiation>(lhs) < get_key<ArrayTypeInstantiation>(rhs);
+		}
+		else if (lhs_type_id == TupleType::TYPE_ID) {
+			return get_key<TupleType>(lhs) < get_key<TupleType>(rhs);
 		}
 		else if (lhs_type_id == TupleTypeInstantiation::TYPE_ID) {
 			return get_key<TupleTypeInstantiation>(lhs) < get_key<TupleTypeInstantiation>(rhs);
@@ -141,19 +147,19 @@ public:
 };
 
 class Interner {
-	std::set<const Entity*, EntityCompare> set;
+	std::set<Entity*, EntityCompare> set;
 public:
-	void insert(const Entity* entity) {
+	void insert(Entity* entity) {
 		set.insert(entity);
 	}
-	template <class T> const T* look_up(const EntityKey<T>& key) const {
+	template <class T> T* look_up(const EntityKey<T>& key) const {
 		auto iterator = set.find(key);
 		if (iterator != set.end()) {
-			return static_cast<const T*>(*iterator);
+			return static_cast<T*>(*iterator);
 		}
 		return nullptr;
 	}
-	template <class T, class... A> const T* look_up(A&&... a) const {
+	template <class T, class... A> T* look_up(A&&... a) const {
 		return look_up(EntityKey<T>(std::forward<A>(a)...));
 	}
 };
@@ -198,11 +204,17 @@ public:
 		else if (auto* e = as<Accessor>(expression)) {
 			return new Accessor(copy_expression(e->get_left()), copy_expression(e->get_right()));
 		}
+		else if (auto* e = as<EntityReference>(expression)) {
+			return new EntityReference(e->get_entity());
+		}
+		return Reference<Expression>();
 	}
 	static Reference<Expression> copy_expression(const Expression* expression) {
 		Reference<Expression> new_expression = copy_expression_(expression);
-		new_expression->set_location(expression->get_location());
-		new_expression->set_type(expression->get_type());
+		if (new_expression) {
+			new_expression->set_location(expression->get_location());
+			new_expression->set_type(expression->get_type());
+		}
 		return new_expression;
 	}
 	static std::vector<Reference<Expression>> copy_expressions(const std::vector<Reference<Expression>>& expressions) {
@@ -325,7 +337,34 @@ static bool match(UnificationVariables& variables, const Expression* expression,
 		}
 		return false;
 	}
+	else if (auto* e = as<Variable>(expression)) {
+		return variables.set(e->get_index(), type);
+	}
 	else if (auto* e = as<Call>(expression)) {
+		if (as<EntityReference>(e->get_expression())) {
+			const Entity* entity = as<EntityReference>(e->get_expression())->get_entity();
+			if (as<VoidType>(entity)) {
+				return as<VoidType>(type);
+			}
+			else if (as<IntType>(entity)) {
+				return as<IntType>(type);
+			}
+			else if (as<StringType>(entity)) {
+				return as<StringType>(type);
+			}
+			else if (as<ArrayType>(entity)) {
+				auto* t = as<ArrayTypeInstantiation>(type);
+				return t && match(variables, e->get_arguments()[0], t->get_element_type());
+			}
+			else if (as<TupleType>(entity)) {
+				auto* t = as<TupleTypeInstantiation>(type);
+				return t && match(variables, e->get_arguments(), t->get_element_types());
+			}
+			else if (as<Structure>(entity)) {
+				auto* t = as<StructureInstantiation>(type);
+				return t && entity == t->get_structure() && match(variables, e->get_arguments(), t->get_template_arguments());
+			}
+		}
 		StringView name = as<Name>(e->get_expression())->get_name();
 		if (as<VoidType>(type)) {
 			return name == "Void" && e->get_arguments().empty();
@@ -441,6 +480,148 @@ class Pass1 {
 	template <class... T> void add_warning(const Expression* expression, const char* s, T... t) {
 		errors->add_warning(program->get_path().c_str(), get_location(expression), printer::format(s, t...));
 	}
+	static Index look_up(const std::vector<std::string>& names, const StringView& name) {
+		for (std::size_t i = 0; i < names.size(); ++i) {
+			if (name == names[i]) {
+				return i;
+			}
+		}
+		return Index();
+	}
+	Reference<Expression> resolve_type(const std::vector<std::string>& variable_names, const Expression* expression) {
+		StringView name;
+		std::vector<Reference<Expression>> arguments;
+		if (auto* e = as<Name>(expression)) {
+			name = e->get_name();
+			if (Index index = look_up(variable_names, name)) {
+				return new Variable(*index);
+			}
+		}
+		else if (auto* e = as<Call>(expression)) {
+			name = as<Name>(e->get_expression())->get_name();
+			for (const Expression* argument: e->get_arguments()) {
+				arguments.push_back(resolve_type(variable_names, argument));
+			}
+		}
+		else {
+			return Reference<Expression>();
+		}
+		Entity* match_entity = nullptr;
+		unsigned int match_count = 0;
+		if (name == "Void" && arguments.empty()) {
+			match_entity = get_builtin_entity<VoidType>();
+			++match_count;
+		}
+		else if ((name == "Int" || name == "Bool") && arguments.empty()) {
+			match_entity = get_builtin_entity<IntType>();
+			++match_count;
+		}
+		else if (name == "String" && arguments.empty()) {
+			match_entity = get_builtin_entity<StringType>();
+			++match_count;
+		}
+		else if (name == "Array" && arguments.size() == 1) {
+			match_entity = get_builtin_entity<ArrayType>();
+			++match_count;
+		}
+		else if (name == "Tuple") {
+			match_entity = get_builtin_entity<TupleType>();
+			++match_count;
+		}
+		// TODO: optimize
+		for (Entity* entity: program->get_source_entities()) {
+			if (Structure* structure = as<Structure>(entity)) {
+				if (structure->get_name() == name) {
+					if (structure->get_template_arguments().size() == arguments.size()) {
+						match_entity = structure;
+						++match_count;
+					}
+				}
+			}
+		}
+		if (match_count != 1) {
+			if (match_count == 0) {
+				add_error(expression, "no matching type \"%\" found", name);
+			}
+			else {
+				add_error(expression, "% matching types \"%\" found", printer::print_number(match_count), name);
+			}
+			return Reference<Expression>();
+		}
+		return new Call(new EntityReference(match_entity), std::move(arguments));
+	}
+	static bool is_resolved_type(const Expression* expression) {
+		if (as<Variable>(expression)) {
+			return true;
+		}
+		else if (auto* e = as<Call>(expression)) {
+			if (as<EntityReference>(e->get_expression())) {
+				return true;
+			}
+		}
+		return false;
+	}
+	void ensure_resolved_type(const std::vector<std::string>& variable_names, Reference<Expression>& expression) {
+		if (expression == nullptr) {
+			return;
+		}
+		if (!is_resolved_type(expression)) {
+			expression = resolve_type(variable_names, expression);
+		}
+	}
+	// resolved type expression => resolved type expression
+	Reference<Expression> process_type(const std::vector<Reference<Expression>>& type_variables, const Expression* expression) {
+		if (expression == nullptr) {
+			return Reference<Expression>();
+		}
+		if (auto* e = as<Variable>(expression)) {
+			return Copy::copy_expression(type_variables[e->get_index()]);
+		}
+		else if (auto* e = as<Call>(expression)) {
+			const Entity* entity = as<EntityReference>(e->get_expression())->get_entity();
+			std::vector<Reference<Expression>> arguments;
+			for (const Expression* argument: e->get_arguments()) {
+				arguments.push_back(process_type(type_variables, argument));
+			}
+			return new Call(new EntityReference(entity), std::move(arguments));
+		}
+		return Reference<Expression>();
+	}
+	// resolved type expression => type
+	const Type* process_type(const std::vector<const Type*>& type_variables, const Expression* expression) {
+		if (expression == nullptr) {
+			return nullptr;
+		}
+		if (auto* e = as<Variable>(expression)) {
+			return type_variables[e->get_index()];
+		}
+		else if (auto* e = as<Call>(expression)) {
+			const Entity* entity = as<EntityReference>(e->get_expression())->get_entity();
+			std::vector<const Type*> arguments;
+			for (const Expression* argument: e->get_arguments()) {
+				arguments.push_back(process_type(type_variables, argument));
+			}
+			if (auto* e = as<VoidType>(entity)) {
+				return e;
+			}
+			else if (auto* e = as<IntType>(entity)) {
+				return e;
+			}
+			else if (auto* e = as<StringType>(entity)) {
+				return e;
+			}
+			else if (auto* e = as<ArrayType>(entity)) {
+				return get_builtin_entity<ArrayTypeInstantiation>(arguments[0]);
+			}
+			else if (auto* e = as<TupleType>(entity)) {
+				return get_builtin_entity<TupleTypeInstantiation>(std::move(arguments));
+			}
+			else if (auto* e = as<Structure>(entity)) {
+				return instantiate_structure(e, std::move(arguments));
+			}
+		}
+		return nullptr;
+	}
 	const Type* instantiate_structure(const Structure* structure, std::vector<const Type*>&& template_arguments) {
 		if (template_arguments.size() != structure->get_template_arguments().size()) {
 			return nullptr;
@@ -545,8 +726,8 @@ class Pass1 {
 		program->add_entity(new_function);
 		return new_function;
 	}
-	template <class T, class... A> const T* get_builtin_entity(A&&... a) {
-		if (const T* t = interner.look_up<T>(a...)) {
+	template <class T, class... A> T* get_builtin_entity(A&&... a) {
+		if (T* t = interner.look_up<T>(a...)) {
 			return t;
 		}
 		T* t = new T(std::forward<A>(a)...);

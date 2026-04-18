@@ -52,7 +52,9 @@ enum {
 	TYPE_ID_VOID_TYPE,
 	TYPE_ID_INT_TYPE,
 	TYPE_ID_STRING_TYPE,
+	TYPE_ID_ARRAY_TYPE,
 	TYPE_ID_ARRAY_TYPE_INSTANTIATION,
+	TYPE_ID_TUPLE_TYPE,
 	TYPE_ID_TUPLE_TYPE_INSTANTIATION,
 	TYPE_ID_INT_LITERAL,
 	TYPE_ID_CHAR_LITERAL,
@@ -132,6 +134,16 @@ public:
 	}
 };
 
+class ArrayType final: public Entity {
+public:
+	static constexpr int TYPE_ID = TYPE_ID_ARRAY_TYPE;
+	ArrayType(): Entity(TYPE_ID) {}
+	using Key = Unit;
+	Key get_key() const {
+		return Unit();
+	}
+};
+
 class ArrayTypeInstantiation final: public Type {
 	const Type* element_type;
 public:
@@ -143,6 +155,16 @@ public:
 	using Key = const Type*;
 	Key get_key() const {
 		return element_type;
+	}
+};
+
+class TupleType final: public Entity {
+public:
+	static constexpr int TYPE_ID = TYPE_ID_TUPLE_TYPE;
+	TupleType(): Entity(TYPE_ID) {}
+	using Key = Unit;
+	Key get_key() const {
+		return Unit();
 	}
 };
 
@@ -511,6 +533,9 @@ public:
 	StringView get_name() const {
 		return name;
 	}
+	Reference<Expression>& get_type() {
+		return type;
+	}
 	const Expression* get_type() const {
 		return type;
 	}
@@ -530,8 +555,14 @@ public:
 	const std::vector<std::string>& get_template_arguments() const {
 		return template_arguments;
 	}
+	std::vector<NamedType>& get_arguments() {
+		return arguments;
+	}
 	const std::vector<NamedType>& get_arguments() const {
 		return arguments;
+	}
+	Reference<Expression>& get_return_type() {
+		return return_type;
 	}
 	const Expression* get_return_type() const {
 		return return_type;
@@ -553,8 +584,14 @@ public:
 	const std::vector<std::string>& get_template_arguments() const {
 		return template_arguments;
 	}
+	std::vector<NamedType>& get_arguments() {
+		return arguments;
+	}
 	const std::vector<NamedType>& get_arguments() const {
 		return arguments;
+	}
+	Reference<Expression>& get_return_type() {
+		return return_type;
 	}
 	const Expression* get_return_type() const {
 		return return_type;
@@ -577,6 +614,9 @@ public:
 	const std::vector<std::string>& get_template_arguments() const {
 		return template_arguments;
 	}
+	std::vector<NamedType>& get_members() {
+		return members;
+	}
 	const std::vector<NamedType>& get_members() const {
 		return members;
 	}
@@ -594,6 +634,9 @@ public:
 	}
 	const std::vector<std::string>& get_template_arguments() const {
 		return template_arguments;
+	}
+	Reference<Expression>& get_type() {
+		return type;
 	}
 	const Expression* get_type() const {
 		return type;
