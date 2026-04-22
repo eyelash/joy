@@ -10,6 +10,7 @@ See [design.md](design.md).
 - [x] uniform function call syntax
 - [x] structs
 - [x] tuples
+- [x] type aliases
 - [ ] strings
 - [ ] arrays
 - [ ] union types

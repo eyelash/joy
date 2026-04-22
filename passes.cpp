@@ -452,7 +452,7 @@ class Pass1 {
 			match_entity = get_builtin_entity<VoidType>();
 			++match_count;
 		}
-		else if ((name == "Int" || name == "Bool") && arguments.empty()) {
+		else if (name == "Int" && arguments.empty()) {
 			match_entity = get_builtin_entity<IntType>();
 			++match_count;
 		}
@@ -478,6 +478,14 @@ class Pass1 {
 					}
 				}
 			}
+			else if (TypeAlias* type_alias = as<TypeAlias>(entity)) {
+				if (type_alias->get_name() == name) {
+					if (type_alias->get_template_arguments().size() == arguments.size()) {
+						match_entity = type_alias;
+						++match_count;
+					}
+				}
+			}
 		}
 		if (match_count != 1) {
 			if (match_count == 0) {
@@ -487,6 +495,9 @@ class Pass1 {
 				add_error(expression, "% matching types \"%\" found", printer::print_number(match_count), name);
 			}
 			return Reference<Expression>();
+		}
+		if (TypeAlias* type_alias = as<TypeAlias>(match_entity)) {
+			return resolve_type_alias(type_alias, arguments);
 		}
 		return new Call(new EntityReference(match_entity), std::move(arguments));
 	}
@@ -561,6 +572,11 @@ class Pass1 {
 			}
 		}
 		return nullptr;
+	}
+	Reference<Expression> resolve_type_alias(TypeAlias* type_alias, const std::vector<Reference<Expression>>& template_arguments) {
+		// TODO: detect recursion
+		ensure_resolved_type(type_alias->get_template_arguments(), type_alias->get_type());
+		return process_type(template_arguments, type_alias->get_type());
 	}
 	const Type* instantiate_structure(Structure* structure, std::vector<const Type*>&& template_arguments) {
 		if (template_arguments.size() != structure->get_template_arguments().size()) {

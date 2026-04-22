@@ -1,5 +1,7 @@
 builtin func __builtin_joy_print_int(n: Int): Void;
 
+type Bool = Int;
+
 func print(n: Int) {
 	__builtin_joy_print_int(n);
 }
