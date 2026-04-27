@@ -1,9 +1,36 @@
+builtin func __builtin_joy_putchar(c: Int): Void;
 builtin func __builtin_joy_print_int(n: Int): Void;
 
 type Bool = Int;
 
-func print(n: Int) {
-	__builtin_joy_print_int(n);
+struct Char {
+	c: Int
+}
+
+func char(c: Int): Char {
+	return {
+		c: c
+	};
+}
+
+func print(c: Char): Void {
+	__builtin_joy_putchar(c.c);
+}
+
+func print(n: Int): Void {
+	if (n < 0) {
+		print(char('-'));
+		n = 0 - n;
+	}
+	if (n >= 10) {
+		print(n / 10);
+	}
+	print(char('0' + n % 10));
+}
+
+func println<T>(t: T): Void {
+	print(t);
+	print(char('\n'));
 }
 
 func is_prime(n: Int): Bool {
@@ -23,7 +50,7 @@ func print_primes() {
 	let count = 0;
 	while (count < 100) {
 		if (n.is_prime()) {
-			n.print();
+			println(n);
 			count = count + 1;
 		}
 		n = n + 1;

@@ -246,6 +246,9 @@ public:
 			if (function->get_name() == "__builtin_joy_print_int") {
 				print_impl(ln("printf(\"%d\\n\", v0);"), context);
 			}
+			else if (function->get_name() == "__builtin_joy_putchar") {
+				print_impl(ln("putchar(v0);"), context);
+			}
 			context.decrease_indentation();
 			print_impl(ln('}'), context);
 		}
