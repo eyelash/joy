@@ -2,14 +2,14 @@
 #include "passes.hpp"
 #include "codegen_c.hpp"
 
-static void compile(const std::string& path, Errors& errors) {
+static void compile(const std::string& path, Diagnostics& diagnostics) {
 	Reference<Program> program;
-	parse_program(path.c_str(), program, errors);
-	if (errors) {
+	parse_program(path.c_str(), program, diagnostics);
+	if (diagnostics.has_error()) {
 		return;
 	}
-	pass1(program, errors);
-	if (errors) {
+	pass1(program, diagnostics);
+	if (diagnostics.has_error()) {
 		return;
 	}
 	memory_management(program);
@@ -22,10 +22,10 @@ int main(int argc, const char** argv) {
 	if (argc <= 1) {
 		return 1;
 	}
-	Errors errors;
-	compile(argv[1], errors);
-	errors.print();
-	if (errors) {
+	Diagnostics diagnostics;
+	compile(argv[1], diagnostics);
+	diagnostics.print();
+	if (diagnostics.has_error()) {
 		return 1;
 	}
 	print(ln(bold(green("success"))));

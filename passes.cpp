@@ -408,17 +408,17 @@ class Pass1 {
 		return unification(function->get_template_arguments(), function->get_arguments(), function->get_return_type(), arguments, return_type, variables);
 	}
 	Program* program;
-	Errors* errors;
+	Diagnostics* diagnostics;
 	Interner interner;
 	ScopeMap<Index>* variables = nullptr;
 	Entity* current_entity = nullptr;
 	FunctionInstantiation* current_function = nullptr;
 	const WhileStatement* current_loop = nullptr;
 	template <class... T> void add_error(const Expression* expression, const char* s, T... t) {
-		errors->add_error(program->get_path().c_str(), get_location(expression), printer::format(s, t...));
+		diagnostics->add_error(program->get_path().c_str(), get_location(expression), printer::format(s, t...));
 	}
 	template <class... T> void add_warning(const Expression* expression, const char* s, T... t) {
-		errors->add_warning(program->get_path().c_str(), get_location(expression), printer::format(s, t...));
+		diagnostics->add_warning(program->get_path().c_str(), get_location(expression), printer::format(s, t...));
 	}
 	static Index look_up(const std::vector<std::string>& names, const StringView& name) {
 		for (std::size_t i = 0; i < names.size(); ++i) {
@@ -1141,9 +1141,9 @@ class Pass1 {
 		return Reference<Statement>();
 	}
 public:
-	Pass1(Program* program, Errors* errors) {
+	Pass1(Program* program, Diagnostics* diagnostics) {
 		this->program = program;
-		this->errors = errors;
+		this->diagnostics = diagnostics;
 	}
 	void run() {
 		const Entity* main_function = get_function("main", {}, get_void_type());
@@ -1154,8 +1154,8 @@ public:
 	}
 };
 
-void pass1(Program* program, Errors& errors) {
-	Pass1(program, &errors).run();
+void pass1(Program* program, Diagnostics& diagnostics) {
+	Pass1(program, &diagnostics).run();
 }
 
 class MemoryManagement {

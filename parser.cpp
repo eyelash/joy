@@ -638,17 +638,17 @@ constexpr auto program = collect<ProgramCollector>(sequence(
 	))
 ));
 
-void parse_program(const char* path, Reference<Program>& program_, Errors& errors) {
+void parse_program(const char* path, Reference<Program>& program_, Diagnostics& diagnostics) {
 	auto source = read_file(path);
 	Context context(source);
 	const Result result = parse_impl(program, context, GetValueCallback<Reference<Program>>(program_));
 	if (result == ERROR) {
-		errors.add_error(path, context.get_location(), context.get_error());
+		diagnostics.add_error(path, context.get_location(), context.get_error());
 		return;
 	}
 #ifndef NDEBUG
 	if (result == FAILURE) {
-		errors.add_error(path, context.get_location(), "failure");
+		diagnostics.add_error(path, context.get_location(), "failure");
 		return;
 	}
 #endif

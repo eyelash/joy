@@ -4,49 +4,6 @@
 #include "parsley/printer.hpp"
 #include <algorithm>
 
-class Error {
-	std::string path;
-	SourceLocation location;
-	std::string message;
-public:
-	Error(const char* path, const SourceLocation& location, std::string&& message): path(path), location(location), message(std::move(message)) {}
-	template <class Type> void print() const {
-		using namespace printer;
-		Context context(std::cerr);
-		if (location) {
-			auto source = read_file(path.c_str());
-			print_diagnostic<Type>(context, path, StringView(source.data(), source.size()), location, StringView(message));
-		}
-		else {
-			print_diagnostic<Type>(context, path, StringView(message));
-		}
-		context.print('\n');
-	}
-};
-
-class Errors {
-	std::vector<Error> errors;
-	std::vector<Error> warnings;
-public:
-	explicit operator bool() const {
-		return !errors.empty();
-	}
-	template <class P> void add_error(const char* path, const SourceLocation& location, P&& p) {
-		errors.emplace_back(path, location, print_to_string(std::forward<P>(p)));
-	}
-	template <class P> void add_warning(const char* path, const SourceLocation& location, P&& p) {
-		warnings.emplace_back(path, location, print_to_string(std::forward<P>(p)));
-	}
-	void print() {
-		for (const Error& error: warnings) {
-			error.print<printer::DiagnosticType::Warning>();
-		}
-		for (const Error& error: errors) {
-			error.print<printer::DiagnosticType::Error>();
-		}
-	}
-};
-
 enum {
 	TYPE_ID_INVALID,
 	TYPE_ID_VOID_TYPE,
