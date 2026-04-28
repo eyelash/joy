@@ -575,7 +575,10 @@ class Pass1 {
 	}
 	Reference<Expression> resolve_type_alias(TypeAlias* type_alias, const std::vector<Reference<Expression>>& template_arguments) {
 		// TODO: detect recursion
+		auto previous_current_entity = this->current_entity;
+		this->current_entity = type_alias;
 		ensure_resolved_type(type_alias->get_template_arguments(), type_alias->get_type());
+		this->current_entity = previous_current_entity;
 		return process_type(template_arguments, type_alias->get_type());
 	}
 	const Type* instantiate_structure(Structure* structure, std::vector<const Type*>&& template_arguments) {
@@ -683,7 +686,7 @@ class Pass1 {
 	const Type* get_tuple_type(std::vector<const Type*>&& element_types) {
 		return get_builtin_entity<TupleTypeInstantiation>(std::move(element_types));
 	}
-	Entity* get_function(const StringView& name, const std::vector<Reference<Expression>>& arguments, const Type* return_type, const Expression* expression = nullptr) {
+	Entity* resolve_function(const StringView& name, const std::vector<Reference<Expression>>& arguments, const Type* return_type, const Expression* expression = nullptr) {
 		if (!name) {
 			return nullptr;
 		}
@@ -699,22 +702,28 @@ class Pass1 {
 		for (Entity* entity: program->get_source_entities()) {
 			if (BuiltinFunction* function = as<BuiltinFunction>(entity)) {
 				if (function->get_name() == name) {
+					auto previous_current_entity = this->current_entity;
+					this->current_entity = function;
 					UnificationVariables unification_variables(function->get_template_arguments());
 					if (unification(function, arguments, return_type, unification_variables)) {
 						match_function = function;
 						match_template_arguments = unification_variables.take();
 						++match_count;
 					}
+					this->current_entity = previous_current_entity;
 				}
 			}
 			else if (Function* function = as<Function>(entity)) {
 				if (function->get_name() == name) {
+					auto previous_current_entity = this->current_entity;
+					this->current_entity = function;
 					UnificationVariables unification_variables(function->get_template_arguments());
 					if (unification(function, arguments, return_type, unification_variables)) {
 						match_function = function;
 						match_template_arguments = unification_variables.take();
 						++match_count;
 					}
+					this->current_entity = previous_current_entity;
 				}
 			}
 		}
@@ -964,7 +973,7 @@ class Pass1 {
 			for (const Expression* argument: e->get_arguments()) {
 				arguments.push_back(handle_expression(argument));
 			}
-			Entity* function = get_function(name, arguments, expected_type, expression);
+			Entity* function = resolve_function(name, arguments, expected_type, expression);
 			if (function == nullptr) {
 				return Reference<Expression>();
 			}
@@ -1146,7 +1155,7 @@ public:
 		this->diagnostics = diagnostics;
 	}
 	void run() {
-		const Entity* main_function = get_function("main", {}, get_void_type());
+		const Entity* main_function = resolve_function("main", {}, get_void_type());
 		if (main_function == nullptr) {
 			return;
 		}

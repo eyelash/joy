@@ -2,4 +2,4 @@
 
 #include "ast.hpp"
 
-void parse_program(const char* path, Reference<Program>& program, Diagnostics& diagnostics);
+Reference<Program> parse_program(const char* path, Diagnostics& diagnostics);

@@ -761,6 +761,9 @@ public:
 	const std::string& get_path() const {
 		return path;
 	}
+	void add_source_entity(Reference<Entity>&& entity) {
+		source_entities.push_back(std::move(entity));
+	}
 	const std::vector<Reference<Entity>>& get_source_entities() const {
 		return source_entities;
 	}

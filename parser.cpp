@@ -621,9 +621,7 @@ constexpr auto builtin = sequence(
 	)
 );
 
-using ProgramCollector = MapCollector<ReferenceMapper<Program>, VectorCollector<Reference<Entity>>>;
-
-constexpr auto program = collect<ProgramCollector>(sequence(
+constexpr auto program = sequence(
 	whitespace,
 	zero_or_more(sequence(
 		not_(end()),
@@ -636,21 +634,30 @@ constexpr auto program = collect<ProgramCollector>(sequence(
 		),
 		whitespace
 	))
-));
+);
 
-void parse_program(const char* path, Reference<Program>& program_, Diagnostics& diagnostics) {
+class ProgramCollector {
+	Program* program_;
+public:
+	constexpr ProgramCollector(Program* program_): program_(program_) {}
+	void push(Reference<Entity>&& entity) const {
+		program_->add_source_entity(std::move(entity));
+	}
+};
+
+Reference<Program> parse_program(const char* path, Diagnostics& diagnostics) {
+	Reference<Program> program_ = new Program();
+	program_->set_path(path);
 	auto source = read_file(path);
 	Context context(source);
-	const Result result = parse_impl(program, context, GetValueCallback<Reference<Program>>(program_));
+	const Result result = parse_impl(program, context, ProgramCollector(program_));
 	if (result == ERROR) {
 		diagnostics.add_error(path, context.get_location(), context.get_error());
-		return;
 	}
 #ifndef NDEBUG
 	if (result == FAILURE) {
 		diagnostics.add_error(path, context.get_location(), "failure");
-		return;
 	}
 #endif
-	program_->set_path(path);
+	return program_;
 }
