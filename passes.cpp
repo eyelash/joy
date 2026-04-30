@@ -415,10 +415,10 @@ class Pass1 {
 	FunctionInstantiation* current_function = nullptr;
 	const WhileStatement* current_loop = nullptr;
 	template <class... T> void add_error(const Expression* expression, const char* s, T... t) {
-		diagnostics->add_error(program->get_path().c_str(), get_location(expression), printer::format(s, t...));
+		diagnostics->add_error(current_entity->get_path(), get_location(expression), printer::format(s, t...));
 	}
 	template <class... T> void add_warning(const Expression* expression, const char* s, T... t) {
-		diagnostics->add_warning(program->get_path().c_str(), get_location(expression), printer::format(s, t...));
+		diagnostics->add_warning(current_entity->get_path(), get_location(expression), printer::format(s, t...));
 	}
 	static Index look_up(const std::vector<std::string>& names, const StringView& name) {
 		for (std::size_t i = 0; i < names.size(); ++i) {

@@ -46,6 +46,7 @@ enum {
 
 class Entity: public Dynamic {
 	unsigned int id;
+	std::string path;
 public:
 	Entity(int type_id): Dynamic(type_id), id(0) {}
 	void set_id(unsigned int id) {
@@ -53,6 +54,12 @@ public:
 	}
 	unsigned int get_id() const {
 		return id;
+	}
+	void set_path(const char* path) {
+		this->path = path;
+	}
+	const char* get_path() const {
+		return path.c_str();
 	}
 };
 
@@ -739,7 +746,6 @@ public:
 };
 
 class Program final: public Dynamic {
-	std::string path;
 	std::vector<Reference<Entity>> source_entities;
 	std::vector<Reference<Entity>> entities;
 	unsigned int current_id = 0;
@@ -755,12 +761,6 @@ public:
 	static constexpr int TYPE_ID = TYPE_ID_PROGRAM;
 	Program(): Dynamic(TYPE_ID) {}
 	Program(std::vector<Reference<Entity>>&& source_entities): Dynamic(TYPE_ID), source_entities(std::move(source_entities)) {}
-	void set_path(const char* path) {
-		this->path = path;
-	}
-	const std::string& get_path() const {
-		return path;
-	}
 	void add_source_entity(Reference<Entity>&& entity) {
 		source_entities.push_back(std::move(entity));
 	}

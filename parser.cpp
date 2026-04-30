@@ -637,20 +637,21 @@ constexpr auto program = sequence(
 );
 
 class ProgramCollector {
+	const char* path;
 	Program* program_;
 public:
-	constexpr ProgramCollector(Program* program_): program_(program_) {}
+	constexpr ProgramCollector(const char* path, Program* program_): path(path), program_(program_) {}
 	void push(Reference<Entity>&& entity) const {
+		entity->set_path(path);
 		program_->add_source_entity(std::move(entity));
 	}
 };
 
 Reference<Program> parse_program(const char* path, Diagnostics& diagnostics) {
 	Reference<Program> program_ = new Program();
-	program_->set_path(path);
 	auto source = read_file(path);
 	Context context(source);
-	const Result result = parse_impl(program, context, ProgramCollector(program_));
+	const Result result = parse_impl(program, context, ProgramCollector(path, program_));
 	if (result == ERROR) {
 		diagnostics.add_error(path, context.get_location(), context.get_error());
 	}
