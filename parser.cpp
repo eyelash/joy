@@ -142,7 +142,7 @@ template <class P> constexpr auto operator_(P p) {
 }
 
 template <class P> constexpr auto comma_separated(P p) {
-	return optional(sequence(p, whitespace, zero_or_more(sequence(ignore(','), whitespace, p, whitespace))));
+	return optional(sequence(p, whitespace, zero_or_more(sequence(ignore(','), whitespace, p, whitespace)), optional(ignore(','))));
 }
 
 constexpr auto identifier = collect<StringCollector>(sequence(identifier_start_char, zero_or_more(identifier_char)));
