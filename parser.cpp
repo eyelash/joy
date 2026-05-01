@@ -536,6 +536,13 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 	)),
 	choice(
 		block,
+		map<ConstructorMapper<Block>>(collect<ReturnStatementCollector>(sequence(
+			ignore("=>"),
+			whitespace,
+			expression,
+			whitespace,
+			expect(";")
+		))),
 		error("expected a block")
 	)
 ));
