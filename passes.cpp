@@ -417,8 +417,11 @@ class Pass1 {
 	template <class... T> void add_error(const Expression* expression, const char* s, T... t) {
 		diagnostics->add_error(current_entity->get_path(), get_location(expression), printer::format(s, t...));
 	}
-	template <class... T> void add_warning(const Expression* expression, const char* s, T... t) {
-		diagnostics->add_warning(current_entity->get_path(), get_location(expression), printer::format(s, t...));
+	template <class... T> void add_error(const Statement* statement, const char* s, T... t) {
+		diagnostics->add_error(current_entity->get_path(), statement->get_location(), printer::format(s, t...));
+	}
+	template <class... T> void add_warning(const SourceLocation& location, const char* s, T... t) {
+		diagnostics->add_warning(current_entity->get_path(), location, printer::format(s, t...));
 	}
 	static Index look_up(const std::vector<std::string>& names, const StringView& name) {
 		for (std::size_t i = 0; i < names.size(); ++i) {
@@ -1042,7 +1045,8 @@ class Pass1 {
 			statements.push_back(std::move(new_statement));
 			if (is_final) {
 				if (i + 1 < block->get_statements().size()) {
-					add_warning(Reference<Expression>(), "unreachable code in function \"%\"", current_function->get_name());
+					const SourceLocation location = block->get_statements()[i + 1]->get_location() - block->get_statements()[block->get_statements().size() - 1]->get_location();
+					add_warning(location, "unreachable code");
 				}
 				break;
 			}
@@ -1120,7 +1124,7 @@ class Pass1 {
 					current_function->set_return_type(return_type);
 				}
 				if (!as<VoidType>(return_type)) {
-					add_error(Reference<Expression>(), "return without value in function \"%\" with return type %", current_function->get_name(), PrintTypeName(return_type));
+					add_error(statement, "return without value in function with return type %", PrintTypeName(return_type));
 					return Reference<Statement>();
 				}
 			}
@@ -1128,14 +1132,14 @@ class Pass1 {
 		}
 		else if (auto* s = as<BreakStatement>(statement)) {
 			if (current_loop == nullptr) {
-				add_error(Reference<Expression>(), "break statement outside of a loop in function \"%\"", current_function->get_name());
+				add_error(statement, "break statement outside of a loop");
 				return Reference<Statement>();
 			}
 			return new BreakStatement();
 		}
 		else if (auto* s = as<ContinueStatement>(statement)) {
 			if (current_loop == nullptr) {
-				add_error(Reference<Expression>(), "continue statement outside of a loop in function \"%\"", current_function->get_name());
+				add_error(statement, "continue statement outside of a loop");
 				return Reference<Statement>();
 			}
 			return new ContinueStatement();

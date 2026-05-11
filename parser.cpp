@@ -106,6 +106,20 @@ public:
 
 template <BinaryOperation operation> using OperationCollector = MapCollector<TagMapper<BinaryOperationTag<operation>>, TupleCollector<Reference<Expression>>>;
 
+class StatementCollector {
+	Reference<Statement> statement;
+public:
+	void push(Reference<Statement>&& statement) {
+		this->statement = std::move(statement);
+	}
+	void set_location(const SourceLocation& location) {
+		statement->set_location(location);
+	}
+	template <class C> void retrieve(const C& callback) {
+		callback.push(std::move(statement));
+	}
+};
+
 constexpr auto whitespace_char = choice(' ', '\t', '\n', '\r');
 
 constexpr auto identifier_start_char = choice(range('a', 'z'), range('A', 'Z'), '_');
@@ -462,7 +476,7 @@ constexpr auto expression_statement = collect<ExpressionStatementCollector>(sequ
 	expect(";")
 ));
 
-constexpr auto statement_impl = choice(
+constexpr auto statement_impl = collect<StatementCollector>(collect_location(choice(
 	map<StatementMapper<BlockStatement>>(block),
 	empty_statement,
 	let_statement,
@@ -472,12 +486,12 @@ constexpr auto statement_impl = choice(
 	break_statement,
 	continue_statement,
 	expression_statement
-);
+)));
 DEFINE_PARSER(statement, statement_impl)
 
 constexpr auto branch_impl = choice(
 	block,
-	map<ConstructorMapper<Block>>(choice(
+	map<ConstructorMapper<Block>>(collect<StatementCollector>(collect_location(choice(
 		empty_statement,
 		if_statement,
 		while_statement,
@@ -485,7 +499,7 @@ constexpr auto branch_impl = choice(
 		break_statement,
 		continue_statement,
 		expression_statement
-	))
+	))))
 );
 DEFINE_PARSER(branch, branch_impl)
 

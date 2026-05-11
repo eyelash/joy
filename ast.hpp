@@ -338,8 +338,15 @@ public:
 };
 
 class Statement: public Dynamic {
+	SourceLocation location;
 public:
 	Statement(int type_id): Dynamic(type_id) {}
+	void set_location(const SourceLocation& location) {
+		this->location = location;
+	}
+	const SourceLocation& get_location() const {
+		return location;
+	}
 };
 
 class Block {
