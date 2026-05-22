@@ -249,6 +249,33 @@ public:
 			else if (function->get_name() == "__builtin_joy_putchar") {
 				print_impl(ln("putchar(v0);"), context);
 			}
+			else if (function->get_name() == "__builtin_joy_add_int") {
+				print_impl(ln("return v0 + v1;"), context);
+			}
+			else if (function->get_name() == "__builtin_joy_subtract_int") {
+				print_impl(ln("return v0 - v1;"), context);
+			}
+			else if (function->get_name() == "__builtin_joy_multiply_int") {
+				print_impl(ln("return v0 * v1;"), context);
+			}
+			else if (function->get_name() == "__builtin_joy_divide_int") {
+				print_impl(ln("return v0 / v1;"), context);
+			}
+			else if (function->get_name() == "__builtin_joy_remainder_int") {
+				print_impl(ln("return v0 % v1;"), context);
+			}
+			else if (function->get_name() == "__builtin_joy_equal_int") {
+				print_impl(ln("return v0 == v1;"), context);
+			}
+			else if (function->get_name() == "__builtin_joy_not_equal_int") {
+				print_impl(ln("return v0 != v1;"), context);
+			}
+			else if (function->get_name() == "__builtin_joy_less_than_int") {
+				print_impl(ln("return v0 < v1;"), context);
+			}
+			else if (function->get_name() == "__builtin_joy_less_than_or_equal_int") {
+				print_impl(ln("return v0 <= v1;"), context);
+			}
 			context.decrease_indentation();
 			print_impl(ln('}'), context);
 		}
