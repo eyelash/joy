@@ -391,6 +391,7 @@ using EmptyStatementCollector = MapCollector<StatementMapper<BlockStatement>, Tu
 using LetStatementCollector = MapCollector<StatementMapper<LetStatement>, TupleCollector<Reference<Expression>, Reference<Expression>, Reference<Expression>>>;
 using IfStatementCollector = MapCollector<StatementMapper<IfStatement>, TupleCollector<Reference<Expression>, Block, Block>>;
 using WhileStatementCollector = MapCollector<StatementMapper<WhileStatement>, TupleCollector<Reference<Expression>, Block>>;
+using ForStatementCollector = MapCollector<StatementMapper<ForStatement>, TupleCollector<std::string, Reference<Expression>, Block>>;
 using ReturnStatementCollector = MapCollector<StatementMapper<ReturnStatement>, TupleCollector<Reference<Expression>>>;
 using BreakStatementCollector = MapCollector<StatementMapper<BreakStatement>, TupleCollector<>>;
 using ContinueStatementCollector = MapCollector<StatementMapper<ContinueStatement>, TupleCollector<>>;
@@ -446,6 +447,25 @@ constexpr auto while_statement = collect<WhileStatementCollector>(sequence(
 	branch
 ));
 
+constexpr auto for_statement = collect<ForStatementCollector>(sequence(
+	keyword("for"),
+	whitespace,
+	expect("("),
+	whitespace,
+	expect_identifier,
+	whitespace,
+	choice(
+		keyword("in"),
+		error("expected \"in\"")
+	),
+	whitespace,
+	expression,
+	whitespace,
+	expect(")"),
+	whitespace,
+	branch
+));
+
 constexpr auto return_statement = collect<ReturnStatementCollector>(sequence(
 	keyword("return"),
 	whitespace,
@@ -482,6 +502,7 @@ constexpr auto statement_impl = collect<StatementCollector>(collect_location(cho
 	let_statement,
 	if_statement,
 	while_statement,
+	for_statement,
 	return_statement,
 	break_statement,
 	continue_statement,
@@ -495,6 +516,7 @@ constexpr auto branch_impl = choice(
 		empty_statement,
 		if_statement,
 		while_statement,
+		for_statement,
 		return_statement,
 		break_statement,
 		continue_statement,

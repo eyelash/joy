@@ -29,6 +29,7 @@ enum {
 	TYPE_ID_LET_STATEMENT,
 	TYPE_ID_IF_STATEMENT,
 	TYPE_ID_WHILE_STATEMENT,
+	TYPE_ID_FOR_STATEMENT,
 	TYPE_ID_RETURN_STATEMENT,
 	TYPE_ID_BREAK_STATEMENT,
 	TYPE_ID_CONTINUE_STATEMENT,
@@ -443,6 +444,24 @@ public:
 	}
 	Block* get_block() {
 		return &block;
+	}
+	const Block* get_block() const {
+		return &block;
+	}
+};
+
+class ForStatement final: public Statement {
+	std::string variable;
+	Reference<Expression> expression;
+	Block block;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_FOR_STATEMENT;
+	ForStatement(std::string&& variable, Reference<Expression>&& expression, Block&& block): Statement(TYPE_ID), variable(std::move(variable)), expression(std::move(expression)), block(std::move(block)) {}
+	StringView get_variable() const {
+		return variable;
+	}
+	const Expression* get_expression() const {
+		return expression;
 	}
 	const Block* get_block() const {
 		return &block;

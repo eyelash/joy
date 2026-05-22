@@ -1103,6 +1103,10 @@ class Pass1 {
 			}
 			return new WhileStatement(std::move(condition), std::move(block));
 		}
+		else if (auto* s = as<ForStatement>(statement)) {
+			add_error(statement, "for statements are not yet implemented");
+			return Reference<Statement>();
+		}
 		else if (auto* s = as<ReturnStatement>(statement)) {
 			const Type* return_type = current_function->get_return_type();
 			Reference<Expression> expression = handle_expression(s->get_expression(), return_type);
