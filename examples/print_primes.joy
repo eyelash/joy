@@ -22,6 +22,41 @@ func char(c: Int): Char {
 	};
 }
 
+func add(lhs: Int, rhs: Int): Int {
+	return __builtin_joy_add_int(lhs, rhs);
+}
+func subtract(lhs: Int, rhs: Int): Int {
+	return __builtin_joy_subtract_int(lhs, rhs);
+}
+func multiply(lhs: Int, rhs: Int): Int {
+	return __builtin_joy_multiply_int(lhs, rhs);
+}
+func divide(lhs: Int, rhs: Int): Int {
+	return __builtin_joy_divide_int(lhs, rhs);
+}
+func remainder(lhs: Int, rhs: Int): Int {
+	return __builtin_joy_remainder_int(lhs, rhs);
+}
+
+func equal(lhs: Int, rhs: Int): Bool {
+	return __builtin_joy_equal_int(lhs, rhs);
+}
+func not_equal(lhs: Int, rhs: Int): Bool {
+	return __builtin_joy_not_equal_int(lhs, rhs);
+}
+func less_than(lhs: Int, rhs: Int): Bool {
+	return __builtin_joy_less_than_int(lhs, rhs);
+}
+func less_than_or_equal(lhs: Int, rhs: Int): Bool {
+	return __builtin_joy_less_than_or_equal_int(lhs, rhs);
+}
+func greater_than(lhs: Int, rhs: Int): Bool {
+	return __builtin_joy_less_than_int(rhs, lhs);
+}
+func greater_than_or_equal(lhs: Int, rhs: Int): Bool {
+	return __builtin_joy_less_than_or_equal_int(rhs, lhs);
+}
+
 func print(c: Char): Void {
 	__builtin_joy_putchar(c.c);
 }

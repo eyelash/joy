@@ -11,9 +11,9 @@ See [design.md](design.md).
 - [x] structs
 - [x] tuples
 - [x] type aliases
+- [x] operator overloading
 - [ ] strings
 - [ ] arrays
 - [ ] union types
-- [ ] operator overloading
 - [ ] lambdas
 - [ ] metaprogramming

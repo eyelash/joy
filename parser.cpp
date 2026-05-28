@@ -94,7 +94,7 @@ public:
 		expression = new T(std::move(expression), std::forward<A>(a)...);
 	}
 	template <BinaryOperation operation> void push(BinaryOperationTag<operation>, Reference<Expression>&& right) {
-		expression = new BinaryExpression(operation, std::move(expression), std::move(right));
+		expression = new Call(GetOperationFunctionName<operation>::function_name, std::move(expression), std::move(right));
 	}
 	void set_location(const SourceLocation& location) {
 		expression->set_location(location);
