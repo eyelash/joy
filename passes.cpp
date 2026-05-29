@@ -192,9 +192,6 @@ public:
 		else if (auto* e = as<Variable>(expression)) {
 			return new Variable(e->get_index());
 		}
-		else if (auto* e = as<BinaryExpression>(expression)) {
-			return new BinaryExpression(e->get_operation(), copy_expression(e->get_left()), copy_expression(e->get_right()));
-		}
 		else if (auto* e = as<Assignment>(expression)) {
 			return new Assignment(copy_expression(e->get_left()), copy_expression(e->get_right()));
 		}
@@ -935,20 +932,6 @@ class Pass1 {
 		}
 		else if (auto* e = as<Name>(expression)) {
 			return handle_name(e);
-		}
-		else if (auto* e = as<BinaryExpression>(expression)) {
-			Reference<Expression> left = handle_expression(e->get_left());
-			Reference<Expression> right = handle_expression(e->get_right());
-			if (left == nullptr || right == nullptr) {
-				return Reference<Expression>();
-			}
-			if (as<IntType>(left->get_type()) && as<IntType>(right->get_type())) {
-				return new BinaryExpression(e->get_operation(), std::move(left), std::move(right), get_int_type());
-			}
-			else {
-				add_error(expression, "invalid binary expression");
-				return Reference<Expression>();
-			}
 		}
 		else if (auto* e = as<Assignment>(expression)) {
 			Reference<Expression> left = handle_name(e->get_left());

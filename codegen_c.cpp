@@ -22,20 +22,6 @@ public:
 };
 
 class PrintExpression {
-	static const char* print_operation(BinaryOperation operation) {
-		if (operation == BinaryOperation::ADD) return "+";
-		if (operation == BinaryOperation::SUB) return "-";
-		if (operation == BinaryOperation::MUL) return "*";
-		if (operation == BinaryOperation::DIV) return "/";
-		if (operation == BinaryOperation::REM) return "%";
-		if (operation == BinaryOperation::EQ) return "==";
-		if (operation == BinaryOperation::NE) return "!=";
-		if (operation == BinaryOperation::LT) return "<";
-		if (operation == BinaryOperation::LE) return "<=";
-		if (operation == BinaryOperation::GT) return ">";
-		if (operation == BinaryOperation::GE) return ">=";
-		return "";
-	}
 	const Expression* expression;
 public:
 	PrintExpression(const Expression* expression): expression(expression) {}
@@ -54,9 +40,6 @@ public:
 		}
 		else if (auto* e = as<Variable>(expression)) {
 			print_impl(format("COPY(v%)", print_number(e->get_index())), context);
-		}
-		else if (auto* e = as<BinaryExpression>(expression)) {
-			print_impl(format("(% % %)", PrintExpression(e->get_left()), print_operation(e->get_operation()), PrintExpression(e->get_right())), context);
 		}
 		else if (auto* e = as<Assignment>(expression)) {
 			const unsigned int index = as<Variable>(e->get_left())->get_index();

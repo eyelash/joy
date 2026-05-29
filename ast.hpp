@@ -20,7 +20,6 @@ enum {
 	TYPE_ID_STRUCT_LITERAL,
 	TYPE_ID_NAME,
 	TYPE_ID_VARIABLE,
-	TYPE_ID_BINARY_EXPRESSION,
 	TYPE_ID_ASSIGNMENT,
 	TYPE_ID_CALL,
 	TYPE_ID_ACCESSOR,
@@ -284,24 +283,6 @@ DEFINE_OPERATION_FUNCTION_NAME(LT, "less_than")
 DEFINE_OPERATION_FUNCTION_NAME(LE, "less_than_or_equal")
 DEFINE_OPERATION_FUNCTION_NAME(GT, "greater_than")
 DEFINE_OPERATION_FUNCTION_NAME(GE, "greater_than_or_equal")
-
-class BinaryExpression final: public Expression {
-	BinaryOperation operation;
-	Reference<Expression> left;
-	Reference<Expression> right;
-public:
-	static constexpr int TYPE_ID = TYPE_ID_BINARY_EXPRESSION;
-	BinaryExpression(BinaryOperation operation, Reference<Expression>&& left, Reference<Expression>&& right, const Type* type = nullptr): Expression(TYPE_ID, type), operation(operation), left(std::move(left)), right(std::move(right)) {}
-	BinaryOperation get_operation() const {
-		return operation;
-	}
-	const Expression* get_left() const {
-		return left;
-	}
-	const Expression* get_right() const {
-		return right;
-	}
-};
 
 class Assignment final: public Expression {
 	Reference<Expression> left;
