@@ -295,7 +295,7 @@ public:
 	}
 };
 
-void codegen_c(std::ostream& ostream, const Program* program) {
-	Context context(ostream);
+void codegen_c(BufferedOutput& output, const Program* program) {
+	Context context(output);
 	print(context, PrintProgram(program));
 }

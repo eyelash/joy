@@ -692,7 +692,7 @@ public:
 
 Reference<Program> parse_program(const char* path, Diagnostics& diagnostics) {
 	Reference<Program> program_ = new Program();
-	auto source = read_file(path);
+	MemoryMappedFile source(path);
 	Context context(source);
 	const Result result = parse_impl(program, context, ProgramCollector(path, program_));
 	if (result == ERROR) {

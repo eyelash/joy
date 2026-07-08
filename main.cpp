@@ -12,7 +12,8 @@ static void compile(const std::string& path, Diagnostics& diagnostics) {
 		return;
 	}
 	memory_management(program);
-	std::ofstream output(path + ".c");
+	WriteFile file((path + ".c").c_str());
+	BufferedOutput output(file);
 	codegen_c(output, program);
 }
 
