@@ -690,8 +690,7 @@ public:
 	}
 };
 
-Reference<Program> parse_program(const char* path, Diagnostics& diagnostics) {
-	Reference<Program> program_ = new Program();
+static void parse_file(const char* path, Program* program_, Diagnostics& diagnostics) {
 	MemoryMappedFile source(path);
 	Context context(source);
 	const Result result = parse_impl(program, context, ProgramCollector(path, program_));
@@ -699,9 +698,14 @@ Reference<Program> parse_program(const char* path, Diagnostics& diagnostics) {
 		diagnostics.add_error(path, context.get_location(), context.get_error());
 	}
 #ifndef NDEBUG
-	if (result == FAILURE) {
+	else if (result == FAILURE) {
 		diagnostics.add_error(path, context.get_location(), "failure");
 	}
 #endif
+}
+
+Reference<Program> parse_program(const char* path, Diagnostics& diagnostics) {
+	Reference<Program> program_ = new Program();
+	parse_file(path, program_, diagnostics);
 	return program_;
 }
