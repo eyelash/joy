@@ -525,6 +525,26 @@ constexpr auto branch_impl = choice(
 );
 DEFINE_PARSER(branch, branch_impl)
 
+using ImportCollector = MapCollector<EntityMapper<Import>, StringCollector>;
+
+constexpr auto import = collect<ImportCollector>(sequence(
+	keyword("import"),
+	whitespace,
+	choice(
+		sequence(
+			ignore('"'),
+			zero_or_more(choice(
+				escape,
+				sequence(not_('"'), any_char())
+			)),
+			expect("\"")
+		),
+		error("expected a string literal")
+	),
+	whitespace,
+	expect(";")
+));
+
 using NamedTypeCollector = MapCollector<ConstructorMapper<NamedType>, TupleCollector<std::string, Reference<Expression>>>;
 
 using FunctionCollector = MapCollector<EntityMapper<Function>, TupleCollector<std::string, std::vector<std::string>, std::vector<NamedType>, Reference<Expression>, Block>>;
@@ -669,6 +689,7 @@ constexpr auto program = sequence(
 	zero_or_more(sequence(
 		not_(end()),
 		choice(
+			import,
 			function,
 			structure,
 			type_alias,
@@ -707,5 +728,13 @@ static void parse_file(const char* path, Program* program_, Diagnostics& diagnos
 Reference<Program> parse_program(const char* path, Diagnostics& diagnostics) {
 	Reference<Program> program_ = new Program();
 	parse_file(path, program_, diagnostics);
+	for (std::size_t i = 0; i < program_->get_source_entities().size(); ++i) {
+		Entity* entity = program_->get_source_entities()[i];
+		if (Import* import = as<Import>(entity)) {
+			// TODO: detect recursion
+			Path path = entity->get_path().parent() / import->get_path();
+			parse_file(path, program_, diagnostics);
+		}
+	}
 	return program_;
 }

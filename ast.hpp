@@ -34,6 +34,7 @@ enum {
 	TYPE_ID_CONTINUE_STATEMENT,
 	TYPE_ID_EXPRESSION_STATEMENT,
 	TYPE_ID_DESTROY_STATEMENT,
+	TYPE_ID_IMPORT,
 	TYPE_ID_BUILTIN_FUNCTION,
 	TYPE_ID_FUNCTION,
 	TYPE_ID_STRUCTURE,
@@ -46,7 +47,7 @@ enum {
 
 class Entity: public Dynamic {
 	unsigned int id;
-	std::string path;
+	Path path;
 public:
 	Entity(int type_id): Dynamic(type_id), id(0) {}
 	void set_id(unsigned int id) {
@@ -58,8 +59,8 @@ public:
 	void set_path(const char* path) {
 		this->path = path;
 	}
-	const char* get_path() const {
-		return path.c_str();
+	const Path& get_path() const {
+		return path;
 	}
 };
 
@@ -517,6 +518,16 @@ public:
 	DestroyStatement(unsigned int index): Statement(TYPE_ID), index(index) {}
 	unsigned int get_index() const {
 		return index;
+	}
+};
+
+class Import final: public Entity {
+	Path path;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_IMPORT;
+	Import(std::string&& path): Entity(TYPE_ID), path(std::move(path)) {}
+	const Path& get_path() const {
+		return path;
 	}
 };
 

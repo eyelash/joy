@@ -12,6 +12,7 @@ See [design.md](design.md).
 - [x] tuples
 - [x] type aliases
 - [x] operator overloading
+- [x] imports
 - [ ] strings
 - [ ] arrays
 - [ ] union types
