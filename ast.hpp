@@ -785,7 +785,6 @@ public:
 };
 
 class Program final: public Dynamic {
-	std::vector<Reference<Entity>> source_entities;
 	std::vector<Reference<Entity>> entities;
 	unsigned int current_id = 0;
 	const Entity* main_function = nullptr;
@@ -799,13 +798,6 @@ class Program final: public Dynamic {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_PROGRAM;
 	Program(): Dynamic(TYPE_ID) {}
-	Program(std::vector<Reference<Entity>>&& source_entities): Dynamic(TYPE_ID), source_entities(std::move(source_entities)) {}
-	void add_source_entity(Reference<Entity>&& entity) {
-		source_entities.push_back(std::move(entity));
-	}
-	const std::vector<Reference<Entity>>& get_source_entities() const {
-		return source_entities;
-	}
 	void add_entity(Reference<Entity>&& entity) {
 		entity->set_id(get_next_id());
 		entities.push_back(std::move(entity));

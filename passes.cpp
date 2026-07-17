@@ -469,7 +469,7 @@ class Pass1 {
 			++match_count;
 		}
 		// TODO: optimize
-		for (Entity* entity: program->get_source_entities()) {
+		for (Entity* entity: program->get_entities()) {
 			if (Structure* structure = as<Structure>(entity)) {
 				if (structure->get_name() == name) {
 					if (structure->get_template_arguments().size() == arguments.size()) {
@@ -699,7 +699,7 @@ class Pass1 {
 		std::vector<const Type*> match_template_arguments;
 		unsigned int match_count = 0;
 		// TODO: optimize
-		for (Entity* entity: program->get_source_entities()) {
+		for (Entity* entity: program->get_entities()) {
 			if (BuiltinFunction* function = as<BuiltinFunction>(entity)) {
 				if (function->get_name() == name) {
 					auto previous_current_entity = this->current_entity;

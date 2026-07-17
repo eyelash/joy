@@ -707,7 +707,7 @@ public:
 	constexpr ProgramCollector(const char* path, Program* program_): path(path), program_(program_) {}
 	void push(Reference<Entity>&& entity) const {
 		entity->set_path(path);
-		program_->add_source_entity(std::move(entity));
+		program_->add_entity(std::move(entity));
 	}
 };
 
@@ -728,8 +728,8 @@ static void parse_file(const char* path, Program* program_, Diagnostics& diagnos
 Reference<Program> parse_program(const char* path, Diagnostics& diagnostics) {
 	Reference<Program> program_ = new Program();
 	parse_file(path, program_, diagnostics);
-	for (std::size_t i = 0; i < program_->get_source_entities().size(); ++i) {
-		Entity* entity = program_->get_source_entities()[i];
+	for (std::size_t i = 0; i < program_->get_entities().size(); ++i) {
+		Entity* entity = program_->get_entities()[i];
 		if (Import* import = as<Import>(entity)) {
 			// TODO: detect recursion
 			Path path = entity->get_path().parent() / import->get_path();
