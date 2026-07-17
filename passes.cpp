@@ -228,7 +228,7 @@ public:
 		}
 		return Block(std::move(statements));
 	}
-	static Reference<Statement> copy_statement(const Statement* statement) {
+	static Reference<Statement> copy_statement_(const Statement* statement) {
 		if (auto* s = as<BlockStatement>(statement)) {
 			return new BlockStatement(copy_block(s->get_block()));
 		}
@@ -259,15 +259,22 @@ public:
 		else if (auto* s = as<ExpressionStatement>(statement)) {
 			return new ExpressionStatement(copy_expression(s->get_expression()));
 		}
+		return Reference<Statement>();
+	}
+	static Reference<Statement> copy_statement(const Statement* statement) {
+		Reference<Statement> new_statement = copy_statement_(statement);
+		if (new_statement) {
+			new_statement->set_location(statement->get_location());
+		}
+		return new_statement;
 	}
 };
 
 class UnificationVariables {
-	const std::string* names;
 	std::vector<const Type*> variables;
 public:
-	UnificationVariables(const std::vector<std::string>& names): names(names.data()), variables(names.size()) {}
-	UnificationVariables(): names(nullptr) {}
+	UnificationVariables(const std::vector<std::string>& names): variables(names.size()) {}
+	UnificationVariables() {}
 	bool set(std::size_t i, const Type* type) {
 		if (variables[i]) {
 			return variables[i] == type;

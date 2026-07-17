@@ -3,14 +3,6 @@
 
 using namespace parser;
 
-template <class T> class NewMapper {
-public:
-	constexpr NewMapper() {}
-	template <class C, class... A> static void map(const C& callback, A&&... a) {
-		callback.push(new T(std::forward<A>(a)...));
-	}
-};
-
 template <class OuterT, class InnerT = OuterT> class ReferenceMapper {
 public:
 	constexpr ReferenceMapper() {}
@@ -277,7 +269,7 @@ constexpr auto name = map<ExpressionMapper<Name>>(identifier);
 
 using CallCollector = MapCollector<TagMapper<LedTag<Call>>, VectorCollector<Reference<Expression>>>;
 
-constexpr auto type_impl = pratt<ExpressionCollector>(
+DEFINE_PARSER(type, pratt<ExpressionCollector>(
 	pratt_level(
 		postfix<CallCollector>(sequence(
 			whitespace,
@@ -298,14 +290,13 @@ constexpr auto type_impl = pratt<ExpressionCollector>(
 			error("expected a type")
 		))
 	)
-);
-DEFINE_PARSER(type, type_impl)
+))
 
 using AssignmentCollector = MapCollector<TagMapper<LedTag<Assignment>>, TupleCollector<Reference<Expression>>>;
 
 using AccessorCollector = MapCollector<TagMapper<LedTag<Accessor>>, TupleCollector<Reference<Expression>>>;
 
-constexpr auto expression_impl = pratt<ExpressionCollector>(
+DEFINE_PARSER(expression, pratt<ExpressionCollector>(
 	pratt_level(
 		infix_rtl<AssignmentCollector>(operator_(sequence('=', not_('='))))
 	),
@@ -370,8 +361,7 @@ constexpr auto expression_impl = pratt<ExpressionCollector>(
 			error("expected an expression")
 		))
 	)
-);
-DEFINE_PARSER(expression, expression_impl)
+))
 
 using BlockCollector = MapCollector<ConstructorMapper<Block>, VectorCollector<Reference<Statement>>>;
 
@@ -496,7 +486,7 @@ constexpr auto expression_statement = collect<ExpressionStatementCollector>(sequ
 	expect(";")
 ));
 
-constexpr auto statement_impl = collect<StatementCollector>(collect_location(choice(
+DEFINE_PARSER(statement, collect<StatementCollector>(collect_location(choice(
 	map<StatementMapper<BlockStatement>>(block),
 	empty_statement,
 	let_statement,
@@ -507,10 +497,9 @@ constexpr auto statement_impl = collect<StatementCollector>(collect_location(cho
 	break_statement,
 	continue_statement,
 	expression_statement
-)));
-DEFINE_PARSER(statement, statement_impl)
+))))
 
-constexpr auto branch_impl = choice(
+DEFINE_PARSER(branch, choice(
 	block,
 	map<ConstructorMapper<Block>>(collect<StatementCollector>(collect_location(choice(
 		empty_statement,
@@ -522,8 +511,7 @@ constexpr auto branch_impl = choice(
 		continue_statement,
 		expression_statement
 	))))
-);
-DEFINE_PARSER(branch, branch_impl)
+))
 
 using ImportCollector = MapCollector<EntityMapper<Import>, StringCollector>;
 
