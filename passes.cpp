@@ -195,6 +195,9 @@ public:
 		else if (auto* e = as<Assignment>(expression)) {
 			return new Assignment(copy_expression(e->get_left()), copy_expression(e->get_right()));
 		}
+		else if (auto* e = as<Spread>(expression)) {
+			return new Spread(copy_expression(e->get_expression()));
+		}
 		else if (auto* e = as<Call>(expression)) {
 			return new Call(copy_expression(e->get_expression()), copy_expressions(e->get_arguments()));
 		}
@@ -951,6 +954,10 @@ class Pass1 {
 				return Reference<Expression>();
 			}
 			return new Assignment(std::move(left), std::move(right), type);
+		}
+		else if (auto* e = as<Spread>(expression)) {
+			add_error(expression, "spreads are not yet implemented");
+			return Reference<Expression>();
 		}
 		else if (auto* e = as<Call>(expression)) {
 			StringView name;

@@ -294,11 +294,14 @@ DEFINE_PARSER(type, pratt<ExpressionCollector>(
 
 using AssignmentCollector = MapCollector<TagMapper<LedTag<Assignment>>, TupleCollector<Reference<Expression>>>;
 
+using SpreadCollector = MapCollector<ExpressionMapper<Spread>, TupleCollector<Reference<Expression>>>;
+
 using AccessorCollector = MapCollector<TagMapper<LedTag<Accessor>>, TupleCollector<Reference<Expression>>>;
 
 DEFINE_PARSER(expression, pratt<ExpressionCollector>(
 	pratt_level(
-		infix_rtl<AssignmentCollector>(operator_(sequence('=', not_('='))))
+		infix_rtl<AssignmentCollector>(operator_(sequence('=', not_('=')))),
+		prefix<SpreadCollector>(operator_("..."))
 	),
 	pratt_level(
 		infix_ltr<OperationCollector<BinaryOperation::EQ>>(operator_("==")),

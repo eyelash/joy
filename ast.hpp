@@ -21,6 +21,7 @@ enum {
 	TYPE_ID_NAME,
 	TYPE_ID_VARIABLE,
 	TYPE_ID_ASSIGNMENT,
+	TYPE_ID_SPREAD,
 	TYPE_ID_CALL,
 	TYPE_ID_ACCESSOR,
 	TYPE_ID_ENTITY_REFERENCE,
@@ -296,6 +297,16 @@ public:
 	}
 	const Expression* get_right() const {
 		return right;
+	}
+};
+
+class Spread final: public Expression {
+	Reference<Expression> expression;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_SPREAD;
+	Spread(Reference<Expression>&& expression, const Type* type = nullptr): Expression(TYPE_ID, type), expression(std::move(expression)) {}
+	const Expression* get_expression() const {
+		return expression;
 	}
 };
 
