@@ -207,9 +207,9 @@ DECLARE_PARSER(expression)
 DECLARE_PARSER(statement)
 DECLARE_PARSER(branch)
 
-using ArrayLiteralCollector = MapCollector<ExpressionMapper<ArrayLiteral>, VectorCollector<Reference<Expression>>>;
+using TupleLiteralCollector = MapCollector<ExpressionMapper<TupleLiteral>, VectorCollector<Reference<Expression>>>;
 
-constexpr auto array_literal = collect<ArrayLiteralCollector>(sequence(
+constexpr auto tuple_literal = collect<TupleLiteralCollector>(sequence(
 	ignore('['),
 	whitespace,
 	comma_separated(sequence(
@@ -355,7 +355,7 @@ DEFINE_PARSER(expression, pratt<ExpressionCollector>(
 			sequence(ignore('('), whitespace, expression, whitespace, expect(")")),
 			string_literal,
 			char_literal,
-			array_literal,
+			tuple_literal,
 			alternative_struct_literal,
 			struct_literal,
 			bool_literal,

@@ -29,7 +29,7 @@ public:
 		if (auto* e = as<IntLiteral>(expression)) {
 			print_impl(print_number(e->get_value()), context);
 		}
-		else if (auto* e = as<ArrayLiteral>(expression)) {
+		else if (auto* e = as<TupleLiteral>(expression)) {
 			print_impl(format("((%){%})", PrintType(expression), comma_separated<PrintExpression>(e->get_elements())), context);
 		}
 		else if (auto* e = as<StructLiteral>(expression)) {

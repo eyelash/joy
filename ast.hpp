@@ -16,7 +16,7 @@ enum {
 	TYPE_ID_INT_LITERAL,
 	TYPE_ID_CHAR_LITERAL,
 	TYPE_ID_STRING_LITERAL,
-	TYPE_ID_ARRAY_LITERAL,
+	TYPE_ID_TUPLE_LITERAL,
 	TYPE_ID_STRUCT_LITERAL,
 	TYPE_ID_NAME,
 	TYPE_ID_VARIABLE,
@@ -197,11 +197,11 @@ public:
 	}
 };
 
-class ArrayLiteral final: public Expression {
+class TupleLiteral final: public Expression {
 	std::vector<Reference<Expression>> elements;
 public:
-	static constexpr int TYPE_ID = TYPE_ID_ARRAY_LITERAL;
-	ArrayLiteral(std::vector<Reference<Expression>>&& elements, const Type* type = nullptr): Expression(TYPE_ID, type), elements(std::move(elements)) {}
+	static constexpr int TYPE_ID = TYPE_ID_TUPLE_LITERAL;
+	TupleLiteral(std::vector<Reference<Expression>>&& elements, const Type* type = nullptr): Expression(TYPE_ID, type), elements(std::move(elements)) {}
 	const std::vector<Reference<Expression>>& get_elements() const {
 		return elements;
 	}

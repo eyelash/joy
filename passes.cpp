@@ -183,8 +183,8 @@ public:
 			}
 			return new StructLiteral(copy_expression(e->get_type()), std::move(new_members));
 		}
-		else if (auto* e = as<ArrayLiteral>(expression)) {
-			return new ArrayLiteral(copy_expressions(e->get_elements()));
+		else if (auto* e = as<TupleLiteral>(expression)) {
+			return new TupleLiteral(copy_expressions(e->get_elements()));
 		}
 		else if (auto* e = as<Name>(expression)) {
 			return new Name(e->get_name().to_string());
@@ -902,7 +902,7 @@ class Pass1 {
 			}
 			return new StructLiteral(Reference<Expression>(), std::move(members), type);
 		}
-		else if (auto* e = as<ArrayLiteral>(expression)) {
+		else if (auto* e = as<TupleLiteral>(expression)) {
 			if (auto* s = as<TupleTypeInstantiation>(expected_type)) {
 				const std::size_t element_count = s->get_element_types().size();
 				if (e->get_elements().size() != element_count) {
@@ -923,7 +923,7 @@ class Pass1 {
 					}
 					elements.push_back(std::move(new_element));
 				}
-				return new ArrayLiteral(std::move(elements), expected_type);
+				return new TupleLiteral(std::move(elements), expected_type);
 			}
 			else {
 				std::vector<const Type*> element_types;
@@ -937,7 +937,7 @@ class Pass1 {
 					elements.push_back(std::move(new_element));
 				}
 				const Type* type = get_tuple_type(std::move(element_types));
-				return new ArrayLiteral(std::move(elements), type);
+				return new TupleLiteral(std::move(elements), type);
 			}
 		}
 		else if (auto* e = as<Name>(expression)) {
