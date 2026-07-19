@@ -1,5 +1,6 @@
 #include "parser.hpp"
 #include "parsley/pratt.hpp"
+#include <set>
 
 using namespace parser;
 
@@ -702,7 +703,11 @@ public:
 	}
 };
 
-static void parse_file(const char* path, Program* program_, Diagnostics& diagnostics) {
+static void parse_file(const char* path, Program* program_, std::set<std::string, std::less<>>& paths, Diagnostics& diagnostics) {
+	if (paths.find(path) != paths.end()) {
+		return;
+	}
+	paths.emplace(path);
 	MemoryMappedFile source(path);
 	Context context(source);
 	const Result result = parse_impl(program, context, ProgramCollector(path, program_));
@@ -718,13 +723,13 @@ static void parse_file(const char* path, Program* program_, Diagnostics& diagnos
 
 Reference<Program> parse_program(const char* path, Diagnostics& diagnostics) {
 	Reference<Program> program_ = new Program();
-	parse_file(path, program_, diagnostics);
+	std::set<std::string, std::less<>> paths;
+	parse_file(path, program_, paths, diagnostics);
 	for (std::size_t i = 0; i < program_->get_entities().size(); ++i) {
 		Entity* entity = program_->get_entities()[i];
 		if (Import* import = as<Import>(entity)) {
-			// TODO: detect recursion
-			Path path = entity->get_path().parent() / import->get_path();
-			parse_file(path, program_, diagnostics);
+			Path path = (entity->get_path().parent() / import->get_path()).normalize();
+			parse_file(path, program_, paths, diagnostics);
 		}
 	}
 	return program_;
