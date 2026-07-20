@@ -69,9 +69,14 @@ public:
 	constexpr LedTag() {}
 };
 
-template <BinaryOperation operation> class BinaryOperationTag {
+template <class T> class OperatorNudTag {
 public:
-	constexpr BinaryOperationTag() {}
+	constexpr OperatorNudTag() {}
+};
+
+template <class T> class OperatorLedTag {
+public:
+	constexpr OperatorLedTag() {}
 };
 
 class ExpressionCollector {
@@ -86,8 +91,11 @@ public:
 	template <class T, class... A> void push(LedTag<T>, A&&... a) {
 		expression = new T(std::move(expression), std::forward<A>(a)...);
 	}
-	template <BinaryOperation operation> void push(BinaryOperationTag<operation>, Reference<Expression>&& right) {
-		expression = new Call(GetOperationFunctionName<operation>::function_name, std::move(expression), std::move(right));
+	template <class T, class... A> void push(OperatorNudTag<T>, A&&... a) {
+		expression = new Call(new Name(T::function_name), make_vector<Reference<Expression>>(std::forward<A>(a)...));
+	}
+	template <class T, class... A> void push(OperatorLedTag<T>, A&&... a) {
+		expression = new Call(new Name(T::function_name), make_vector<Reference<Expression>>(std::move(expression), std::forward<A>(a)...));
 	}
 	void set_location(const SourceLocation& location) {
 		expression->set_location(location);
@@ -97,7 +105,9 @@ public:
 	}
 };
 
-template <BinaryOperation operation> using OperationCollector = MapCollector<TagMapper<BinaryOperationTag<operation>>, TupleCollector<Reference<Expression>>>;
+template <class T> using InfixOperatorCollector = MapCollector<TagMapper<OperatorLedTag<T>>, TupleCollector<Reference<Expression>>>;
+template <class T> using PrefixOperatorCollector = MapCollector<TagMapper<OperatorNudTag<T>>, TupleCollector<Reference<Expression>>>;
+template <class T> using PostfixOperatorCollector = MapCollector<TagMapper<OperatorLedTag<T>>, TupleCollector<>>;
 
 class StatementCollector {
 	Reference<Statement> statement;
@@ -305,23 +315,23 @@ DEFINE_PARSER(expression, pratt<ExpressionCollector>(
 		prefix<SpreadCollector>(operator_("..."))
 	),
 	pratt_level(
-		infix_ltr<OperationCollector<BinaryOperation::EQ>>(operator_("==")),
-		infix_ltr<OperationCollector<BinaryOperation::NE>>(operator_("!="))
+		infix_ltr<InfixOperatorCollector<Operator_equal>>(operator_("==")),
+		infix_ltr<InfixOperatorCollector<Operator_not_equal>>(operator_("!="))
 	),
 	pratt_level(
-		infix_ltr<OperationCollector<BinaryOperation::LT>>(operator_(sequence('<', not_('=')))),
-		infix_ltr<OperationCollector<BinaryOperation::LE>>(operator_("<=")),
-		infix_ltr<OperationCollector<BinaryOperation::GT>>(operator_(sequence('>', not_('=')))),
-		infix_ltr<OperationCollector<BinaryOperation::GE>>(operator_(">="))
+		infix_ltr<InfixOperatorCollector<Operator_less_than>>(operator_(sequence('<', not_('=')))),
+		infix_ltr<InfixOperatorCollector<Operator_less_than_or_equal>>(operator_("<=")),
+		infix_ltr<InfixOperatorCollector<Operator_greater_than>>(operator_(sequence('>', not_('=')))),
+		infix_ltr<InfixOperatorCollector<Operator_greater_than_or_equal>>(operator_(">="))
 	),
 	pratt_level(
-		infix_ltr<OperationCollector<BinaryOperation::ADD>>(operator_('+')),
-		infix_ltr<OperationCollector<BinaryOperation::SUB>>(operator_('-'))
+		infix_ltr<InfixOperatorCollector<Operator_add>>(operator_('+')),
+		infix_ltr<InfixOperatorCollector<Operator_subtract>>(operator_('-'))
 	),
 	pratt_level(
-		infix_ltr<OperationCollector<BinaryOperation::MUL>>(operator_('*')),
-		infix_ltr<OperationCollector<BinaryOperation::DIV>>(operator_('/')),
-		infix_ltr<OperationCollector<BinaryOperation::REM>>(operator_('%'))
+		infix_ltr<InfixOperatorCollector<Operator_multiply>>(operator_('*')),
+		infix_ltr<InfixOperatorCollector<Operator_divide>>(operator_('/')),
+		infix_ltr<InfixOperatorCollector<Operator_remainder>>(operator_('%'))
 	),
 	pratt_level(
 		postfix<CallCollector>(sequence(

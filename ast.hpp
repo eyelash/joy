@@ -255,36 +255,19 @@ public:
 	}
 };
 
-enum class BinaryOperation {
-	ADD,
-	SUB,
-	MUL,
-	DIV,
-	REM,
-	EQ,
-	NE,
-	LT,
-	LE,
-	GT,
-	GE
-};
+#define DEFINE_OPERATOR(name) struct Operator_##name { static constexpr const char* function_name = #name; };
 
-template <BinaryOperation operation> class GetOperationFunctionName;
-
-#define DEFINE_OPERATION_FUNCTION_NAME(operation, name) \
-	template <> class GetOperationFunctionName<BinaryOperation::operation> { public: static constexpr const char* function_name = name; };
-
-DEFINE_OPERATION_FUNCTION_NAME(ADD, "add")
-DEFINE_OPERATION_FUNCTION_NAME(SUB, "subtract")
-DEFINE_OPERATION_FUNCTION_NAME(MUL, "multiply")
-DEFINE_OPERATION_FUNCTION_NAME(DIV, "divide")
-DEFINE_OPERATION_FUNCTION_NAME(REM, "remainder")
-DEFINE_OPERATION_FUNCTION_NAME(EQ, "equal")
-DEFINE_OPERATION_FUNCTION_NAME(NE, "not_equal")
-DEFINE_OPERATION_FUNCTION_NAME(LT, "less_than")
-DEFINE_OPERATION_FUNCTION_NAME(LE, "less_than_or_equal")
-DEFINE_OPERATION_FUNCTION_NAME(GT, "greater_than")
-DEFINE_OPERATION_FUNCTION_NAME(GE, "greater_than_or_equal")
+DEFINE_OPERATOR(add)
+DEFINE_OPERATOR(subtract)
+DEFINE_OPERATOR(multiply)
+DEFINE_OPERATOR(divide)
+DEFINE_OPERATOR(remainder)
+DEFINE_OPERATOR(equal)
+DEFINE_OPERATOR(not_equal)
+DEFINE_OPERATOR(less_than)
+DEFINE_OPERATOR(less_than_or_equal)
+DEFINE_OPERATOR(greater_than)
+DEFINE_OPERATOR(greater_than_or_equal)
 
 class Assignment final: public Expression {
 	Reference<Expression> left;
@@ -316,10 +299,6 @@ class Call final: public Expression {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_CALL;
 	Call(Reference<Expression>&& expression, std::vector<Reference<Expression>>&& arguments, const Type* type = nullptr): Expression(TYPE_ID, type), expression(std::move(expression)), arguments(std::move(arguments)) {}
-	Call(const char* name, Reference<Expression>&& left, Reference<Expression>&& right): Expression(TYPE_ID), expression(new Name(name)) {
-		arguments.push_back(std::move(left));
-		arguments.push_back(std::move(right));
-	}
 	const Expression* get_expression() const {
 		return expression;
 	}
