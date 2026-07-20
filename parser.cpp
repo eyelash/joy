@@ -334,6 +334,9 @@ DEFINE_PARSER(expression, pratt<ExpressionCollector>(
 		infix_ltr<InfixOperatorCollector<Operator_remainder>>(operator_('%'))
 	),
 	pratt_level(
+		prefix<PrefixOperatorCollector<Operator_negate>>(operator_('-'))
+	),
+	pratt_level(
 		postfix<CallCollector>(sequence(
 			whitespace,
 			ignore('('),
