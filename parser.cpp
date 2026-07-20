@@ -722,6 +722,10 @@ static void parse_file(const char* path, Program* program_, std::set<std::string
 	}
 	paths.emplace(path);
 	MemoryMappedFile source(path);
+	if (!source) {
+		diagnostics.add_error(printer::format("file \"%\" not found", path));
+		return;
+	}
 	Context context(source);
 	const Result result = parse_impl(program, context, ProgramCollector(path, program_));
 	if (result == ERROR) {
