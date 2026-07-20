@@ -421,14 +421,20 @@ class Pass1 {
 	Entity* current_entity = nullptr;
 	FunctionInstantiation* current_function = nullptr;
 	const WhileStatement* current_loop = nullptr;
+	const char* get_current_path() {
+		if (current_entity == nullptr) {
+			return nullptr;
+		}
+		return current_entity->get_path();
+	}
 	template <class... T> void add_error(const Expression* expression, const char* s, T... t) {
-		diagnostics->add_error(current_entity->get_path(), get_location(expression), printer::format(s, t...));
+		diagnostics->add_error(get_current_path(), get_location(expression), printer::format(s, t...));
 	}
 	template <class... T> void add_error(const Statement* statement, const char* s, T... t) {
-		diagnostics->add_error(current_entity->get_path(), statement->get_location(), printer::format(s, t...));
+		diagnostics->add_error(get_current_path(), statement->get_location(), printer::format(s, t...));
 	}
 	template <class... T> void add_warning(const SourceLocation& location, const char* s, T... t) {
-		diagnostics->add_warning(current_entity->get_path(), location, printer::format(s, t...));
+		diagnostics->add_warning(get_current_path(), location, printer::format(s, t...));
 	}
 	static Index look_up(const std::vector<std::string>& names, const StringView& name) {
 		for (std::size_t i = 0; i < names.size(); ++i) {
