@@ -550,9 +550,9 @@ constexpr auto import = collect<ImportCollector>(sequence(
 	expect(";")
 ));
 
-using NamedTypeCollector = MapCollector<ConstructorMapper<NamedType>, TupleCollector<std::string, Reference<Expression>>>;
+using ArgumentCollector = MapCollector<ConstructorMapper<Argument>, TupleCollector<std::string, Reference<Expression>>>;
 
-using FunctionCollector = MapCollector<EntityMapper<Function>, TupleCollector<std::string, std::vector<std::string>, std::vector<NamedType>, Reference<Expression>, Block>>;
+using FunctionCollector = MapCollector<EntityMapper<Function>, TupleCollector<std::string, std::vector<std::string>, std::vector<Argument>, Reference<Expression>, Block>>;
 
 constexpr auto template_arguments = collect<VectorCollector<std::string>>(sequence(
 	ignore('<'),
@@ -566,17 +566,15 @@ constexpr auto template_arguments = collect<VectorCollector<std::string>>(sequen
 	expect(">")
 ));
 
-constexpr auto function = collect<FunctionCollector>(sequence(
-	keyword("func"),
-	whitespace,
+constexpr auto signature = sequence(
 	expect_identifier,
 	whitespace,
 	optional(template_arguments),
 	whitespace,
 	expect("("),
 	whitespace,
-	collect<VectorCollector<NamedType>>(comma_separated(
-		collect<NamedTypeCollector>(sequence(
+	collect<VectorCollector<Argument>>(comma_separated(
+		collect<ArgumentCollector>(sequence(
 			not_(')'),
 			not_(end()),
 			expect_identifier,
@@ -592,9 +590,15 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 	optional(sequence(
 		ignore(':'),
 		whitespace,
-		expression,
-		whitespace
-	)),
+		expression
+	))
+);
+
+constexpr auto function = collect<FunctionCollector>(sequence(
+	keyword("func"),
+	whitespace,
+	signature,
+	whitespace,
 	choice(
 		block,
 		map<ConstructorMapper<Block>>(collect<ReturnStatementCollector>(sequence(
@@ -608,33 +612,33 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 	)
 ));
 
-using StructureCollector = MapCollector<EntityMapper<Structure>, TupleCollector<std::string, std::vector<std::string>, std::vector<NamedType>>>;
+using MemberCollector = MapCollector<ConstructorMapper<Member>, TupleCollector<std::string, Reference<Expression>>>;
+
+using StructureCollector = MapCollector<EntityMapper<Structure>, TupleCollector<std::string, std::vector<std::string>, std::vector<Argument>, Reference<Expression>, std::vector<Member>>>;
 
 constexpr auto structure = collect<StructureCollector>(sequence(
 	keyword("struct"),
 	whitespace,
-	expect_identifier,
-	whitespace,
-	optional(template_arguments),
+	signature,
 	whitespace,
 	expect("{"),
 	whitespace,
-	collect<VectorCollector<NamedType>>(comma_separated(
-		collect<NamedTypeCollector>(sequence(
+	collect<VectorCollector<Member>>(comma_separated(
+		collect<MemberCollector>(sequence(
 			not_('}'),
 			not_(end()),
 			expect_identifier,
 			whitespace,
 			expect(":"),
 			whitespace,
-			type
+			expression
 		))
 	)),
 	whitespace,
 	expect("}")
 ));
 
-using BuiltinFunctionCollector = MapCollector<EntityMapper<BuiltinFunction>, TupleCollector<std::string, std::vector<std::string>, std::vector<NamedType>, Reference<Expression>>>;
+using BuiltinFunctionCollector = MapCollector<EntityMapper<BuiltinFunction>, TupleCollector<std::string, std::vector<std::string>, std::vector<Argument>, Reference<Expression>>>;
 
 constexpr auto builtin = sequence(
 	keyword("builtin"),
@@ -643,29 +647,7 @@ constexpr auto builtin = sequence(
 		collect<BuiltinFunctionCollector>(sequence(
 			keyword("func"),
 			whitespace,
-			expect_identifier,
-			whitespace,
-			optional(template_arguments),
-			whitespace,
-			expect("("),
-			whitespace,
-			collect<VectorCollector<NamedType>>(comma_separated(
-				collect<NamedTypeCollector>(sequence(
-					not_(')'),
-					not_(end()),
-					expect_identifier,
-					whitespace,
-					expect(":"),
-					whitespace,
-					expression
-				))
-			)),
-			whitespace,
-			expect(")"),
-			whitespace,
-			expect(":"),
-			whitespace,
-			expression,
+			signature,
 			whitespace,
 			expect(";")
 		)),

@@ -522,11 +522,11 @@ public:
 	}
 };
 
-class NamedType {
+class Argument {
 	std::string name;
 	Reference<Expression> type;
 public:
-	NamedType(std::string&& name, Reference<Expression>&& type): name(std::move(name)), type(std::move(type)) {}
+	Argument(std::string&& name, Reference<Expression>&& type): name(std::move(name)), type(std::move(type)) {}
 	StringView get_name() const {
 		return name;
 	}
@@ -538,24 +538,23 @@ public:
 	}
 };
 
-class BuiltinFunction final: public Entity {
+class SignatureEntity: public Entity {
 	std::string name;
 	std::vector<std::string> template_arguments;
-	std::vector<NamedType> arguments;
+	std::vector<Argument> arguments;
 	Reference<Expression> return_type;
 public:
-	static constexpr int TYPE_ID = TYPE_ID_BUILTIN_FUNCTION;
-	BuiltinFunction(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<NamedType>&& arguments, Reference<Expression>&& return_type): Entity(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), arguments(std::move(arguments)), return_type(std::move(return_type)) {}
+	SignatureEntity(int type_id, std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type): Entity(type_id), name(std::move(name)), template_arguments(std::move(template_arguments)), arguments(std::move(arguments)), return_type(std::move(return_type)) {}
 	StringView get_name() const {
 		return name;
 	}
 	const std::vector<std::string>& get_template_arguments() const {
 		return template_arguments;
 	}
-	std::vector<NamedType>& get_arguments() {
+	std::vector<Argument>& get_arguments() {
 		return arguments;
 	}
-	const std::vector<NamedType>& get_arguments() const {
+	const std::vector<Argument>& get_arguments() const {
 		return arguments;
 	}
 	Reference<Expression>& get_return_type() {
@@ -566,55 +565,47 @@ public:
 	}
 };
 
-class Function final: public Entity {
-	std::string name;
-	std::vector<std::string> template_arguments;
-	std::vector<NamedType> arguments;
-	Reference<Expression> return_type;
+class BuiltinFunction final: public SignatureEntity {
+public:
+	static constexpr int TYPE_ID = TYPE_ID_BUILTIN_FUNCTION;
+	BuiltinFunction(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type): SignatureEntity(TYPE_ID, std::move(name), std::move(template_arguments), std::move(arguments), std::move(return_type)) {}
+};
+
+class Function final: public SignatureEntity {
 	Block block;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_FUNCTION;
-	Function(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<NamedType>&& arguments, Reference<Expression>&& return_type, Block&& block): Entity(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), arguments(std::move(arguments)), return_type(std::move(return_type)), block(std::move(block)) {}
-	StringView get_name() const {
-		return name;
-	}
-	const std::vector<std::string>& get_template_arguments() const {
-		return template_arguments;
-	}
-	std::vector<NamedType>& get_arguments() {
-		return arguments;
-	}
-	const std::vector<NamedType>& get_arguments() const {
-		return arguments;
-	}
-	Reference<Expression>& get_return_type() {
-		return return_type;
-	}
-	const Expression* get_return_type() const {
-		return return_type;
-	}
+	Function(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): SignatureEntity(TYPE_ID, std::move(name), std::move(template_arguments), std::move(arguments), std::move(return_type)), block(std::move(block)) {}
 	const Block* get_block() const {
 		return &block;
 	}
 };
 
-class Structure final: public Entity {
+class Member {
 	std::string name;
-	std::vector<std::string> template_arguments;
-	std::vector<NamedType> members;
+	Reference<Expression> type;
 public:
-	static constexpr int TYPE_ID = TYPE_ID_STRUCTURE;
-	Structure(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<NamedType>&& members): Entity(TYPE_ID), name(std::move(name)), template_arguments(std::move(template_arguments)), members(std::move(members)) {}
+	Member(std::string&& name, Reference<Expression>&& type): name(std::move(name)), type(std::move(type)) {}
 	StringView get_name() const {
 		return name;
 	}
-	const std::vector<std::string>& get_template_arguments() const {
-		return template_arguments;
+	Reference<Expression>& get_type() {
+		return type;
 	}
-	std::vector<NamedType>& get_members() {
+	const Expression* get_type() const {
+		return type;
+	}
+};
+
+class Structure final: public SignatureEntity {
+	std::vector<Member> members;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_STRUCTURE;
+	Structure(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, std::vector<Member>&& members): SignatureEntity(TYPE_ID, std::move(name), std::move(template_arguments), std::move(arguments), std::move(return_type)), members(std::move(members)) {}
+	std::vector<Member>& get_members() {
 		return members;
 	}
-	const std::vector<NamedType>& get_members() const {
+	const std::vector<Member>& get_members() const {
 		return members;
 	}
 };
