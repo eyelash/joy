@@ -213,7 +213,6 @@ constexpr auto string_literal = collect<StringLiteralCollector>(sequence(
 	expect("\"")
 ));
 
-DECLARE_PARSER(type)
 DECLARE_PARSER(expression)
 DECLARE_PARSER(statement)
 DECLARE_PARSER(branch)
@@ -279,29 +278,6 @@ constexpr auto alternative_struct_literal = collect<StructLiteralCollector>(sequ
 constexpr auto name = map<ExpressionMapper<Name>>(identifier);
 
 using CallCollector = MapCollector<TagMapper<LedTag<Call>>, VectorCollector<Reference<Expression>>>;
-
-DEFINE_PARSER(type, pratt<ExpressionCollector>(
-	pratt_level(
-		postfix<CallCollector>(sequence(
-			whitespace,
-			ignore('<'),
-			whitespace,
-			comma_separated(sequence(
-				not_('>'),
-				not_(end()),
-				type
-			)),
-			whitespace,
-			expect(">")
-		))
-	),
-	pratt_level(
-		terminal(choice(
-			name,
-			error("expected a type")
-		))
-	)
-))
 
 using AssignmentCollector = MapCollector<TagMapper<LedTag<Assignment>>, TupleCollector<Reference<Expression>>>;
 

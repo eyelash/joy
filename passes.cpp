@@ -110,96 +110,6 @@ public:
 	}
 };
 
-template <class T> class EntityKey {
-	typename T::Key key;
-public:
-	template <class... A> EntityKey(A&&... a): key(std::forward<A>(a)...) {}
-	const typename T::Key& get_key() const {
-		return key;
-	}
-};
-
-class EntityCompare {
-	template <class T> static typename T::Key get_key(const Entity* entity) {
-		return static_cast<const T*>(entity)->get_key();
-	}
-	template <class T> static const typename T::Key& get_key(const EntityKey<T>& key) {
-		return key.get_key();
-	}
-public:
-	constexpr EntityCompare() {}
-	bool operator ()(const Entity* lhs, const Entity* rhs) const {
-		const int lhs_type_id = lhs->get_type_id();
-		const int rhs_type_id = rhs->get_type_id();
-		if (lhs_type_id != rhs_type_id) {
-			return lhs_type_id < rhs_type_id;
-		}
-		if (lhs_type_id == VoidType::TYPE_ID) {
-			return get_key<VoidType>(lhs) < get_key<VoidType>(rhs);
-		}
-		else if (lhs_type_id == IntType::TYPE_ID) {
-			return get_key<IntType>(lhs) < get_key<IntType>(rhs);
-		}
-		else if (lhs_type_id == StringType::TYPE_ID) {
-			return get_key<StringType>(lhs) < get_key<StringType>(rhs);
-		}
-		else if (lhs_type_id == ArrayType::TYPE_ID) {
-			return get_key<ArrayType>(lhs) < get_key<ArrayType>(rhs);
-		}
-		else if (lhs_type_id == ArrayTypeInstantiation::TYPE_ID) {
-			return get_key<ArrayTypeInstantiation>(lhs) < get_key<ArrayTypeInstantiation>(rhs);
-		}
-		else if (lhs_type_id == TupleType::TYPE_ID) {
-			return get_key<TupleType>(lhs) < get_key<TupleType>(rhs);
-		}
-		else if (lhs_type_id == TupleTypeInstantiation::TYPE_ID) {
-			return get_key<TupleTypeInstantiation>(lhs) < get_key<TupleTypeInstantiation>(rhs);
-		}
-		else if (lhs_type_id == FunctionInstantiation::TYPE_ID) {
-			return get_key<FunctionInstantiation>(lhs) < get_key<FunctionInstantiation>(rhs);
-		}
-		else if (lhs_type_id == StructureInstantiation::TYPE_ID) {
-			return get_key<StructureInstantiation>(lhs) < get_key<StructureInstantiation>(rhs);
-		}
-		return false;
-	}
-	template <class T> bool operator ()(const Entity* lhs, const EntityKey<T>& rhs) const {
-		const int lhs_type_id = lhs->get_type_id();
-		constexpr int rhs_type_id = T::TYPE_ID;
-		if (lhs_type_id != rhs_type_id) {
-			return lhs_type_id < rhs_type_id;
-		}
-		return get_key<T>(lhs) < get_key<T>(rhs);
-	}
-	template <class T> bool operator ()(const EntityKey<T>& lhs, const Entity* rhs) const {
-		constexpr int lhs_type_id = T::TYPE_ID;
-		const int rhs_type_id = rhs->get_type_id();
-		if (lhs_type_id != rhs_type_id) {
-			return lhs_type_id < rhs_type_id;
-		}
-		return get_key<T>(lhs) < get_key<T>(rhs);
-	}
-	using is_transparent = std::true_type;
-};
-
-class Interner {
-	std::set<Entity*, EntityCompare> set;
-public:
-	void insert(Entity* entity) {
-		set.insert(entity);
-	}
-	template <class T> T* look_up(const EntityKey<T>& key) const {
-		auto iterator = set.find(key);
-		if (iterator != set.end()) {
-			return static_cast<T*>(*iterator);
-		}
-		return nullptr;
-	}
-	template <class T, class... A> T* look_up(A&&... a) const {
-		return look_up(EntityKey<T>(std::forward<A>(a)...));
-	}
-};
-
 class Copy {
 public:
 	static Reference<Expression> copy_expression_(const Expression* expression) {
@@ -249,7 +159,6 @@ public:
 		Reference<Expression> new_expression = copy_expression_(expression);
 		if (new_expression) {
 			new_expression->set_location(expression->get_location());
-			new_expression->set_type(expression->get_type());
 		}
 		return new_expression;
 	}
