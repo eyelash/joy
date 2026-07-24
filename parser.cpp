@@ -592,8 +592,32 @@ using MemberCollector = MapCollector<ConstructorMapper<Member>, TupleCollector<s
 
 using StructureCollector = MapCollector<EntityMapper<Structure>, TupleCollector<std::string, std::vector<std::string>, std::vector<Argument>, Reference<Expression>, std::vector<Member>>>;
 
+using EnumerationCollector = MapCollector<EntityMapper<Structure>, TupleCollector<std::string, std::vector<std::string>, std::vector<Argument>, Reference<Expression>, std::vector<Member>>>;
+
 constexpr auto structure = collect<StructureCollector>(sequence(
 	keyword("struct"),
+	whitespace,
+	signature,
+	whitespace,
+	expect("{"),
+	whitespace,
+	collect<VectorCollector<Member>>(comma_separated(
+		collect<MemberCollector>(sequence(
+			not_('}'),
+			not_(end()),
+			expect_identifier,
+			whitespace,
+			expect(":"),
+			whitespace,
+			expression
+		))
+	)),
+	whitespace,
+	expect("}")
+));
+
+constexpr auto enumeration = collect<EnumerationCollector>(sequence(
+	keyword("enum"),
 	whitespace,
 	signature,
 	whitespace,
@@ -648,6 +672,7 @@ constexpr auto program = sequence(
 			import,
 			function,
 			structure,
+			enumeration,
 			builtin,
 			error("expected a toplevel declaration")
 		),

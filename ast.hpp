@@ -33,6 +33,7 @@ enum {
 	TYPE_ID_FUNCTION,
 	TYPE_ID_BUILTIN_TYPE,
 	TYPE_ID_STRUCTURE,
+	TYPE_ID_ENUMERATION,
 	TYPE_ID_PROGRAM
 };
 
@@ -508,6 +509,19 @@ class Structure final: public SignatureEntity {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_STRUCTURE;
 	Structure(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, std::vector<Member>&& members): SignatureEntity(TYPE_ID, std::move(name), std::move(template_arguments), std::move(arguments), std::move(return_type)), members(std::move(members)) {}
+	std::vector<Member>& get_members() {
+		return members;
+	}
+	const std::vector<Member>& get_members() const {
+		return members;
+	}
+};
+
+class Enumeration final: public SignatureEntity {
+	std::vector<Member> members;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_ENUMERATION;
+	Enumeration(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, std::vector<Member>&& members): SignatureEntity(TYPE_ID, std::move(name), std::move(template_arguments), std::move(arguments), std::move(return_type)), members(std::move(members)) {}
 	std::vector<Member>& get_members() {
 		return members;
 	}
