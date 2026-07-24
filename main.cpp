@@ -1,6 +1,5 @@
 #include "parser.hpp"
 #include "passes.hpp"
-#include "codegen_c.hpp"
 
 struct Success {
 	static constexpr const char* severity = "success";
@@ -27,13 +26,7 @@ static void compile(int argc, const char** argv, Diagnostics& diagnostics) {
 	if (diagnostics.has_error()) {
 		return;
 	}
-	memory_management(program);
-	std::string output_path = path + ".c";
-	WriteFile file(output_path.c_str());
-	BufferedOutput output(file);
-	codegen_c(output, program);
 	diagnostics.print();
-	print_success(printer::format("\"%\" generated", StringView(output_path)));
 }
 
 int main(int argc, const char** argv) {

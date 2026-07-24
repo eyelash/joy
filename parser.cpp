@@ -238,7 +238,7 @@ using StructLiteralMemberCollector = MapCollector<ConstructorMapper<StructLitera
 constexpr auto struct_literal = collect<StructLiteralCollector>(sequence(
 	keyword("new"),
 	whitespace,
-	type,
+	expression,
 	whitespace,
 	expect("{"),
 	whitespace,
@@ -414,7 +414,7 @@ constexpr auto let_statement = collect<LetStatementCollector>(sequence(
 	optional(sequence(
 		ignore(':'),
 		whitespace,
-		tag<TupleIndex<1>>(type),
+		tag<TupleIndex<1>>(expression),
 		whitespace
 	)),
 	expect("="),
@@ -583,7 +583,7 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 			whitespace,
 			expect(":"),
 			whitespace,
-			type
+			expression
 		))
 	)),
 	whitespace,
@@ -592,7 +592,7 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 	optional(sequence(
 		ignore(':'),
 		whitespace,
-		type,
+		expression,
 		whitespace
 	)),
 	choice(
@@ -673,7 +673,7 @@ constexpr auto builtin = sequence(
 					whitespace,
 					expect(":"),
 					whitespace,
-					type
+					expression
 				))
 			)),
 			whitespace,
@@ -681,7 +681,7 @@ constexpr auto builtin = sequence(
 			whitespace,
 			expect(":"),
 			whitespace,
-			type,
+			expression,
 			whitespace,
 			expect(";")
 		)),

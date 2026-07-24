@@ -46,6 +46,42 @@ public:
 	}
 };
 
+class VariableMap {
+	VariableMap* parent;
+	std::map<StringView, Reference<Expression>> map;
+public:
+	VariableMap(VariableMap* parent = nullptr): parent(parent) {}
+	VariableMap* get_parent() const {
+		return parent;
+	}
+	void set(const StringView& name, Reference<Expression>&& value) {
+		if (value) {
+			map[name] = std::move(value);
+		}
+	}
+	bool update(const StringView& name, Reference<Expression>&& value) {
+		auto iterator = map.find(name);
+		if (iterator != map.end()) {
+			iterator->second = std::move(value);
+			return true;
+		}
+		if (parent) {
+			return parent->update(name, std::move(value));
+		}
+		return false;
+	}
+	const Expression* look_up(const StringView& name) const {
+		auto iterator = map.find(name);
+		if (iterator != map.end()) {
+			return iterator->second;
+		}
+		if (parent) {
+			return parent->look_up(name);
+		}
+		return nullptr;
+	}
+};
+
 template <class T> class FlatMap {
 	using Entry = std::pair<StringView, const T*>;
 	std::vector<Entry> entries;
@@ -273,987 +309,353 @@ public:
 	}
 };
 
-class UnificationVariables {
-	std::vector<const Type*> variables;
-public:
-	UnificationVariables(const std::vector<std::string>& names): variables(names.size()) {}
-	UnificationVariables() {}
-	bool set(std::size_t i, const Type* type) {
-		if (variables[i]) {
-			return variables[i] == type;
-		}
-		variables[i] = type;
-		return true;
-	}
-	bool check() const {
-		for (const Type* variable: variables) {
-			if (variable == nullptr) {
-				return false;
-			}
-		}
-		return true;
-	}
-	std::vector<const Type*> take() {
-		return std::move(variables);
-	}
-};
-
-static bool match(UnificationVariables& variables, const Expression* expression, const Type* type);
-static bool match(UnificationVariables& variables, const std::vector<Reference<Expression>>& expressions, const std::vector<const Type*>& types) {
-	if (expressions.size() != types.size()) {
-		return false;
-	}
-	for (std::size_t i = 0; i < expressions.size(); ++i) {
-		if (!match(variables, expressions[i], types[i])) {
-			return false;
-		}
-	}
-	return true;
-}
-static bool match(UnificationVariables& variables, const Expression* expression, const Type* type) {
-	if (expression == nullptr || type == nullptr) {
-		return false;
-	}
-	if (auto* e = as<Variable>(expression)) {
-		return variables.set(e->get_index(), type);
-	}
-	else if (auto* e = as<Call>(expression)) {
-		const Entity* entity = as<EntityReference>(e->get_expression())->get_entity();
-		if (as<VoidType>(entity)) {
-			return as<VoidType>(type);
-		}
-		else if (as<IntType>(entity)) {
-			return as<IntType>(type);
-		}
-		else if (as<StringType>(entity)) {
-			return as<StringType>(type);
-		}
-		else if (as<ArrayType>(entity)) {
-			auto* t = as<ArrayTypeInstantiation>(type);
-			return t && match(variables, e->get_arguments()[0], t->get_element_type());
-		}
-		else if (as<TupleType>(entity)) {
-			auto* t = as<TupleTypeInstantiation>(type);
-			return t && match(variables, e->get_arguments(), t->get_element_types());
-		}
-		else if (as<Structure>(entity)) {
-			auto* t = as<StructureInstantiation>(type);
-			return t && entity == t->get_structure() && match(variables, e->get_arguments(), t->get_template_arguments());
-		}
-	}
-	return false;
-}
-
-// name resolution, type checking, and template instantiation
 class Pass1 {
-	static SourceLocation get_location(const Expression* expression) {
-		if (expression == nullptr) {
-			return SourceLocation();
-		}
-		return expression->get_location();
-	}
-	static const Type* get_type(const Expression* expression) {
-		if (expression == nullptr) {
-			return nullptr;
-		}
-		return expression->get_type();
-	}
-	static bool is_empty_statement(const Statement* statement) {
-		if (auto* s = as<BlockStatement>(statement)) {
-			return s->get_block()->get_statements().empty();
-		}
-		return false;
-	}
-	static bool is_final_statement(const Block* block) {
-		if (block->get_statements().empty()) {
-			return false;
-		}
-		return is_final_statement(block->get_statements().back());
-	}
-	static bool is_final_statement(const Statement* statement) {
-		if (as<ReturnStatement>(statement)) {
-			return true;
-		}
-		else if (as<BreakStatement>(statement)) {
-			return true;
-		}
-		else if (as<ContinueStatement>(statement)) {
-			return true;
-		}
-		else if (auto* s = as<BlockStatement>(statement)) {
-			return is_final_statement(s->get_block());
-		}
-		else if (auto* s = as<IfStatement>(statement)) {
-			return is_final_statement(s->get_then_block()) && is_final_statement(s->get_else_block());
-		}
-		return false;
-	}
-	bool unification(const std::vector<std::string>& variable_names, std::vector<NamedType>& function_arguments, Reference<Expression>& function_return_type, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
-		if (function_arguments.size() != arguments.size()) {
-			return false;
-		}
-		for (std::size_t i = 0; i < arguments.size(); ++i) {
-			ensure_resolved_type(variable_names, function_arguments[i].get_type());
-			if (!match(variables, function_arguments[i].get_type(), get_type(arguments[i]))) {
-				return false;
-			}
-		}
-		if (function_return_type) {
-			ensure_resolved_type(variable_names, function_return_type);
-			if (return_type) {
-				if (!match(variables, function_return_type, return_type)) {
-					return false;
-				}
-			}
-		}
-		return variables.check();
-	}
-	bool unification(BuiltinFunction* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
-		return unification(function->get_template_arguments(), function->get_arguments(), function->get_return_type(), arguments, return_type, variables);
-	}
-	bool unification(Function* function, const std::vector<Reference<Expression>>& arguments, const Type* return_type, UnificationVariables& variables) {
-		return unification(function->get_template_arguments(), function->get_arguments(), function->get_return_type(), arguments, return_type, variables);
-	}
+	enum class Result {
+		OK,
+		RETURN,
+		BREAK,
+		CONTINUE
+	};
 	Program* program;
-	Diagnostics* diagnostics;
-	Interner interner;
-	ScopeMap<Index>* variables = nullptr;
+	Diagnostics& diagnostics;
+	VariableMap* variables = nullptr;
 	Entity* current_entity = nullptr;
-	FunctionInstantiation* current_function = nullptr;
-	const WhileStatement* current_loop = nullptr;
-	const char* get_current_path() {
-		if (current_entity == nullptr) {
-			return nullptr;
-		}
-		return current_entity->get_path();
-	}
-	template <class... T> void add_error(const Expression* expression, const char* s, T... t) {
-		diagnostics->add_error(get_current_path(), get_location(expression), printer::format(s, t...));
-	}
-	template <class... T> void add_error(const Statement* statement, const char* s, T... t) {
-		diagnostics->add_error(get_current_path(), statement->get_location(), printer::format(s, t...));
-	}
-	template <class... T> void add_warning(const SourceLocation& location, const char* s, T... t) {
-		diagnostics->add_warning(get_current_path(), location, printer::format(s, t...));
-	}
-	static Index look_up(const std::vector<std::string>& names, const StringView& name) {
-		for (std::size_t i = 0; i < names.size(); ++i) {
-			if (name == names[i]) {
-				return i;
-			}
-		}
-		return Index();
-	}
-	Reference<Expression> resolve_type(const std::vector<std::string>& variable_names, const Expression* expression) {
-		StringView name;
-		std::vector<Reference<Expression>> arguments;
-		if (auto* e = as<Name>(expression)) {
-			name = e->get_name();
-			if (Index index = look_up(variable_names, name)) {
-				return new Variable(*index);
-			}
-		}
-		else if (auto* e = as<Call>(expression)) {
-			name = as<Name>(e->get_expression())->get_name();
-			for (const Expression* argument: e->get_arguments()) {
-				arguments.push_back(resolve_type(variable_names, argument));
-			}
-		}
-		else {
-			return Reference<Expression>();
-		}
-		Entity* match_entity = nullptr;
-		unsigned int match_count = 0;
-		if (name == "Void" && arguments.empty()) {
-			match_entity = get_builtin_entity<VoidType>();
-			++match_count;
-		}
-		else if (name == "Int" && arguments.empty()) {
-			match_entity = get_builtin_entity<IntType>();
-			++match_count;
-		}
-		else if (name == "String" && arguments.empty()) {
-			match_entity = get_builtin_entity<StringType>();
-			++match_count;
-		}
-		else if (name == "Array" && arguments.size() == 1) {
-			match_entity = get_builtin_entity<ArrayType>();
-			++match_count;
-		}
-		else if (name == "Tuple") {
-			match_entity = get_builtin_entity<TupleType>();
-			++match_count;
-		}
-		// TODO: optimize
-		for (Entity* entity: program->get_entities()) {
-			if (Structure* structure = as<Structure>(entity)) {
-				if (structure->get_name() == name) {
-					if (structure->get_template_arguments().size() == arguments.size()) {
-						match_entity = structure;
-						++match_count;
-					}
-				}
-			}
-			else if (TypeAlias* type_alias = as<TypeAlias>(entity)) {
-				if (type_alias->get_name() == name) {
-					if (type_alias->get_template_arguments().size() == arguments.size()) {
-						match_entity = type_alias;
-						++match_count;
-					}
-				}
-			}
-		}
-		if (match_count != 1) {
-			if (match_count == 0) {
-				add_error(expression, "no matching type \"%\" found", name);
-			}
-			else {
-				add_error(expression, "% matching types \"%\" found", printer::print_number(match_count), name);
-			}
-			return Reference<Expression>();
-		}
-		if (TypeAlias* type_alias = as<TypeAlias>(match_entity)) {
-			return resolve_type_alias(type_alias, arguments);
-		}
-		return new Call(new EntityReference(match_entity), std::move(arguments));
-	}
-	static bool is_resolved_type(const Expression* expression) {
-		if (as<Variable>(expression)) {
-			return true;
-		}
-		else if (auto* e = as<Call>(expression)) {
-			if (as<EntityReference>(e->get_expression())) {
-				return true;
-			}
-		}
-		return false;
-	}
-	void ensure_resolved_type(const std::vector<std::string>& variable_names, Reference<Expression>& expression) {
-		if (expression == nullptr) {
-			return;
-		}
-		if (!is_resolved_type(expression)) {
-			expression = resolve_type(variable_names, expression);
-		}
-	}
-	// resolved type expression => resolved type expression
-	Reference<Expression> process_type(const std::vector<Reference<Expression>>& type_variables, const Expression* expression) {
-		if (expression == nullptr) {
-			return Reference<Expression>();
-		}
-		if (auto* e = as<Variable>(expression)) {
-			return Copy::copy_expression(type_variables[e->get_index()]);
-		}
-		else if (auto* e = as<Call>(expression)) {
-			Entity* entity = as<EntityReference>(e->get_expression())->get_entity();
-			std::vector<Reference<Expression>> arguments;
-			for (const Expression* argument: e->get_arguments()) {
-				arguments.push_back(process_type(type_variables, argument));
-			}
-			return new Call(new EntityReference(entity), std::move(arguments));
-		}
-		return Reference<Expression>();
-	}
-	// resolved type expression => type
-	const Type* process_type(const std::vector<const Type*>& type_variables, const Expression* expression) {
-		if (expression == nullptr) {
-			return nullptr;
-		}
-		if (auto* e = as<Variable>(expression)) {
-			return type_variables[e->get_index()];
-		}
-		else if (auto* e = as<Call>(expression)) {
-			Entity* entity = as<EntityReference>(e->get_expression())->get_entity();
-			std::vector<const Type*> arguments;
-			for (const Expression* argument: e->get_arguments()) {
-				arguments.push_back(process_type(type_variables, argument));
-			}
-			if (auto* e = as<VoidType>(entity)) {
-				return e;
-			}
-			else if (auto* e = as<IntType>(entity)) {
-				return e;
-			}
-			else if (auto* e = as<StringType>(entity)) {
-				return e;
-			}
-			else if (auto* e = as<ArrayType>(entity)) {
-				return get_builtin_entity<ArrayTypeInstantiation>(arguments[0]);
-			}
-			else if (auto* e = as<TupleType>(entity)) {
-				return get_builtin_entity<TupleTypeInstantiation>(std::move(arguments));
-			}
-			else if (auto* e = as<Structure>(entity)) {
-				return instantiate_structure(e, std::move(arguments));
-			}
-		}
-		return nullptr;
-	}
-	Reference<Expression> resolve_type_alias(TypeAlias* type_alias, const std::vector<Reference<Expression>>& template_arguments) {
-		// TODO: detect recursion
-		auto previous_current_entity = this->current_entity;
-		this->current_entity = type_alias;
-		ensure_resolved_type(type_alias->get_template_arguments(), type_alias->get_type());
-		this->current_entity = previous_current_entity;
-		return process_type(template_arguments, type_alias->get_type());
-	}
-	const Type* instantiate_structure(Structure* structure, std::vector<const Type*>&& template_arguments) {
-		if (template_arguments.size() != structure->get_template_arguments().size()) {
-			return nullptr;
-		}
-		if (const StructureInstantiation* new_structure = interner.look_up<StructureInstantiation>(structure, template_arguments)) {
-			return new_structure;
-		}
-		StructureInstantiation* new_structure = new StructureInstantiation(structure, std::move(template_arguments));
-		auto previous_current_entity = this->current_entity;
-		this->current_entity = new_structure;
-		// members
-		interner.insert(new_structure);
-		for (NamedType& member: structure->get_members()) {
-			ensure_resolved_type(structure->get_template_arguments(), member.get_type());
-			new_structure->add_member(member.get_name(), process_type(new_structure->get_template_arguments(), member.get_type()));
-		}
-		this->current_entity = previous_current_entity;
-		program->add_entity(new_structure);
-		return new_structure;
-	}
-	BuiltinFunctionInstantiation* instantiate_builtin_function(const BuiltinFunction* function, std::vector<const Type*>&& template_arguments) {
-		if (BuiltinFunctionInstantiation* new_function = interner.look_up<BuiltinFunctionInstantiation>(function, template_arguments)) {
-			return new_function;
-		}
-		BuiltinFunctionInstantiation* new_function = new BuiltinFunctionInstantiation(function, std::move(template_arguments));
-		auto previous_current_entity = this->current_entity;
-		this->current_entity = new_function;
-		// arguments
-		for (const NamedType& argument: function->get_arguments()) {
-			new_function->add_argument(process_type(new_function->get_template_arguments(), argument.get_type()));
-		}
-		// return type
-		new_function->set_return_type(process_type(new_function->get_template_arguments(), function->get_return_type()));
-		this->current_entity = previous_current_entity;
-		program->add_entity(new_function);
-		return new_function;
-	}
-	FunctionInstantiation* instantiate_function(const Function* function, std::vector<const Type*>&& template_arguments) {
-		if (template_arguments.size() != function->get_template_arguments().size()) {
-			return nullptr;
-		}
-		if (FunctionInstantiation* new_function = interner.look_up<FunctionInstantiation>(function, template_arguments)) {
-			return new_function;
-		}
-		FunctionInstantiation* new_function = new FunctionInstantiation(function, std::move(template_arguments));
-		auto previous_variables = this->variables;
-		auto previous_current_entity = this->current_entity;
-		auto previous_current_function = this->current_function;
-		this->current_entity = new_function;
-		this->current_function = new_function;
-		// arguments
-		ScopeMap<Index> variables;
-		for (const NamedType& argument: function->get_arguments()) {
-			const unsigned int index = new_function->add_argument(process_type(new_function->get_template_arguments(), argument.get_type()));
-			variables.set(argument.get_name(), index);
-		}
-		this->variables = &variables;
-		// return type
-		if (function->get_return_type()) {
-			new_function->set_return_type(process_type(new_function->get_template_arguments(), function->get_return_type()));
-		}
-		// block
-		interner.insert(new_function);
-		new_function->set_block(handle_block(function->get_block()));
-		if (!is_final_statement(new_function->get_block())) {
-			if (new_function->get_return_type() == nullptr) {
-				new_function->set_return_type(get_void_type());
-			}
-			if (as<VoidType>(new_function->get_return_type())) {
-				new_function->get_block()->add_statement(new ReturnStatement());
-			}
-			else {
-				add_error(Reference<Expression>(), "missing return in function \"%\"", function->get_name());
-			}
-		}
-		this->variables = previous_variables;
-		this->current_entity = previous_current_entity;
-		this->current_function = previous_current_function;
-		program->add_entity(new_function);
-		return new_function;
-	}
-	template <class T, class... A> T* get_builtin_entity(A&&... a) {
-		if (T* t = interner.look_up<T>(a...)) {
-			return t;
-		}
-		T* t = new T(std::forward<A>(a)...);
-		program->add_entity(t);
-		interner.insert(t);
-		return t;
-	}
-	const Type* get_void_type() {
-		return get_builtin_entity<VoidType>();
-	}
-	const Type* get_int_type() {
-		return get_builtin_entity<IntType>();
-	}
-	const Type* get_string_type() {
-		return get_builtin_entity<StringType>();
-	}
-	const Type* get_array_type(const Type* element_type) {
-		return get_builtin_entity<ArrayTypeInstantiation>(element_type);
-	}
-	const Type* get_tuple_type(std::vector<const Type*>&& element_types) {
-		return get_builtin_entity<TupleTypeInstantiation>(std::move(element_types));
-	}
-	Entity* resolve_function(const StringView& name, const std::vector<Reference<Expression>>& arguments, const Type* return_type, const Expression* expression = nullptr) {
-		if (!name) {
-			return nullptr;
-		}
-		for (const Expression* argument: arguments) {
-			if (get_type(argument) == nullptr) {
-				return nullptr;
-			}
-		}
-		const Entity* match_function = nullptr;
-		std::vector<const Type*> match_template_arguments;
-		unsigned int match_count = 0;
-		// TODO: optimize
-		for (Entity* entity: program->get_entities()) {
-			if (BuiltinFunction* function = as<BuiltinFunction>(entity)) {
-				if (function->get_name() == name) {
-					auto previous_current_entity = this->current_entity;
-					this->current_entity = function;
-					UnificationVariables unification_variables(function->get_template_arguments());
-					if (unification(function, arguments, return_type, unification_variables)) {
-						match_function = function;
-						match_template_arguments = unification_variables.take();
-						++match_count;
-					}
-					this->current_entity = previous_current_entity;
-				}
-			}
-			else if (Function* function = as<Function>(entity)) {
-				if (function->get_name() == name) {
-					auto previous_current_entity = this->current_entity;
-					this->current_entity = function;
-					UnificationVariables unification_variables(function->get_template_arguments());
-					if (unification(function, arguments, return_type, unification_variables)) {
-						match_function = function;
-						match_template_arguments = unification_variables.take();
-						++match_count;
-					}
-					this->current_entity = previous_current_entity;
-				}
-			}
-		}
-		if (match_count != 1) {
-			if (match_count == 0) {
-				add_error(expression, "no matching function \"%\" found", name);
-			}
-			else {
-				add_error(expression, "% matching functions \"%\" found", printer::print_number(match_count), name);
-			}
-			return nullptr;
-		}
-		if (auto* f = as<BuiltinFunction>(match_function)) {
-			return instantiate_builtin_function(f, std::move(match_template_arguments));
-		}
-		else if (auto* f = as<Function>(match_function)) {
-			return instantiate_function(f, std::move(match_template_arguments));
-		}
-		return nullptr;
-	}
-	StringView get_name(const Expression* expression) {
+	Reference<Expression> return_value;
+	static StringView get_name(const Expression* expression) {
 		if (expression == nullptr) {
 			return StringView();
 		}
 		const Name* name = as<Name>(expression);
 		if (name == nullptr) {
-			add_error(expression, "invalid expression, expected a name");
 			return StringView();
 		}
 		return name->get_name();
 	}
-	const Type* get_return_type(const Entity* function) {
-		if (auto* f = as<BuiltinFunctionInstantiation>(function)) {
-			return f->get_return_type();
-		}
-		else if (auto* f = as<FunctionInstantiation>(function)) {
-			return f->get_return_type();
-		}
-		return nullptr;
-	}
-	StringView get_constant_string(const Expression* expression) {
-		if (expression == nullptr) {
-			return StringView();
-		}
-		const StringLiteral* string = as<StringLiteral>(expression);
-		if (string == nullptr) {
-			add_error(expression, "invalid expression, expected a string literal");
-			return StringView();
-		}
-		return string->get_string();
-	}
-	const std::int32_t* get_constant_int(const Expression* expression) {
-		if (expression == nullptr) {
-			return nullptr;
-		}
-		const IntLiteral* int_literal = as<IntLiteral>(expression);
-		if (int_literal == nullptr) {
-			add_error(expression, "invalid expression, expected an integer literal");
-			return nullptr;
-		}
-		return &int_literal->get_value();
-	}
-	const Type* get_member_type(const Type* struct_type, const StringView& member_name, const Expression* expression) {
-		if (struct_type == nullptr || !member_name) {
-			return nullptr;
-		}
-		auto* s = as<StructureInstantiation>(struct_type);
-		if (s == nullptr) {
-			add_error(expression, "invalid type %, expected a struct type", PrintTypeName(struct_type));
-			return nullptr;
-		}
-		for (const StructureInstantiation::Member& member: s->get_members()) {
-			if (member.get_name() == member_name) {
-				return member.get_type();
-			}
-		}
-		add_error(expression, "struct % does not have a field named \"%\"", PrintTypeName(struct_type), member_name);
-		return nullptr;
-	}
-	bool check_type(const Expression* expression, const Type* expected_type) {
-		if (expression && expected_type) {
-			if (expression->get_type() != expected_type) {
-				add_error(expression, "invalid type %, expected type %", PrintTypeName(expression->get_type()), PrintTypeName(expected_type));
-				return false;
-			}
-		}
-		return true;
-	}
-	Reference<Expression> handle_name(const Name* e) {
-		StringView name = e->get_name();
-		const Index index = variables->look_up(name);
-		if (!index) {
-			add_error(e, "undefined variable \"%\"", name);
-			return Reference<Expression>();
-		}
-		const Type* type = current_function->get_variable(*index);
-		if (type == nullptr) {
-			return Reference<Expression>();
-		}
-		return new Variable(*index, type);
-	}
-	Reference<Expression> handle_name(const Expression* expression) {
-		const Name* name = as<Name>(expression);
-		if (name == nullptr) {
-			add_error(expression, "invalid expression, expected a name");
-			return Reference<Expression>();
-		}
-		return handle_name(name);
-	}
-	Reference<Expression> handle_expression_(const Expression* expression, const Type* expected_type) {
+	static Reference<Expression> copy_value(const Expression* expression) {
 		if (auto* e = as<IntLiteral>(expression)) {
-			return new IntLiteral(e->get_value(), get_int_type());
-		}
-		else if (auto* e = as<CharLiteral>(expression)) {
-			StringView string_view = e->get_string();
-			const std::int32_t value = next_code_point(string_view);
-			if (!string_view.empty()) {
-				add_error(expression, "char literal contains more than one code point");
-				return Reference<Expression>();
-			}
-			return new IntLiteral(value, get_int_type());
+			return new IntLiteral(e->get_value());
 		}
 		else if (auto* e = as<StringLiteral>(expression)) {
-			add_error(expression, "strings are not yet supported");
-			return Reference<Expression>();
+			return new StringLiteral(e->get_string().to_string());
 		}
-		else if (auto* e = as<StructLiteral>(expression)) {
-			const Type* type;
-			if (e->get_type()) {
-				type = process_type(current_function->get_template_arguments(), resolve_type(current_function->get_template_argument_names(), e->get_type()));
+		return Reference<Expression>();
+	}
+	static bool is_truthy(const Expression* expression) {
+		if (auto* e = as<IntLiteral>(expression)) {
+			return e->get_value() != 0;
+		}
+		return false;
+	}
+	template <class... T> void add_error(const Expression* expression, const char* s, T... t) {
+		diagnostics.add_error(current_entity->get_path(), expression->get_location(), printer::format(s, t...));
+	}
+	template <class... T> void add_error(const char* s, T... t) {
+		diagnostics.add_error(printer::format(s, t...));
+	}
+	Entity* find_function(const StringView& name) {
+		for (Entity* entity: program->get_entities()) {
+			if (BuiltinFunction* function = as<BuiltinFunction>(entity)) {
+				if (function->get_name() == name) {
+					return function;
+				}
 			}
-			else {
-				type = expected_type;
+			else if (Function* function = as<Function>(entity)) {
+				if (function->get_name() == name) {
+					return function;
+				}
 			}
-			if (type == nullptr) {
-				add_error(expression, "type of struct literal cannot be determined");
+		}
+		add_error("function \"%\" not found", name);
+		return nullptr;
+	}
+	Reference<Expression> evaluate_builtin_function(BuiltinFunction* function, std::vector<Reference<Expression>>&& arguments) {
+		if (function->get_name() == "add") {
+			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
-			auto* structure_instantiation = as<StructureInstantiation>(type);
-			if (structure_instantiation == nullptr) {
-				add_error(expression, "invalid type % for struct literal", PrintTypeName(type));
-				return Reference<Expression>();
-			}
-			const std::size_t field_count = structure_instantiation->get_members().size();
-			if (e->get_members().size() != field_count) {
-				add_error(expression, "invalid number of fields, expected %", printer::print_plural("field", field_count));
-				return Reference<Expression>();
-			}
-			std::vector<StructLiteral::Member> members;
-			for (std::size_t i = 0; i < field_count; ++i) {
-				const StructLiteral::Member& member = e->get_members()[i];
-				const StructureInstantiation::Member& expected_member = structure_instantiation->get_members()[i];
-				if (member.get_name() != expected_member.get_name()) {
-					add_error(expression, "invalid field name \"%\", expected \"%\"", member.get_name(), expected_member.get_name());
-					return Reference<Expression>();
-				}
-				Reference<Expression> member_expression = handle_expression(member.get_expression(), expected_member.get_type());
-				if (member_expression == nullptr) {
-					return Reference<Expression>();
-				}
-				if (member_expression->get_type() != expected_member.get_type()) {
-					add_error(member.get_expression(), "invalid type % for field \"%\", expected type %", PrintTypeName(member_expression->get_type()), member.get_name(), PrintTypeName(expected_member.get_type()));
-					return Reference<Expression>();
-				}
-				members.emplace_back(member.get_name().to_string(), std::move(member_expression));
-			}
-			return new StructLiteral(Reference<Expression>(), std::move(members), type);
-		}
-		else if (auto* e = as<TupleLiteral>(expression)) {
-			if (auto* s = as<TupleTypeInstantiation>(expected_type)) {
-				const std::size_t element_count = s->get_element_types().size();
-				if (e->get_elements().size() != element_count) {
-					add_error(expression, "invalid number of elements, expected %", printer::print_plural("element", element_count));
-					return Reference<Expression>();
-				}
-				std::vector<Reference<Expression>> elements;
-				for (std::size_t i = 0; i < element_count; ++i) {
-					const Expression* element = e->get_elements()[i];
-					const Type* expected_element_type = s->get_element_types()[i];
-					Reference<Expression> new_element = handle_expression(element, expected_element_type);
-					if (new_element == nullptr) {
-						return Reference<Expression>();
-					}
-					if (new_element->get_type() != expected_element_type) {
-						add_error(element, "invalid type %, expected type %", PrintTypeName(new_element->get_type()), PrintTypeName(expected_element_type));
-						return Reference<Expression>();
-					}
-					elements.push_back(std::move(new_element));
-				}
-				return new TupleLiteral(std::move(elements), expected_type);
-			}
-			else {
-				std::vector<const Type*> element_types;
-				std::vector<Reference<Expression>> elements;
-				for (const Expression* element: e->get_elements()) {
-					Reference<Expression> new_element = handle_expression(element);
-					if (new_element == nullptr) {
-						return Reference<Expression>();
-					}
-					element_types.push_back(new_element->get_type());
-					elements.push_back(std::move(new_element));
-				}
-				const Type* type = get_tuple_type(std::move(element_types));
-				return new TupleLiteral(std::move(elements), type);
-			}
-		}
-		else if (auto* e = as<Name>(expression)) {
-			return handle_name(e);
-		}
-		else if (auto* e = as<Assignment>(expression)) {
-			Reference<Expression> left = handle_name(e->get_left());
-			const Type* type = get_type(left);
-			Reference<Expression> right = handle_expression(e->get_right(), type);
+			IntLiteral* left = as<IntLiteral>(arguments[0]);
+			IntLiteral* right = as<IntLiteral>(arguments[1]);
 			if (left == nullptr || right == nullptr) {
 				return Reference<Expression>();
 			}
-			if (!check_type(right, type)) {
+			return new IntLiteral(left->get_value() + right->get_value());
+		}
+		else if (function->get_name() == "subtract") {
+			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
-			return new Assignment(std::move(left), std::move(right), type);
+			IntLiteral* left = as<IntLiteral>(arguments[0]);
+			IntLiteral* right = as<IntLiteral>(arguments[1]);
+			if (left == nullptr || right == nullptr) {
+				return Reference<Expression>();
+			}
+			return new IntLiteral(left->get_value() - right->get_value());
 		}
-		else if (auto* e = as<Spread>(expression)) {
-			add_error(expression, "spreads are not yet implemented");
+		else if (function->get_name() == "multiply") {
+			if (arguments.size() != 2) {
+				return Reference<Expression>();
+			}
+			IntLiteral* left = as<IntLiteral>(arguments[0]);
+			IntLiteral* right = as<IntLiteral>(arguments[1]);
+			if (left == nullptr || right == nullptr) {
+				return Reference<Expression>();
+			}
+			return new IntLiteral(left->get_value() * right->get_value());
+		}
+		else if (function->get_name() == "divide") {
+			if (arguments.size() != 2) {
+				return Reference<Expression>();
+			}
+			IntLiteral* left = as<IntLiteral>(arguments[0]);
+			IntLiteral* right = as<IntLiteral>(arguments[1]);
+			if (left == nullptr || right == nullptr) {
+				return Reference<Expression>();
+			}
+			return new IntLiteral(left->get_value() / right->get_value());
+		}
+		else if (function->get_name() == "remainder") {
+			if (arguments.size() != 2) {
+				return Reference<Expression>();
+			}
+			IntLiteral* left = as<IntLiteral>(arguments[0]);
+			IntLiteral* right = as<IntLiteral>(arguments[1]);
+			if (left == nullptr || right == nullptr) {
+				return Reference<Expression>();
+			}
+			return new IntLiteral(left->get_value() % right->get_value());
+		}
+		else if (function->get_name() == "equal") {
+			if (arguments.size() != 2) {
+				return Reference<Expression>();
+			}
+			IntLiteral* left = as<IntLiteral>(arguments[0]);
+			IntLiteral* right = as<IntLiteral>(arguments[1]);
+			if (left == nullptr || right == nullptr) {
+				return Reference<Expression>();
+			}
+			return new IntLiteral(left->get_value() == right->get_value());
+		}
+		else if (function->get_name() == "not_equal") {
+			if (arguments.size() != 2) {
+				return Reference<Expression>();
+			}
+			IntLiteral* left = as<IntLiteral>(arguments[0]);
+			IntLiteral* right = as<IntLiteral>(arguments[1]);
+			if (left == nullptr || right == nullptr) {
+				return Reference<Expression>();
+			}
+			return new IntLiteral(left->get_value() != right->get_value());
+		}
+		else if (function->get_name() == "less_than") {
+			if (arguments.size() != 2) {
+				return Reference<Expression>();
+			}
+			IntLiteral* left = as<IntLiteral>(arguments[0]);
+			IntLiteral* right = as<IntLiteral>(arguments[1]);
+			if (left == nullptr || right == nullptr) {
+				return Reference<Expression>();
+			}
+			return new IntLiteral(left->get_value() < right->get_value());
+		}
+		else if (function->get_name() == "less_than_or_equal") {
+			if (arguments.size() != 2) {
+				return Reference<Expression>();
+			}
+			IntLiteral* left = as<IntLiteral>(arguments[0]);
+			IntLiteral* right = as<IntLiteral>(arguments[1]);
+			if (left == nullptr || right == nullptr) {
+				return Reference<Expression>();
+			}
+			return new IntLiteral(left->get_value() <= right->get_value());
+		}
+		else if (function->get_name() == "greater_than") {
+			if (arguments.size() != 2) {
+				return Reference<Expression>();
+			}
+			IntLiteral* left = as<IntLiteral>(arguments[0]);
+			IntLiteral* right = as<IntLiteral>(arguments[1]);
+			if (left == nullptr || right == nullptr) {
+				return Reference<Expression>();
+			}
+			return new IntLiteral(left->get_value() > right->get_value());
+		}
+		else if (function->get_name() == "greater_than_or_equal") {
+			if (arguments.size() != 2) {
+				return Reference<Expression>();
+			}
+			IntLiteral* left = as<IntLiteral>(arguments[0]);
+			IntLiteral* right = as<IntLiteral>(arguments[1]);
+			if (left == nullptr || right == nullptr) {
+				return Reference<Expression>();
+			}
+			return new IntLiteral(left->get_value() >= right->get_value());
+		}
+		else if (function->get_name() == "print") {
+			using namespace printer;
+			for (std::size_t i = 0; i < arguments.size(); ++i) {
+				if (i > 0) {
+					print(' ');
+				}
+				const Expression* argument = arguments[i];
+				if (auto* e = as<IntLiteral>(argument)) {
+					print(print_number(e->get_value()));
+				}
+				else if (auto* e = as<StringLiteral>(argument)) {
+					print(e->get_string());
+				}
+				else {
+					print("undefined");
+				}
+			}
+			print(ln());
+		}
+		else {
+			add_error("invalid builtin function \"%\"", function->get_name());
+		}
+		return Reference<Expression>();
+	}
+	Reference<Expression> evaluate_function(Function* function, std::vector<Reference<Expression>>&& arguments) {
+		if (function->get_arguments().size() != arguments.size()) {
 			return Reference<Expression>();
 		}
-		else if (auto* e = as<Call>(expression)) {
-			StringView name;
-			std::vector<Reference<Expression>> arguments;
-			// uniform function call syntax
-			if (auto* accessor = as<Accessor>(e->get_expression())) {
-				name = get_constant_string(accessor->get_right());
-				arguments.push_back(handle_expression(accessor->get_left()));
-			}
-			else {
-				name = get_name(e->get_expression());
-			}
-			for (const Expression* argument: e->get_arguments()) {
-				arguments.push_back(handle_expression(argument));
-			}
-			Entity* function = resolve_function(name, arguments, expected_type, expression);
-			if (function == nullptr) {
-				return Reference<Expression>();
-			}
-			const Type* return_type = get_return_type(function);
-			if (return_type == nullptr) {
-				add_error(expression, "recursive call to function with deduced return type");
-				return Reference<Expression>();
-			}
-			return new Call(new EntityReference(function), std::move(arguments), return_type);
+		VariableMap* previous_variables = variables;
+		Entity* previous_current_entity = current_entity;
+		VariableMap new_variables;
+		variables = &new_variables;
+		for (std::size_t i = 0; i < arguments.size(); ++i) {
+			const StringView argument_name = function->get_arguments()[i].get_name();
+			new_variables.set(argument_name, std::move(arguments[i]));
 		}
-		else if (auto* e = as<Accessor>(expression)) {
-			Reference<Expression> left = handle_expression(e->get_left());
-			const Type* left_type = get_type(left);
-			if (left_type == nullptr) {
+		current_entity = function;
+		evaluate(function->get_block());
+		variables = previous_variables;
+		current_entity = previous_current_entity;
+		return std::move(return_value);
+	}
+	Reference<Expression> evaluate(const Expression* expression) {
+		if (expression == nullptr) {
+			return Reference<Expression>();
+		}
+		if (auto* e = as<IntLiteral>(expression)) {
+			return new IntLiteral(e->get_value());
+		}
+		else if (auto* e = as<StringLiteral>(expression)) {
+			return new StringLiteral(e->get_string().to_string());
+		}
+		else if (auto* e = as<Name>(expression)) {
+			const StringView name = e->get_name();
+			const Expression* expression = variables->look_up(name);
+			if (expression == nullptr) {
+				add_error(e, "undefined variable \"%\"", name);
 				return Reference<Expression>();
 			}
-			if (as<StructureInstantiation>(left_type)) {
-				StringView member_name = get_constant_string(e->get_right());
-				const Type* type = get_member_type(left_type, member_name, expression);
-				if (type == nullptr) {
-					return Reference<Expression>();
-				}
-				return new Accessor(std::move(left), new StringLiteral(member_name.to_string()), type);
+			return copy_value(expression);
+		}
+		else if (auto* e = as<Assignment>(expression)) {
+			const StringView name = get_name(e->get_left());
+			Reference<Expression> expression = evaluate(e->get_right());
+			if (!variables->update(name, copy_value(expression))) {
+				add_error(e->get_left(), "undefined variable \"%\"", name);
 			}
-			else if (auto* t = as<TupleTypeInstantiation>(left_type)) {
-				const std::int32_t* index = get_constant_int(e->get_right());
-				if (index == nullptr) {
-					return Reference<Expression>();
-				}
-				if (*index < 0 || *index >= t->get_element_types().size()) {
-					add_error(expression, "index out of bounds");
-					return Reference<Expression>();
-				}
-				const Type* type = t->get_element_types()[*index];
-				return new Accessor(std::move(left), new IntLiteral(*index), type);
+			return expression;
+		}
+		else if (auto* e = as<Call>(expression)) {
+			const StringView name = get_name(e->get_expression());
+			Entity* entity = find_function(name);
+			std::vector<Reference<Expression>> arguments;
+			for (const Expression* argument: e->get_arguments()) {
+				arguments.push_back(evaluate(argument));
 			}
-			else {
-				add_error(expression, "invalid accessor");
-				return Reference<Expression>();
+			if (Function* function = as<Function>(entity)) {
+				return evaluate_function(function, std::move(arguments));
+			}
+			else if (BuiltinFunction* function = as<BuiltinFunction>(entity)) {
+				return evaluate_builtin_function(function, std::move(arguments));
 			}
 		}
 		return Reference<Expression>();
 	}
-	Reference<Expression> handle_expression(const Expression* expression, const Type* expected_type = nullptr) {
-		if (expression == nullptr) {
-			return Reference<Expression>();
-		}
-		Reference<Expression> new_expression = handle_expression_(expression, expected_type);
-		if (new_expression == nullptr) {
-			return Reference<Expression>();
-		}
-		new_expression->set_location(expression->get_location());
-		return new_expression;
-	}
-	Block handle_block(const Block* block) {
-		std::vector<Reference<Statement>> statements;
-		ScopeMap<Index> new_scope(variables);
-		variables = &new_scope;
-		for (std::size_t i = 0; i < block->get_statements().size(); ++i) {
-			Statement* statement = block->get_statements()[i];
-			Reference<Statement> new_statement = handle_statement(statement);
-			if (new_statement == nullptr || is_empty_statement(new_statement)) {
-				continue;
-			}
-			const bool is_final = is_final_statement(new_statement);
-			statements.push_back(std::move(new_statement));
-			if (is_final) {
-				if (i + 1 < block->get_statements().size()) {
-					const SourceLocation location = block->get_statements()[i + 1]->get_location() - block->get_statements()[block->get_statements().size() - 1]->get_location();
-					add_warning(location, "unreachable code");
-				}
-				break;
-			}
-		}
-		variables = variables->get_parent();
-		return Block(std::move(statements));
-	}
-	Reference<Statement> handle_statement(Statement* statement) {
-		if (auto* s = as<BlockStatement>(statement)) {
-			return new BlockStatement(handle_block(s->get_block()));
-		}
-		else if (auto* s = as<LetStatement>(statement)) {
-			const StringView name = as<Name>(s->get_variable())->get_name();
-			ensure_resolved_type(current_function->get_template_argument_names(), s->get_type());
-			const Type* type = process_type(current_function->get_template_arguments(), s->get_type());
-			Reference<Expression> expression = handle_expression(s->get_expression(), type);
-			if (s->get_type() == nullptr) {
-				type = get_type(expression);
-			}
-			// add the variable even if type is null
-			const unsigned int index = current_function->add_variable(type);
-			variables->set(name, index);
-			if (type == nullptr || expression == nullptr) {
-				return Reference<Statement>();
-			}
-			if (!check_type(expression, type)) {
-				return Reference<Statement>();
-			}
-			return new LetStatement(new Variable(index), Reference<Expression>(), std::move(expression));
-		}
-		else if (auto* s = as<IfStatement>(statement)) {
-			Reference<Expression> condition = handle_expression(s->get_condition(), get_int_type());
-			Block then_block = handle_block(s->get_then_block());
-			Block else_block = handle_block(s->get_else_block());
-			if (condition == nullptr) {
-				return Reference<Statement>();
-			}
-			if (!check_type(condition, get_int_type())) {
-				return Reference<Statement>();
-			}
-			return new IfStatement(std::move(condition), std::move(then_block), std::move(else_block));
-		}
-		else if (auto* s = as<WhileStatement>(statement)) {
-			auto previous_current_loop = this->current_loop;
-			this->current_loop = s;
-			Reference<Expression> condition = handle_expression(s->get_condition(), get_int_type());
-			Block block = handle_block(s->get_block());
-			this->current_loop = previous_current_loop;
-			if (condition == nullptr) {
-				return Reference<Statement>();
-			}
-			if (!check_type(condition, get_int_type())) {
-				return Reference<Statement>();
-			}
-			return new WhileStatement(std::move(condition), std::move(block));
-		}
-		else if (auto* s = as<ForStatement>(statement)) {
-			add_error(statement, "for statements are not yet implemented");
-			return Reference<Statement>();
-		}
-		else if (auto* s = as<ReturnStatement>(statement)) {
-			const Type* return_type = current_function->get_return_type();
-			Reference<Expression> expression = handle_expression(s->get_expression(), return_type);
-			if (s->get_expression()) {
-				if (expression == nullptr) {
-					return Reference<Statement>();
-				}
-				if (return_type == nullptr) {
-					return_type = expression->get_type();
-					current_function->set_return_type(return_type);
-				}
-				if (!check_type(expression, return_type)) {
-					return Reference<Statement>();
+	Result evaluate(const Block* block) {
+		VariableMap* previous_variables = variables;
+		VariableMap new_variables(variables);
+		variables = &new_variables;
+		for (const Statement* statement: block->get_statements()) {
+			if (auto* s = as<BlockStatement>(statement)) {
+				const Result result = evaluate(s->get_block());
+				if (result != Result::OK) {
+					variables = previous_variables;
+					return result;
 				}
 			}
-			else {
-				if (return_type == nullptr) {
-					return_type = get_void_type();
-					current_function->set_return_type(return_type);
+			else if (auto* s = as<LetStatement>(statement)) {
+				StringView name = get_name(s->get_variable());
+				variables->set(name, evaluate(s->get_expression()));
+			}
+			else if (auto* s = as<IfStatement>(statement)) {
+				Reference<Expression> condition = evaluate(s->get_condition());
+				const Block* block;
+				if (is_truthy(condition)) {
+					block = s->get_then_block();
 				}
-				if (!as<VoidType>(return_type)) {
-					add_error(statement, "return without value in function with return type %", PrintTypeName(return_type));
-					return Reference<Statement>();
+				else {
+					block = s->get_else_block();
+				}
+				const Result result = evaluate(block);
+				if (result != Result::OK) {
+					variables = previous_variables;
+					return result;
 				}
 			}
-			return new ReturnStatement(std::move(expression));
-		}
-		else if (auto* s = as<BreakStatement>(statement)) {
-			if (current_loop == nullptr) {
-				add_error(statement, "break statement outside of a loop");
-				return Reference<Statement>();
+			else if (auto* s = as<WhileStatement>(statement)) {
+				while (true) {
+					Reference<Expression> condition = evaluate(s->get_condition());
+					if (!is_truthy(condition)) {
+						break;
+					}
+					const Result result = evaluate(s->get_block());
+					if (result == Result::BREAK) {
+						break;
+					}
+					if (result == Result::CONTINUE) {
+						continue;
+					}
+					if (result != Result::OK) {
+						variables = previous_variables;
+						return result;
+					}
+				}
 			}
-			return new BreakStatement();
-		}
-		else if (auto* s = as<ContinueStatement>(statement)) {
-			if (current_loop == nullptr) {
-				add_error(statement, "continue statement outside of a loop");
-				return Reference<Statement>();
+			else if (auto* s = as<ReturnStatement>(statement)) {
+				return_value = evaluate(s->get_expression());
+				variables = previous_variables;
+				return Result::RETURN;
 			}
-			return new ContinueStatement();
-		}
-		else if (auto* s = as<ExpressionStatement>(statement)) {
-			Reference<Expression> expression = handle_expression(s->get_expression());
-			if (expression == nullptr) {
-				return Reference<Statement>();
+			else if (auto* s = as<BreakStatement>(statement)) {
+				variables = previous_variables;
+				return Result::BREAK;
 			}
-			return new ExpressionStatement(std::move(expression));
+			else if (auto* s = as<ContinueStatement>(statement)) {
+				variables = previous_variables;
+				return Result::CONTINUE;
+			}
+			else if (auto* s = as<ExpressionStatement>(statement)) {
+				evaluate(s->get_expression());
+			}
 		}
-		return Reference<Statement>();
+		variables = previous_variables;
+		return Result::OK;
 	}
 public:
-	Pass1(Program* program, Diagnostics* diagnostics) {
-		this->program = program;
-		this->diagnostics = diagnostics;
-	}
+	Pass1(Program* program, Diagnostics& diagnostics): program(program), diagnostics(diagnostics) {}
 	void run() {
-		const Entity* main_function = resolve_function("main", {}, get_void_type());
+		Function* main_function = as<Function>(find_function("main"));
 		if (main_function == nullptr) {
 			return;
 		}
-		program->set_main_function(main_function);
+		evaluate_function(main_function, {});
 	}
 };
 
 void pass1(Program* program, Diagnostics& diagnostics) {
-	Pass1(program, &diagnostics).run();
-}
-
-class MemoryManagement {
-	Program* program;
-	std::size_t loop_depth = 0;
-	void handle_function(FunctionInstantiation* function) {
-		Block* block = function->get_block();
-		for (std::size_t i = 0; i < function->get_arguments().size(); ++i) {
-			const unsigned int variable = i;
-			destroy_variable(block, 0, variable, true);
-		}
-		find_variables(block);
-	}
-	void find_variables(Block* block) {
-		for (std::size_t i = 0; i < block->get_statements().size(); ++i) {
-			Statement* statement = block->get_statements()[i];
-			if (auto* s = as<BlockStatement>(statement)) {
-				find_variables(s->get_block());
-			}
-			else if (auto* s = as<LetStatement>(statement)) {
-				const unsigned int variable = as<Variable>(s->get_variable())->get_index();
-				destroy_variable(block, i + 1, variable, true);
-			}
-			else if (auto* s = as<IfStatement>(statement)) {
-				find_variables(s->get_then_block());
-				find_variables(s->get_else_block());
-			}
-			else if (auto* s = as<WhileStatement>(statement)) {
-				find_variables(s->get_block());
-			}
-		}
-	}
-	void destroy_variable(Block* block, std::size_t i, unsigned int variable, bool destroy) {
-		for (; i < block->get_statements().size(); ++i) {
-			Statement* statement = block->get_statements()[i];
-			if (auto* s = as<BlockStatement>(statement)) {
-				destroy_variable(s->get_block(), 0, variable, false);
-			}
-			else if (auto* s = as<IfStatement>(statement)) {
-				destroy_variable(s->get_then_block(), 0, variable, false);
-				destroy_variable(s->get_else_block(), 0, variable, false);
-			}
-			else if (auto* s = as<WhileStatement>(statement)) {
-				++loop_depth;
-				destroy_variable(s->get_block(), 0, variable, false);
-				--loop_depth;
-			}
-		}
-		Statement* last_statement = block->get_last_statement();
-		if (as<ReturnStatement>(last_statement)) {
-			destroy = true;
-		}
-		else if (as<BreakStatement>(last_statement) && loop_depth == 0) {
-			destroy = true;
-		}
-		else if (as<ContinueStatement>(last_statement) && loop_depth == 0) {
-			destroy = true;
-		}
-		if (destroy) {
-			if (ReturnStatement* return_statement = as<ReturnStatement>(last_statement)) {
-				return_statement->add_destroy_variable(variable);
-			}
-			else {
-				block->add_statement(new DestroyStatement(variable));
-			}
-		}
-	}
-public:
-	MemoryManagement(Program* program): program(program) {}
-	void run() {
-		for (Entity* entity: program->get_entities()) {
-			if (FunctionInstantiation* function = as<FunctionInstantiation>(entity)) {
-				handle_function(function);
-			}
-		}
-	}
-};
-
-void memory_management(Program* program) {
-	MemoryManagement(program).run();
+	Pass1(program, diagnostics).run();
 }
