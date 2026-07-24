@@ -238,7 +238,7 @@ using StructLiteralMemberCollector = MapCollector<ConstructorMapper<StructLitera
 constexpr auto struct_literal = collect<StructLiteralCollector>(sequence(
 	keyword("new"),
 	whitespace,
-	type,
+	expression,
 	whitespace,
 	expect("{"),
 	whitespace,
@@ -414,7 +414,7 @@ constexpr auto let_statement = collect<LetStatementCollector>(sequence(
 	optional(sequence(
 		ignore(':'),
 		whitespace,
-		tag<TupleIndex<1>>(type),
+		tag<TupleIndex<1>>(expression),
 		whitespace
 	)),
 	expect("="),
@@ -583,7 +583,7 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 			whitespace,
 			expect(":"),
 			whitespace,
-			type
+			expression
 		))
 	)),
 	whitespace,
@@ -592,7 +592,7 @@ constexpr auto function = collect<FunctionCollector>(sequence(
 	optional(sequence(
 		ignore(':'),
 		whitespace,
-		type,
+		expression,
 		whitespace
 	)),
 	choice(
@@ -634,22 +634,6 @@ constexpr auto structure = collect<StructureCollector>(sequence(
 	expect("}")
 ));
 
-using TypeAliasCollector = MapCollector<EntityMapper<TypeAlias>, TupleCollector<std::string, std::vector<std::string>, Reference<Expression>>>;
-
-constexpr auto type_alias = collect<TypeAliasCollector>(sequence(
-	keyword("type"),
-	whitespace,
-	expect_identifier,
-	whitespace,
-	optional(template_arguments),
-	whitespace,
-	expect("="),
-	whitespace,
-	type,
-	whitespace,
-	expect(";")
-));
-
 using BuiltinFunctionCollector = MapCollector<EntityMapper<BuiltinFunction>, TupleCollector<std::string, std::vector<std::string>, std::vector<NamedType>, Reference<Expression>>>;
 
 constexpr auto builtin = sequence(
@@ -673,7 +657,7 @@ constexpr auto builtin = sequence(
 					whitespace,
 					expect(":"),
 					whitespace,
-					type
+					expression
 				))
 			)),
 			whitespace,
@@ -681,7 +665,7 @@ constexpr auto builtin = sequence(
 			whitespace,
 			expect(":"),
 			whitespace,
-			type,
+			expression,
 			whitespace,
 			expect(";")
 		)),
@@ -697,7 +681,6 @@ constexpr auto program = sequence(
 			import,
 			function,
 			structure,
-			type_alias,
 			builtin,
 			error("expected a toplevel declaration")
 		),

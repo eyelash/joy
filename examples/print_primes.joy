@@ -1,4 +1,15 @@
-import "std.joy";
+builtin func add(lhs: Int, rhs: Int): Int;
+builtin func subtract(lhs: Int, rhs: Int): Int;
+builtin func multiply(lhs: Int, rhs: Int): Int;
+builtin func divide(lhs: Int, rhs: Int): Int;
+builtin func remainder(lhs: Int, rhs: Int): Int;
+builtin func equal(lhs: Int, rhs: Int): Int;
+builtin func not_equal(lhs: Int, rhs: Int): Int;
+builtin func less_than(lhs: Int, rhs: Int): Int;
+builtin func less_than_or_equal(lhs: Int, rhs: Int): Int;
+builtin func greater_than(lhs: Int, rhs: Int): Int;
+builtin func greater_than_or_equal(lhs: Int, rhs: Int): Int;
+builtin func print(num: Int): Void;
 
 func is_prime(n: Int): Bool {
 	let i = 2;
@@ -16,8 +27,8 @@ func print_primes() {
 	let n = 2;
 	let count = 0;
 	while (count < 100) {
-		if (n.is_prime()) {
-			println(n);
+		if (is_prime(n)) {
+			print(n);
 			count = count + 1;
 		}
 		n = n + 1;
