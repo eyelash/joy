@@ -640,12 +640,21 @@ constexpr auto structure = collect<StructureCollector>(sequence(
 
 using BuiltinFunctionCollector = MapCollector<EntityMapper<BuiltinFunction>, TupleCollector<std::string, std::vector<std::string>, std::vector<Argument>, Reference<Expression>>>;
 
+using BuiltinTypeCollector = MapCollector<EntityMapper<BuiltinType>, TupleCollector<std::string, std::vector<std::string>, std::vector<Argument>, Reference<Expression>>>;
+
 constexpr auto builtin = sequence(
 	keyword("builtin"),
 	whitespace,
 	choice(
 		collect<BuiltinFunctionCollector>(sequence(
 			keyword("func"),
+			whitespace,
+			signature,
+			whitespace,
+			expect(";")
+		)),
+		collect<BuiltinTypeCollector>(sequence(
+			keyword("type"),
 			whitespace,
 			signature,
 			whitespace,

@@ -38,6 +38,7 @@ enum {
 	TYPE_ID_IMPORT,
 	TYPE_ID_BUILTIN_FUNCTION,
 	TYPE_ID_FUNCTION,
+	TYPE_ID_BUILTIN_TYPE,
 	TYPE_ID_STRUCTURE,
 	TYPE_ID_TYPE_ALIAS,
 	TYPE_ID_BUILTIN_FUNCTION_INSTANTIATION,
@@ -579,6 +580,12 @@ public:
 	const Block* get_block() const {
 		return &block;
 	}
+};
+
+class BuiltinType final: public SignatureEntity {
+public:
+	static constexpr int TYPE_ID = TYPE_ID_BUILTIN_TYPE;
+	BuiltinType(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type): SignatureEntity(TYPE_ID, std::move(name), std::move(template_arguments), std::move(arguments), std::move(return_type)) {}
 };
 
 class Member {
