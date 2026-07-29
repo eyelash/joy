@@ -218,6 +218,25 @@ public:
 	}
 };
 
+static SignatureEntity* get_signature_entity(Entity* entity) {
+	if (BuiltinFunction* function = as<BuiltinFunction>(entity)) {
+		return function;
+	}
+	else if (Function* function = as<Function>(entity)) {
+		return function;
+	}
+	else if (BuiltinType* type = as<BuiltinType>(entity)) {
+		return type;
+	}
+	else if (Structure* structure = as<Structure>(entity)) {
+		return structure;
+	}
+	else if (Enumeration* enumeration = as<Enumeration>(entity)) {
+		return enumeration;
+	}
+	return nullptr;
+}
+
 class PrintValue {
 	const Expression* expression;
 	static StringView get_name(const Call* call) {
@@ -225,21 +244,8 @@ class PrintValue {
 		if (entity_reference == nullptr) {
 			return StringView();
 		}
-		const Entity* entity = entity_reference->get_entity();
-		if (const BuiltinFunction* function = as<BuiltinFunction>(entity)) {
-			return function->get_name();
-		}
-		else if (const Function* function = as<Function>(entity)) {
-			return function->get_name();
-		}
-		else if (const BuiltinType* type = as<BuiltinType>(entity)) {
-			return type->get_name();
-		}
-		else if (const Structure* structure = as<Structure>(entity)) {
-			return structure->get_name();
-		}
-		else if (const Enumeration* enumeration = as<Enumeration>(entity)) {
-			return enumeration->get_name();
+		if (SignatureEntity* signature_entity = get_signature_entity(entity_reference->get_entity())) {
+			return signature_entity->get_name();
 		}
 		return StringView();
 	}
@@ -307,29 +313,9 @@ class Pass1 {
 	}
 	Entity* find_function(const StringView& name) {
 		for (Entity* entity: program->get_entities()) {
-			if (BuiltinFunction* function = as<BuiltinFunction>(entity)) {
-				if (function->get_name() == name) {
-					return function;
-				}
-			}
-			else if (Function* function = as<Function>(entity)) {
-				if (function->get_name() == name) {
-					return function;
-				}
-			}
-			else if (BuiltinType* type = as<BuiltinType>(entity)) {
-				if (type->get_name() == name) {
-					return type;
-				}
-			}
-			else if (Structure* structure = as<Structure>(entity)) {
-				if (structure->get_name() == name) {
-					return structure;
-				}
-			}
-			else if (Enumeration* enumeration = as<Enumeration>(entity)) {
-				if (enumeration->get_name() == name) {
-					return enumeration;
+			if (SignatureEntity* signature_entity = get_signature_entity(entity)) {
+				if (signature_entity->get_name() == name) {
+					return signature_entity;
 				}
 			}
 		}
