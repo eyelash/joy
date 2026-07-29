@@ -218,6 +218,50 @@ public:
 	}
 };
 
+class PrintValue {
+	const Expression* expression;
+	static StringView get_name(const Call* call) {
+		const EntityReference* entity_reference = as<EntityReference>(call->get_expression());
+		if (entity_reference == nullptr) {
+			return StringView();
+		}
+		const Entity* entity = entity_reference->get_entity();
+		if (const BuiltinFunction* function = as<BuiltinFunction>(entity)) {
+			return function->get_name();
+		}
+		else if (const Function* function = as<Function>(entity)) {
+			return function->get_name();
+		}
+		else if (const BuiltinType* type = as<BuiltinType>(entity)) {
+			return type->get_name();
+		}
+		else if (const Structure* structure = as<Structure>(entity)) {
+			return structure->get_name();
+		}
+		else if (const Enumeration* enumeration = as<Enumeration>(entity)) {
+			return enumeration->get_name();
+		}
+		return StringView();
+	}
+public:
+	PrintValue(const Expression* expression): expression(expression) {}
+	void print(printer::Context& context) const {
+		using namespace printer;
+		if (auto* e = as<IntLiteral>(expression)) {
+			print_impl(print_number(e->get_value()), context);
+		}
+		else if (auto* e = as<StringLiteral>(expression)) {
+			print_impl(e->get_string(), context);
+		}
+		else if (auto* e = as<Call>(expression)) {
+			print_impl(format("%(%)", get_name(e), comma_separated<PrintValue>(e->get_arguments())), context);
+		}
+		else {
+			print_impl("undefined", context);
+		}
+	}
+};
+
 class Pass1 {
 	enum class Result {
 		OK,
@@ -271,6 +315,21 @@ class Pass1 {
 			else if (Function* function = as<Function>(entity)) {
 				if (function->get_name() == name) {
 					return function;
+				}
+			}
+			else if (BuiltinType* type = as<BuiltinType>(entity)) {
+				if (type->get_name() == name) {
+					return type;
+				}
+			}
+			else if (Structure* structure = as<Structure>(entity)) {
+				if (structure->get_name() == name) {
+					return structure;
+				}
+			}
+			else if (Enumeration* enumeration = as<Enumeration>(entity)) {
+				if (enumeration->get_name() == name) {
+					return enumeration;
 				}
 			}
 		}
@@ -405,16 +464,7 @@ class Pass1 {
 				if (i > 0) {
 					print(' ');
 				}
-				const Expression* argument = arguments[i];
-				if (auto* e = as<IntLiteral>(argument)) {
-					print(print_number(e->get_value()));
-				}
-				else if (auto* e = as<StringLiteral>(argument)) {
-					print(e->get_string());
-				}
-				else {
-					print("undefined");
-				}
+				print(PrintValue(arguments[i]));
 			}
 			print(ln());
 		}
@@ -480,6 +530,9 @@ class Pass1 {
 			}
 			else if (BuiltinFunction* function = as<BuiltinFunction>(entity)) {
 				return evaluate_builtin_function(function, std::move(arguments));
+			}
+			else if (entity) {
+				return new Call(new EntityReference(entity), std::move(arguments));
 			}
 		}
 		return Reference<Expression>();
