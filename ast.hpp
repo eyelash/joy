@@ -201,6 +201,7 @@ class Call final: public Expression {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_CALL;
 	Call(Reference<Expression>&& expression, std::vector<Reference<Expression>>&& arguments): Expression(TYPE_ID), expression(std::move(expression)), arguments(std::move(arguments)) {}
+	Call(const char* name, std::vector<Reference<Expression>>&& arguments): Expression(TYPE_ID), expression(new Name(name)), arguments(std::move(arguments)) {}
 	const Expression* get_expression() const {
 		return expression;
 	}

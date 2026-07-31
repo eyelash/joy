@@ -281,14 +281,18 @@ class Pass1 {
 	Entity* current_entity = nullptr;
 	Reference<Expression> return_value;
 	static StringView get_name(const Expression* expression) {
-		if (expression == nullptr) {
-			return StringView();
-		}
 		const Name* name = as<Name>(expression);
 		if (name == nullptr) {
 			return StringView();
 		}
 		return name->get_name();
+	}
+	static const Entity* get_entity(const Expression* expression) {
+		const EntityReference* entity_reference = as<EntityReference>(expression);
+		if (entity_reference == nullptr) {
+			return nullptr;
+		}
+		return entity_reference->get_entity();
 	}
 	static Reference<Expression> copy_value(const Expression* expression) {
 		if (auto* e = as<IntLiteral>(expression)) {
@@ -311,16 +315,94 @@ class Pass1 {
 	template <class... T> void add_error(const char* s, T... t) {
 		diagnostics.add_error(printer::format(s, t...));
 	}
-	Entity* find_function(const StringView& name) {
+	Reference<Expression> get_type(const Expression* expression) {
+		if (auto* e = as<IntLiteral>(expression)) {
+			Reference<Expression> type = new Call("Int", {});
+			return evaluate(type);
+		}
+		else if (auto* e = as<StringLiteral>(expression)) {
+			Reference<Expression> type = new Call("String", {});
+			return evaluate(type);
+		}
+		else if (auto* e = as<Call>(expression)) {
+			Reference<Expression> type = new Call("Type", {});
+			return evaluate(type);
+		}
+		return Reference<Expression>();
+	}
+	bool unification(const Expression* lhs, const Expression* rhs) {
+		if (lhs == nullptr || rhs == nullptr) {
+			return false;
+		}
+		const int type_id = lhs->get_type_id();
+		const int rhs_type_id = rhs->get_type_id();
+		if (type_id != rhs_type_id) {
+			return false;
+		}
+		if (type_id == IntLiteral::TYPE_ID) {
+			const std::int32_t lhs_value = static_cast<const IntLiteral*>(lhs)->get_value();
+			const std::int32_t rhs_value = static_cast<const IntLiteral*>(rhs)->get_value();
+			return lhs_value == rhs_value;
+		}
+		else if (type_id == StringLiteral::TYPE_ID) {
+			const StringView lhs_string = static_cast<const StringLiteral*>(lhs)->get_string();
+			const StringView rhs_string = static_cast<const StringLiteral*>(rhs)->get_string();
+			return lhs_string == rhs_string;
+		}
+		else if (type_id == Call::TYPE_ID) {
+			const Call* lhs_call = static_cast<const Call*>(lhs);
+			const Call* rhs_call = static_cast<const Call*>(rhs);
+			const Entity* lhs_entity = get_entity(lhs_call->get_expression());
+			const Entity* rhs_entity = get_entity(rhs_call->get_expression());
+			if (lhs_entity == nullptr || rhs_entity == nullptr || lhs_entity != rhs_entity) {
+				return false;
+			}
+			if (lhs_call->get_arguments().size() != rhs_call->get_arguments().size()) {
+				return false;
+			}
+			for (std::size_t i = 0; i < lhs_call->get_arguments().size(); ++i) {
+				if (!unification(lhs_call->get_arguments()[i], rhs_call->get_arguments()[i])) {
+					return false;
+				}
+			}
+			return true;
+		}
+		return false;
+	}
+	bool unification(const SignatureEntity* signature_entity, const std::vector<Reference<Expression>>& argument_types) {
+		if (signature_entity->get_arguments().size() != argument_types.size()) {
+			return false;
+		}
+		for (std::size_t i = 0; i < argument_types.size(); ++i) {
+			// TODO: cache the result of this evaluation
+			Reference<Expression> argument_type = evaluate(signature_entity->get_arguments()[i].get_type());
+			if (!unification(argument_type, argument_types[i])) {
+				return false;
+			}
+		}
+		return true;
+	}
+	Entity* find_function(const StringView& name, const std::vector<Reference<Expression>>& argument_types) {
+		Entity* match_entity = nullptr;
+		unsigned int match_count = 0;
 		for (Entity* entity: program->get_entities()) {
 			if (SignatureEntity* signature_entity = get_signature_entity(entity)) {
-				if (signature_entity->get_name() == name) {
-					return signature_entity;
+				if (signature_entity->get_name() == name && unification(signature_entity, argument_types)) {
+					match_entity = signature_entity;
+					++match_count;
 				}
 			}
 		}
-		add_error("function \"%\" not found", name);
-		return nullptr;
+		if (match_count != 1) {
+			if (match_count == 0) {
+				add_error("no matching function \"%\" found", name);
+			}
+			else {
+				add_error("% matching functions \"%\" found", printer::print_number(match_count), name);
+			}
+			return nullptr;
+		}
+		return match_entity;
 	}
 	Reference<Expression> evaluate_builtin_function(BuiltinFunction* function, std::vector<Reference<Expression>>&& arguments) {
 		if (function->get_name() == "add") {
@@ -506,11 +588,15 @@ class Pass1 {
 		}
 		else if (auto* e = as<Call>(expression)) {
 			const StringView name = get_name(e->get_expression());
-			Entity* entity = find_function(name);
 			std::vector<Reference<Expression>> arguments;
+			std::vector<Reference<Expression>> argument_types;
 			for (const Expression* argument: e->get_arguments()) {
-				arguments.push_back(evaluate(argument));
+				Reference<Expression> argument_value = evaluate(argument);
+				Reference<Expression> argument_type = get_type(argument_value);
+				arguments.push_back(std::move(argument_value));
+				argument_types.push_back(std::move(argument_type));
 			}
+			Entity* entity = find_function(name, argument_types);
 			if (Function* function = as<Function>(entity)) {
 				return evaluate_function(function, std::move(arguments));
 			}
@@ -596,7 +682,7 @@ class Pass1 {
 public:
 	Pass1(Program* program, Diagnostics& diagnostics): program(program), diagnostics(diagnostics) {}
 	void run() {
-		Function* main_function = as<Function>(find_function("main"));
+		Function* main_function = as<Function>(find_function("main", {}));
 		if (main_function == nullptr) {
 			return;
 		}
