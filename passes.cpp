@@ -287,7 +287,7 @@ class Pass1 {
 		}
 		return name->get_name();
 	}
-	static const Entity* get_entity(const Expression* expression) {
+	static Entity* get_entity(const Expression* expression) {
 		const EntityReference* entity_reference = as<EntityReference>(expression);
 		if (entity_reference == nullptr) {
 			return nullptr;
@@ -300,6 +300,14 @@ class Pass1 {
 		}
 		else if (auto* e = as<StringLiteral>(expression)) {
 			return new StringLiteral(e->get_string().to_string());
+		}
+		else if (auto* e = as<Call>(expression)) {
+			Reference<Expression> expression = new EntityReference(get_entity(e->get_expression()));
+			std::vector<Reference<Expression>> arguments;
+			for (const Expression* argument: e->get_arguments()) {
+				arguments.push_back(copy_value(argument));
+			}
+			return new Call(std::move(expression), std::move(arguments));
 		}
 		return Reference<Expression>();
 	}

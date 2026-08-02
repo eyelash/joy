@@ -92,10 +92,10 @@ public:
 		expression = new T(std::move(expression), std::forward<A>(a)...);
 	}
 	template <class T, class... A> void push(OperatorNudTag<T>, A&&... a) {
-		expression = new Call(new Name(T::function_name), make_vector<Reference<Expression>>(std::forward<A>(a)...));
+		expression = new Call(T::function_name, make_vector<Reference<Expression>>(std::forward<A>(a)...));
 	}
 	template <class T, class... A> void push(OperatorLedTag<T>, A&&... a) {
-		expression = new Call(new Name(T::function_name), make_vector<Reference<Expression>>(std::move(expression), std::forward<A>(a)...));
+		expression = new Call(T::function_name, make_vector<Reference<Expression>>(std::move(expression), std::forward<A>(a)...));
 	}
 	void set_location(const SourceLocation& location) {
 		expression->set_location(location);
