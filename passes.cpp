@@ -309,6 +309,9 @@ class Pass1 {
 			}
 			return new Call(std::move(expression), std::move(arguments));
 		}
+		else if (auto* e = as<Variable>(expression)) {
+			return new Variable(e->get_index());
+		}
 		return Reference<Expression>();
 	}
 	static bool is_truthy(const Expression* expression) {
@@ -332,18 +335,35 @@ class Pass1 {
 			Reference<Expression> type = new Call("String", {});
 			return evaluate(type);
 		}
+		else if (auto* e = as<Variable>(expression)) {
+			Reference<Expression> type = new Call("Type", {});
+			return evaluate(type);
+		}
 		else if (auto* e = as<Call>(expression)) {
 			Reference<Expression> type = new Call("Type", {});
 			return evaluate(type);
 		}
 		return Reference<Expression>();
 	}
-	bool unification(const Expression* lhs, const Expression* rhs) {
+	bool unification(const Expression* lhs, const Expression* rhs, std::vector<Reference<Expression>>& unification_variables) {
 		if (lhs == nullptr || rhs == nullptr) {
 			return false;
 		}
 		const int type_id = lhs->get_type_id();
 		const int rhs_type_id = rhs->get_type_id();
+		if (type_id == Variable::TYPE_ID) {
+			const std::size_t index = static_cast<const Variable*>(lhs)->get_index();
+			if (index >= unification_variables.size()) {
+				return false;
+			}
+			if (unification_variables[index]) {
+				return unification(unification_variables[index], rhs, unification_variables);
+			}
+			else {
+				unification_variables[index] = copy_value(rhs);
+				return true;
+			}
+		}
 		if (type_id != rhs_type_id) {
 			return false;
 		}
@@ -369,7 +389,7 @@ class Pass1 {
 				return false;
 			}
 			for (std::size_t i = 0; i < lhs_call->get_arguments().size(); ++i) {
-				if (!unification(lhs_call->get_arguments()[i], rhs_call->get_arguments()[i])) {
+				if (!unification(lhs_call->get_arguments()[i], rhs_call->get_arguments()[i], unification_variables)) {
 					return false;
 				}
 			}
@@ -377,17 +397,26 @@ class Pass1 {
 		}
 		return false;
 	}
-	bool unification(const SignatureEntity* signature_entity, const std::vector<Reference<Expression>>& argument_types) {
+	bool unification(const SignatureEntity* signature_entity, const std::vector<Reference<Expression>>& argument_types, std::vector<Reference<Expression>>& unification_variables) {
 		if (signature_entity->get_arguments().size() != argument_types.size()) {
 			return false;
 		}
+		VariableMap* previous_variables = variables;
+		VariableMap new_variables;
+		for (std::size_t i = 0; i < signature_entity->get_template_arguments().size(); ++i) {
+			new_variables.set(signature_entity->get_template_arguments()[i], new Variable(i));
+		}
+		unification_variables.resize(signature_entity->get_template_arguments().size());
+		variables = &new_variables;
 		for (std::size_t i = 0; i < argument_types.size(); ++i) {
 			// TODO: cache the result of this evaluation
 			Reference<Expression> argument_type = evaluate(signature_entity->get_arguments()[i].get_type());
-			if (!unification(argument_type, argument_types[i])) {
+			if (!unification(argument_type, argument_types[i], unification_variables)) {
+				variables = previous_variables;
 				return false;
 			}
 		}
+		variables = previous_variables;
 		return true;
 	}
 	Entity* find_function(const StringView& name, const std::vector<Reference<Expression>>& argument_types) {
@@ -395,7 +424,8 @@ class Pass1 {
 		unsigned int match_count = 0;
 		for (Entity* entity: program->get_entities()) {
 			if (SignatureEntity* signature_entity = get_signature_entity(entity)) {
-				if (signature_entity->get_name() == name && unification(signature_entity, argument_types)) {
+				std::vector<Reference<Expression>> unification_variables;
+				if (signature_entity->get_name() == name && unification(signature_entity, argument_types, unification_variables)) {
 					match_entity = signature_entity;
 					++match_count;
 				}
