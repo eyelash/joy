@@ -409,6 +409,9 @@ class Pass1 {
 		unification_variables.resize(signature_entity->get_template_arguments().size());
 		variables = &new_variables;
 		for (std::size_t i = 0; i < argument_types.size(); ++i) {
+			if (signature_entity->get_arguments()[i].get_type() == nullptr) {
+				continue;
+			}
 			// TODO: cache the result of this evaluation
 			Reference<Expression> argument_type = evaluate(signature_entity->get_arguments()[i].get_type());
 			if (!unification(argument_type, argument_types[i], unification_variables)) {

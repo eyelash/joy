@@ -555,9 +555,11 @@ constexpr auto signature = sequence(
 			not_(end()),
 			expect_identifier,
 			whitespace,
-			expect(":"),
-			whitespace,
-			expression
+			optional(sequence(
+				ignore(':'),
+				whitespace,
+				expression
+			))
 		))
 	)),
 	whitespace,
