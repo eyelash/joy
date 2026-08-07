@@ -571,29 +571,31 @@ public:
 	}
 };
 
-template <class P, class I, class = P> class PrintCommaSeparated {
+template <class P, class I, class S, class = P> class PrintSeparated {
 	I first;
 	I last;
+	S separator;
 public:
-	PrintCommaSeparated(I first, I last): first(first), last(last) {}
+	PrintSeparated(I first, I last, S separator): first(first), last(last), separator(separator) {}
 	void print(printer::Context& context) const {
 		I i = first;
 		if (i != last) {
 			print_impl(P(*i), context);
 			++i;
 			while (i != last) {
-				print_impl(", ", context);
+				print_impl(separator, context);
 				print_impl(P(*i), context);
 				++i;
 			}
 		}
 	}
 };
-template <class P, class I> class PrintCommaSeparated<P, I, decltype(P(*std::declval<I>(), std::declval<unsigned int>()))> {
+template <class P, class I, class S> class PrintSeparated<P, I, S, decltype(P(*std::declval<I>(), std::declval<unsigned int>()))> {
 	I first;
 	I last;
+	S separator;
 public:
-	PrintCommaSeparated(I first, I last): first(first), last(last) {}
+	PrintSeparated(I first, I last, S separator): first(first), last(last), separator(separator) {}
 	void print(printer::Context& context) const {
 		I i = first;
 		unsigned int index = 0;
@@ -602,7 +604,7 @@ public:
 			++i;
 			++index;
 			while (i != last) {
-				print_impl(", ", context);
+				print_impl(separator, context);
 				print_impl(P(*i, index), context);
 				++i;
 				++index;
@@ -610,11 +612,14 @@ public:
 		}
 	}
 };
-template <class P, class I> PrintCommaSeparated<P, I> comma_separated(I first, I last) {
-	return PrintCommaSeparated<P, I>(first, last);
+template <class P, class I, class S> PrintSeparated<P, I, S> print_separated(I first, I last, S separator) {
+	return PrintSeparated<P, I, S>(first, last, separator);
 }
-template <class P, class I> PrintCommaSeparated<P, I> comma_separated(const Range<I>& range) {
-	return PrintCommaSeparated<P, I>(range.begin(), range.end());
+template <class P, class I> auto comma_separated(I first, I last) {
+	return print_separated<P>(first, last, ", ");
+}
+template <class P, class I> auto comma_separated(const Range<I>& range) {
+	return comma_separated(range.begin(), range.end());
 }
 template <class P, class T> auto comma_separated(const std::vector<T>& v) {
 	return comma_separated<P>(v.begin(), v.end());

@@ -568,14 +568,7 @@ class Pass1 {
 			return new IntLiteral(left->get_value() >= right->get_value());
 		}
 		else if (function->get_name() == "print") {
-			using namespace printer;
-			for (std::size_t i = 0; i < arguments.size(); ++i) {
-				if (i > 0) {
-					print(' ');
-				}
-				print(PrintValue(arguments[i]));
-			}
-			print(ln());
+			println(print_separated<PrintValue>(arguments.begin(), arguments.end(), ' '));
 		}
 		else {
 			add_error("invalid builtin function \"%\"", function->get_name());
