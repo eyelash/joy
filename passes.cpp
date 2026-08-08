@@ -237,6 +237,14 @@ static SignatureEntity* get_signature_entity(Entity* entity) {
 	return nullptr;
 }
 
+class PrintMember {
+	const StructLiteral::Member* member;
+public:
+	PrintMember(const StructLiteral::Member* member): member(member) {}
+	PrintMember(const StructLiteral::Member& member): member(&member) {}
+	void print(printer::Context& context) const;
+};
+
 class PrintValue {
 	const Expression* expression;
 	static StringView get_name(const Call* call) {
@@ -259,6 +267,9 @@ public:
 		else if (auto* e = as<StringLiteral>(expression)) {
 			print_impl(e->get_string(), context);
 		}
+		else if (auto* e = as<StructLiteral>(expression)) {
+			print_impl(format("{%}", comma_separated<PrintMember>(e->get_members())), context);
+		}
 		else if (auto* e = as<Call>(expression)) {
 			print_impl(format("%(%)", get_name(e), comma_separated<PrintValue>(e->get_arguments())), context);
 		}
@@ -267,6 +278,11 @@ public:
 		}
 	}
 };
+
+void PrintMember::print(printer::Context& context) const {
+	using namespace printer;
+	print_impl(format("%: %", member->get_name(), PrintValue(member->get_expression())), context);
+}
 
 class Pass1 {
 	enum class Result {
@@ -287,6 +303,13 @@ class Pass1 {
 		}
 		return name->get_name();
 	}
+	static StringView get_constant_string(const Expression* expression) {
+		const StringLiteral* string = as<StringLiteral>(expression);
+		if (string == nullptr) {
+			return StringView();
+		}
+		return string->get_string();
+	}
 	static Entity* get_entity(const Expression* expression) {
 		const EntityReference* entity_reference = as<EntityReference>(expression);
 		if (entity_reference == nullptr) {
@@ -300,6 +323,13 @@ class Pass1 {
 		}
 		else if (auto* e = as<StringLiteral>(expression)) {
 			return new StringLiteral(e->get_string().to_string());
+		}
+		else if (auto* e = as<StructLiteral>(expression)) {
+			std::vector<StructLiteral::Member> members;
+			for (const StructLiteral::Member& member: e->get_members()) {
+				members.emplace_back(member.get_name().to_string(), copy_value(member.get_expression()));
+			}
+			return new StructLiteral(copy_value(e->get_type()), std::move(members));
 		}
 		else if (auto* e = as<Call>(expression)) {
 			Reference<Expression> expression = new EntityReference(get_entity(e->get_expression()));
@@ -334,6 +364,9 @@ class Pass1 {
 		else if (auto* e = as<StringLiteral>(expression)) {
 			Reference<Expression> type = new Call("String", {});
 			return evaluate(type);
+		}
+		else if (auto* e = as<StructLiteral>(expression)) {
+			return copy_value(e->get_type());
 		}
 		else if (auto* e = as<Variable>(expression)) {
 			Reference<Expression> type = new Call("Type", {});
@@ -603,6 +636,14 @@ class Pass1 {
 		else if (auto* e = as<StringLiteral>(expression)) {
 			return new StringLiteral(e->get_string().to_string());
 		}
+		else if (auto* e = as<StructLiteral>(expression)) {
+			Reference<Expression> type = evaluate(e->get_type());
+			std::vector<StructLiteral::Member> members;
+			for (const StructLiteral::Member& member: e->get_members()) {
+				members.emplace_back(member.get_name().to_string(), evaluate(member.get_expression()));
+			}
+			return new StructLiteral(std::move(type), std::move(members));
+		}
 		else if (auto* e = as<Name>(expression)) {
 			const StringView name = e->get_name();
 			const Expression* expression = variables->look_up(name);
@@ -640,6 +681,18 @@ class Pass1 {
 			else if (entity) {
 				return new Call(new EntityReference(entity), std::move(arguments));
 			}
+		}
+		else if (auto* e = as<Accessor>(expression)) {
+			Reference<Expression> left = evaluate(e->get_left());
+			if (auto* struct_literal = as<StructLiteral>(left)) {
+				const StringView name = get_constant_string(e->get_right());
+				for (const StructLiteral::Member& member: struct_literal->get_members()) {
+					if (member.get_name() == name) {
+						return copy_value(member.get_expression());
+					}
+				}
+			}
+			return Reference<Expression>();
 		}
 		return Reference<Expression>();
 	}
