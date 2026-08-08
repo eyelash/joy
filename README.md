@@ -8,7 +8,7 @@
 - [x] first-class types
 - [x] integers
 - [ ] strings
-- [ ] tuples
+- [x] tuples
 - [ ] arrays
 - [x] structs (product types)
 - [ ] enums (sum types)

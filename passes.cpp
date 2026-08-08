@@ -267,6 +267,9 @@ public:
 		else if (auto* e = as<StringLiteral>(expression)) {
 			print_impl(e->get_string(), context);
 		}
+		else if (auto* e = as<TupleLiteral>(expression)) {
+			print_impl(format("[%]", comma_separated<PrintValue>(e->get_elements())), context);
+		}
 		else if (auto* e = as<StructLiteral>(expression)) {
 			print_impl(format("{%}", comma_separated<PrintMember>(e->get_members())), context);
 		}
@@ -303,6 +306,13 @@ class Pass1 {
 		}
 		return name->get_name();
 	}
+	static const std::int32_t* get_constant_int(const Expression* expression) {
+		const IntLiteral* int_literal = as<IntLiteral>(expression);
+		if (int_literal == nullptr) {
+			return nullptr;
+		}
+		return &int_literal->get_value();
+	}
 	static StringView get_constant_string(const Expression* expression) {
 		const StringLiteral* string = as<StringLiteral>(expression);
 		if (string == nullptr) {
@@ -323,6 +333,13 @@ class Pass1 {
 		}
 		else if (auto* e = as<StringLiteral>(expression)) {
 			return new StringLiteral(e->get_string().to_string());
+		}
+		else if (auto* e = as<TupleLiteral>(expression)) {
+			std::vector<Reference<Expression>> elements;
+			for (const Expression* element: e->get_elements()) {
+				elements.push_back(copy_value(element));
+			}
+			return new TupleLiteral(std::move(elements));
 		}
 		else if (auto* e = as<StructLiteral>(expression)) {
 			std::vector<StructLiteral::Member> members;
@@ -364,6 +381,15 @@ class Pass1 {
 		else if (auto* e = as<StringLiteral>(expression)) {
 			Reference<Expression> type = new Call("String", {});
 			return evaluate(type);
+		}
+		else if (auto* e = as<TupleLiteral>(expression)) {
+			std::vector<Reference<Expression>> element_types;
+			for (const Expression* element: e->get_elements()) {
+				element_types.push_back(get_type(element));
+			}
+			// TODO: use variadics
+			Entity* entity = find_function("Tuple", {});
+			return new Call(new EntityReference(entity), std::move(element_types));
 		}
 		else if (auto* e = as<StructLiteral>(expression)) {
 			return copy_value(e->get_type());
@@ -636,6 +662,13 @@ class Pass1 {
 		else if (auto* e = as<StringLiteral>(expression)) {
 			return new StringLiteral(e->get_string().to_string());
 		}
+		else if (auto* e = as<TupleLiteral>(expression)) {
+			std::vector<Reference<Expression>> elements;
+			for (const Expression* element: e->get_elements()) {
+				elements.push_back(evaluate(element));
+			}
+			return new TupleLiteral(std::move(elements));
+		}
 		else if (auto* e = as<StructLiteral>(expression)) {
 			Reference<Expression> type = evaluate(e->get_type());
 			std::vector<StructLiteral::Member> members;
@@ -684,7 +717,13 @@ class Pass1 {
 		}
 		else if (auto* e = as<Accessor>(expression)) {
 			Reference<Expression> left = evaluate(e->get_left());
-			if (auto* struct_literal = as<StructLiteral>(left)) {
+			if (auto* tuple_literal = as<TupleLiteral>(left)) {
+				const std::int32_t* index = get_constant_int(e->get_right());
+				if (index && *index >= 0 && *index < tuple_literal->get_elements().size()) {
+					return copy_value(tuple_literal->get_elements()[*index]);
+				}
+			}
+			else if (auto* struct_literal = as<StructLiteral>(left)) {
 				const StringView name = get_constant_string(e->get_right());
 				for (const StructLiteral::Member& member: struct_literal->get_members()) {
 					if (member.get_name() == name) {
