@@ -467,12 +467,11 @@ public:
 
 class SignatureEntity: public Entity {
 	std::string name;
-	std::vector<std::string> template_arguments;
 	std::vector<Argument> arguments;
 	Reference<Expression> return_type;
 	bool variadic;
 public:
-	SignatureEntity(int type_id, std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type): Entity(type_id), name(std::move(name)), template_arguments(std::move(template_arguments)), arguments(std::move(arguments)), return_type(std::move(return_type)), variadic(false) {
+	SignatureEntity(int type_id, std::string&& name, std::vector<Argument>&& arguments, Reference<Expression>&& return_type): Entity(type_id), name(std::move(name)), arguments(std::move(arguments)), return_type(std::move(return_type)), variadic(false) {
 		for (const Argument& argument: this->arguments) {
 			if (argument.is_variadic()) {
 				this->variadic = true;
@@ -481,9 +480,6 @@ public:
 	}
 	StringView get_name() const {
 		return name;
-	}
-	const std::vector<std::string>& get_template_arguments() const {
-		return template_arguments;
 	}
 	std::vector<Argument>& get_arguments() {
 		return arguments;
@@ -505,14 +501,14 @@ public:
 class BuiltinFunction final: public SignatureEntity {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_BUILTIN_FUNCTION;
-	BuiltinFunction(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type): SignatureEntity(TYPE_ID, std::move(name), std::move(template_arguments), std::move(arguments), std::move(return_type)) {}
+	BuiltinFunction(std::string&& name, std::vector<Argument>&& arguments, Reference<Expression>&& return_type): SignatureEntity(TYPE_ID, std::move(name), std::move(arguments), std::move(return_type)) {}
 };
 
 class Function final: public SignatureEntity {
 	Block block;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_FUNCTION;
-	Function(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): SignatureEntity(TYPE_ID, std::move(name), std::move(template_arguments), std::move(arguments), std::move(return_type)), block(std::move(block)) {}
+	Function(std::string&& name, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): SignatureEntity(TYPE_ID, std::move(name), std::move(arguments), std::move(return_type)), block(std::move(block)) {}
 	const Block* get_block() const {
 		return &block;
 	}
@@ -521,7 +517,7 @@ public:
 class BuiltinType final: public SignatureEntity {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_BUILTIN_TYPE;
-	BuiltinType(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type): SignatureEntity(TYPE_ID, std::move(name), std::move(template_arguments), std::move(arguments), std::move(return_type)) {}
+	BuiltinType(std::string&& name, std::vector<Argument>&& arguments, Reference<Expression>&& return_type): SignatureEntity(TYPE_ID, std::move(name), std::move(arguments), std::move(return_type)) {}
 };
 
 class Member {
@@ -544,7 +540,7 @@ class Structure final: public SignatureEntity {
 	std::vector<Member> members;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_STRUCTURE;
-	Structure(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, std::vector<Member>&& members): SignatureEntity(TYPE_ID, std::move(name), std::move(template_arguments), std::move(arguments), std::move(return_type)), members(std::move(members)) {}
+	Structure(std::string&& name, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, std::vector<Member>&& members): SignatureEntity(TYPE_ID, std::move(name), std::move(arguments), std::move(return_type)), members(std::move(members)) {}
 	std::vector<Member>& get_members() {
 		return members;
 	}
@@ -557,7 +553,7 @@ class Enumeration final: public SignatureEntity {
 	std::vector<Member> members;
 public:
 	static constexpr int TYPE_ID = TYPE_ID_ENUMERATION;
-	Enumeration(std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, std::vector<Member>&& members): SignatureEntity(TYPE_ID, std::move(name), std::move(template_arguments), std::move(arguments), std::move(return_type)), members(std::move(members)) {}
+	Enumeration(std::string&& name, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, std::vector<Member>&& members): SignatureEntity(TYPE_ID, std::move(name), std::move(arguments), std::move(return_type)), members(std::move(members)) {}
 	std::vector<Member>& get_members() {
 		return members;
 	}

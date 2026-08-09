@@ -346,9 +346,6 @@ class Pass1 {
 			}
 			return new Call(std::move(expression), std::move(arguments));
 		}
-		else if (auto* e = as<Variable>(expression)) {
-			return new Variable(e->get_index());
-		}
 		return Reference<Expression>();
 	}
 	static bool is_truthy(const Expression* expression) {
@@ -388,33 +385,17 @@ class Pass1 {
 			}
 			return evaluate_call("Function", std::move(arguments));
 		}
-		else if (auto* e = as<Variable>(expression)) {
-			return evaluate_call("Type", {});
-		}
 		else if (auto* e = as<Call>(expression)) {
 			return evaluate_call("Type", {});
 		}
 		return Reference<Expression>();
 	}
-	bool unification(const Expression* lhs, const Expression* rhs, std::vector<Reference<Expression>>& unification_variables) {
+	bool unification(const Expression* lhs, const Expression* rhs) {
 		if (lhs == nullptr || rhs == nullptr) {
 			return false;
 		}
 		const int type_id = lhs->get_type_id();
 		const int rhs_type_id = rhs->get_type_id();
-		if (type_id == Variable::TYPE_ID) {
-			const std::size_t index = static_cast<const Variable*>(lhs)->get_index();
-			if (index >= unification_variables.size()) {
-				return false;
-			}
-			if (unification_variables[index]) {
-				return unification(unification_variables[index], rhs, unification_variables);
-			}
-			else {
-				unification_variables[index] = copy_value(rhs);
-				return true;
-			}
-		}
 		if (type_id != rhs_type_id) {
 			return false;
 		}
@@ -440,7 +421,7 @@ class Pass1 {
 				return false;
 			}
 			for (std::size_t i = 0; i < lhs_call->get_arguments().size(); ++i) {
-				if (!unification(lhs_call->get_arguments()[i], rhs_call->get_arguments()[i], unification_variables)) {
+				if (!unification(lhs_call->get_arguments()[i], rhs_call->get_arguments()[i])) {
 					return false;
 				}
 			}
@@ -448,7 +429,7 @@ class Pass1 {
 		}
 		return false;
 	}
-	bool unification(const SignatureEntity* signature_entity, const std::vector<Reference<Expression>>& argument_types, std::vector<Reference<Expression>>& unification_variables) {
+	bool unification(const SignatureEntity* signature_entity, const std::vector<Reference<Expression>>& argument_types) {
 		if (signature_entity->is_variadic()) {
 			if (argument_types.size() < signature_entity->get_arguments().size() - 1) {
 				return false;
@@ -459,13 +440,6 @@ class Pass1 {
 				return false;
 			}
 		}
-		VariableMap* previous_variables = variables;
-		VariableMap new_variables;
-		for (std::size_t i = 0; i < signature_entity->get_template_arguments().size(); ++i) {
-			new_variables.set(signature_entity->get_template_arguments()[i], new Variable(i));
-		}
-		unification_variables.resize(signature_entity->get_template_arguments().size());
-		variables = &new_variables;
 		for (std::size_t i = 0, j = 0; i < signature_entity->get_arguments().size(); ++i, ++j) {
 			const Argument& argument = signature_entity->get_arguments()[i];
 			if (argument.is_variadic()) {
@@ -477,27 +451,28 @@ class Pass1 {
 				}
 				// TODO: cache the result of this evaluation
 				Reference<Expression> argument_type = evaluate(argument.get_type());
-				if (!unification(argument_type, argument_types[j], unification_variables)) {
-					variables = previous_variables;
+				if (!unification(argument_type, argument_types[j])) {
 					return false;
 				}
 			}
 		}
-		variables = previous_variables;
 		return true;
 	}
 	Entity* find_entity(const StringView& name, const std::vector<Reference<Expression>>& argument_types) {
 		Entity* match_entity = nullptr;
 		unsigned int match_count = 0;
+		VariableMap* previous_variables = variables;
+		VariableMap new_variables;
+		variables = &new_variables;
 		for (Entity* entity: program->get_entities()) {
 			if (SignatureEntity* signature_entity = get_signature_entity(entity)) {
-				std::vector<Reference<Expression>> unification_variables;
-				if (signature_entity->get_name() == name && unification(signature_entity, argument_types, unification_variables)) {
+				if (signature_entity->get_name() == name && unification(signature_entity, argument_types)) {
 					match_entity = signature_entity;
 					++match_count;
 				}
 			}
 		}
+		variables = previous_variables;
 		if (match_count != 1) {
 			if (match_count == 0) {
 				add_error("no matching function \"%\" found", name);
