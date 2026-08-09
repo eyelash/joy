@@ -76,6 +76,7 @@
 			<keyword>Int</keyword>
 			<keyword>String</keyword>
 			<keyword>Tuple</keyword>
+			<keyword>Type</keyword>
 			<keyword>Void</keyword>
 		</context>
 

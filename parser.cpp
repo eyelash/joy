@@ -287,7 +287,7 @@ using AccessorCollector = MapCollector<TagMapper<LedTag<Accessor>>, TupleCollect
 
 DEFINE_PARSER(expression, pratt<ExpressionCollector>(
 	pratt_level(
-		infix_rtl<AssignmentCollector>(operator_(sequence('=', not_('=')))),
+		infix_rtl<AssignmentCollector>(operator_(sequence('=', not_(choice('=', '>'))))),
 		prefix<SpreadCollector>(operator_("..."))
 	),
 	pratt_level(
@@ -543,6 +543,23 @@ constexpr auto template_arguments = collect<VectorCollector<std::string>>(sequen
 	expect(">")
 ));
 
+constexpr auto argument = choice(
+	collect<VariadicArgumentCollector>(sequence(
+		ignore("..."),
+		whitespace,
+		expect_identifier
+	)),
+	collect<ArgumentCollector>(sequence(
+		expect_identifier,
+		whitespace,
+		optional(sequence(
+			ignore(':'),
+			whitespace,
+			expression
+		))
+	))
+);
+
 constexpr auto signature = sequence(
 	expect_identifier,
 	whitespace,
@@ -554,22 +571,7 @@ constexpr auto signature = sequence(
 		sequence(
 			not_(')'),
 			not_(end()),
-			choice(
-				collect<VariadicArgumentCollector>(sequence(
-					ignore("..."),
-					whitespace,
-					expect_identifier
-				)),
-				collect<ArgumentCollector>(sequence(
-					expect_identifier,
-					whitespace,
-					optional(sequence(
-						ignore(':'),
-						whitespace,
-						expression
-					))
-				))
-			)
+			argument
 		)
 	)),
 	whitespace,

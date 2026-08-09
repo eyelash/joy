@@ -21,31 +21,6 @@ public:
 	}
 };
 
-template <class T> class ScopeMap {
-	ScopeMap* parent;
-	std::map<StringView, T> map;
-public:
-	ScopeMap(ScopeMap* parent = nullptr): parent(parent) {}
-	ScopeMap* get_parent() const {
-		return parent;
-	}
-	void set(const StringView& name, T value) {
-		if (value) {
-			map[name] = value;
-		}
-	}
-	T look_up(const StringView& name) const {
-		auto iterator = map.find(name);
-		if (iterator != map.end()) {
-			return iterator->second;
-		}
-		if (parent) {
-			return parent->look_up(name);
-		}
-		return T();
-	}
-};
-
 class VariableMap {
 	VariableMap* parent;
 	std::map<StringView, Reference<Expression>> map;
@@ -265,7 +240,7 @@ public:
 			print_impl(print_number(e->get_value()), context);
 		}
 		else if (auto* e = as<StringLiteral>(expression)) {
-			print_impl(e->get_string(), context);
+			print_impl(format("\"%\"", e->get_string()), context);
 		}
 		else if (auto* e = as<TupleLiteral>(expression)) {
 			print_impl(format("[%]", comma_separated<PrintValue>(e->get_elements())), context);
@@ -375,32 +350,26 @@ class Pass1 {
 	}
 	Reference<Expression> get_type(const Expression* expression) {
 		if (auto* e = as<IntLiteral>(expression)) {
-			Reference<Expression> type = new Call("Int", {});
-			return evaluate(type);
+			return evaluate_call("Int", {});
 		}
 		else if (auto* e = as<StringLiteral>(expression)) {
-			Reference<Expression> type = new Call("String", {});
-			return evaluate(type);
+			return evaluate_call("String", {});
 		}
 		else if (auto* e = as<TupleLiteral>(expression)) {
 			std::vector<Reference<Expression>> element_types;
 			for (const Expression* element: e->get_elements()) {
 				element_types.push_back(get_type(element));
 			}
-			// TODO: use variadics
-			Entity* entity = find_function("Tuple", {});
-			return new Call(new EntityReference(entity), std::move(element_types));
+			return evaluate_call("Tuple", std::move(element_types));
 		}
 		else if (auto* e = as<StructLiteral>(expression)) {
 			return copy_value(e->get_type());
 		}
 		else if (auto* e = as<Variable>(expression)) {
-			Reference<Expression> type = new Call("Type", {});
-			return evaluate(type);
+			return evaluate_call("Type", {});
 		}
 		else if (auto* e = as<Call>(expression)) {
-			Reference<Expression> type = new Call("Type", {});
-			return evaluate(type);
+			return evaluate_call("Type", {});
 		}
 		return Reference<Expression>();
 	}
@@ -494,7 +463,7 @@ class Pass1 {
 		variables = previous_variables;
 		return true;
 	}
-	Entity* find_function(const StringView& name, const std::vector<Reference<Expression>>& argument_types) {
+	Entity* find_entity(const StringView& name, const std::vector<Reference<Expression>>& argument_types) {
 		Entity* match_entity = nullptr;
 		unsigned int match_count = 0;
 		for (Entity* entity: program->get_entities()) {
@@ -673,6 +642,23 @@ class Pass1 {
 		current_entity = previous_current_entity;
 		return std::move(return_value);
 	}
+	Reference<Expression> evaluate_call(const StringView& name, std::vector<Reference<Expression>>&& arguments) {
+		std::vector<Reference<Expression>> argument_types;
+		for (const Expression* argument: arguments) {
+			argument_types.push_back(get_type(argument));
+		}
+		Entity* entity = find_entity(name, argument_types);
+		if (Function* function = as<Function>(entity)) {
+			return evaluate_function(function, std::move(arguments));
+		}
+		else if (BuiltinFunction* function = as<BuiltinFunction>(entity)) {
+			return evaluate_builtin_function(function, std::move(arguments));
+		}
+		else if (entity) {
+			return new Call(new EntityReference(entity), std::move(arguments));
+		}
+		return Reference<Expression>();
+	}
 	Reference<Expression> evaluate(const Expression* expression) {
 		if (expression == nullptr) {
 			return Reference<Expression>();
@@ -718,23 +704,10 @@ class Pass1 {
 		else if (auto* e = as<Call>(expression)) {
 			const StringView name = get_name(e->get_expression());
 			std::vector<Reference<Expression>> arguments;
-			std::vector<Reference<Expression>> argument_types;
 			for (const Expression* argument: e->get_arguments()) {
-				Reference<Expression> argument_value = evaluate(argument);
-				Reference<Expression> argument_type = get_type(argument_value);
-				arguments.push_back(std::move(argument_value));
-				argument_types.push_back(std::move(argument_type));
+				arguments.push_back(evaluate(argument));
 			}
-			Entity* entity = find_function(name, argument_types);
-			if (Function* function = as<Function>(entity)) {
-				return evaluate_function(function, std::move(arguments));
-			}
-			else if (BuiltinFunction* function = as<BuiltinFunction>(entity)) {
-				return evaluate_builtin_function(function, std::move(arguments));
-			}
-			else if (entity) {
-				return new Call(new EntityReference(entity), std::move(arguments));
-			}
+			return evaluate_call(name, std::move(arguments));
 		}
 		else if (auto* e = as<Accessor>(expression)) {
 			Reference<Expression> left = evaluate(e->get_left());
@@ -829,7 +802,7 @@ class Pass1 {
 public:
 	Pass1(Program* program, Diagnostics& diagnostics): program(program), diagnostics(diagnostics) {}
 	void run() {
-		Function* main_function = as<Function>(find_function("main", {}));
+		Function* main_function = as<Function>(find_entity("main", {}));
 		if (main_function == nullptr) {
 			return;
 		}
