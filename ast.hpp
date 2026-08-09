@@ -11,6 +11,7 @@ enum {
 	TYPE_ID_STRING_LITERAL,
 	TYPE_ID_TUPLE_LITERAL,
 	TYPE_ID_STRUCT_LITERAL,
+	TYPE_ID_FUNCTION_LITERAL,
 	TYPE_ID_NAME,
 	TYPE_ID_VARIABLE,
 	TYPE_ID_ASSIGNMENT,
@@ -133,6 +134,24 @@ public:
 	}
 	const std::vector<Member>& get_members() const {
 		return members;
+	}
+};
+
+class FunctionLiteral final: public Expression {
+	std::string name;
+	std::vector<Reference<Expression>> arguments;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_FUNCTION_LITERAL;
+	FunctionLiteral(std::string&& name, std::vector<Reference<Expression>>&& arguments): Expression(TYPE_ID), name(std::move(name)), arguments(std::move(arguments)) {}
+	FunctionLiteral(std::string&& name): Expression(TYPE_ID), name(std::move(name)) {}
+	FunctionLiteral(std::string&& name, Reference<Expression>&& argument): Expression(TYPE_ID), name(std::move(name)) {
+		arguments.push_back(std::move(argument));
+	}
+	StringView get_name() const {
+		return name;
+	}
+	const std::vector<Reference<Expression>>& get_arguments() const {
+		return arguments;
 	}
 };
 

@@ -248,6 +248,14 @@ public:
 		else if (auto* e = as<StructLiteral>(expression)) {
 			print_impl(format("{%}", comma_separated<PrintMember>(e->get_members())), context);
 		}
+		else if (auto* e = as<FunctionLiteral>(expression)) {
+			if (e->get_arguments().empty()) {
+				print_impl(format("<function \"%\">", e->get_name()), context);
+			}
+			else {
+				print_impl(format("<function \"%\" with arguments (%)>", e->get_name(), comma_separated<PrintValue>(e->get_arguments())), context);
+			}
+		}
 		else if (auto* e = as<Call>(expression)) {
 			print_impl(format("%(%)", get_name(e), comma_separated<PrintValue>(e->get_arguments())), context);
 		}
@@ -323,6 +331,13 @@ class Pass1 {
 			}
 			return new StructLiteral(copy_value(e->get_type()), std::move(members));
 		}
+		else if (auto* e = as<FunctionLiteral>(expression)) {
+			std::vector<Reference<Expression>> arguments;
+			for (const Expression* argument: e->get_arguments()) {
+				arguments.push_back(copy_value(argument));
+			}
+			return new FunctionLiteral(e->get_name().to_string(), std::move(arguments));
+		}
 		else if (auto* e = as<Call>(expression)) {
 			Reference<Expression> expression = new EntityReference(get_entity(e->get_expression()));
 			std::vector<Reference<Expression>> arguments;
@@ -364,6 +379,14 @@ class Pass1 {
 		}
 		else if (auto* e = as<StructLiteral>(expression)) {
 			return copy_value(e->get_type());
+		}
+		else if (auto* e = as<FunctionLiteral>(expression)) {
+			std::vector<Reference<Expression>> arguments;
+			arguments.push_back(new StringLiteral(e->get_name().to_string()));
+			for (const Expression* argument: e->get_arguments()) {
+				arguments.push_back(get_type(argument));
+			}
+			return evaluate_call("Function", std::move(arguments));
 		}
 		else if (auto* e = as<Variable>(expression)) {
 			return evaluate_call("Type", {});
@@ -687,11 +710,12 @@ class Pass1 {
 		else if (auto* e = as<Name>(expression)) {
 			const StringView name = e->get_name();
 			const Expression* expression = variables->look_up(name);
-			if (expression == nullptr) {
-				add_error(e, "undefined variable \"%\"", name);
-				return Reference<Expression>();
+			if (expression) {
+				return copy_value(expression);
 			}
-			return copy_value(expression);
+			else {
+				return new FunctionLiteral(name.to_string());
+			}
 		}
 		else if (auto* e = as<Assignment>(expression)) {
 			const StringView name = get_name(e->get_left());
@@ -702,8 +726,19 @@ class Pass1 {
 			return expression;
 		}
 		else if (auto* e = as<Call>(expression)) {
-			const StringView name = get_name(e->get_expression());
+			Reference<Expression> function = evaluate(e->get_expression());
+			StringView name;
 			std::vector<Reference<Expression>> arguments;
+			if (auto* function_literal = as<FunctionLiteral>(function)) {
+				name = function_literal->get_name();
+				for (const Expression* argument: function_literal->get_arguments()) {
+					arguments.push_back(copy_value(argument));
+				}
+			}
+			else {
+				name = "call";
+				arguments.push_back(std::move(function));
+			}
 			for (const Expression* argument: e->get_arguments()) {
 				arguments.push_back(evaluate(argument));
 			}
@@ -724,6 +759,9 @@ class Pass1 {
 						return copy_value(member.get_expression());
 					}
 				}
+			}
+			if (const StringView name = get_constant_string(e->get_right())) {
+				return new FunctionLiteral(name.to_string(), std::move(left));
 			}
 			return Reference<Expression>();
 		}

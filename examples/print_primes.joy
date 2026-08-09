@@ -29,7 +29,7 @@ func print_primes() {
 	let n = 2;
 	let count = 0;
 	while (count < 100) {
-		if (is_prime(n)) {
+		if (n.is_prime()) {
 			print(n);
 			count = count + 1;
 		}
