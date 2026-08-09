@@ -4,7 +4,7 @@
 - [x] imports
 - [x] function overloading
 - [x] operator overloading
-- [ ] variadic functions
+- [x] variadic functions
 - [x] first-class types
 - [x] integers
 - [ ] strings

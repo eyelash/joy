@@ -457,8 +457,15 @@ class Pass1 {
 		return false;
 	}
 	bool unification(const SignatureEntity* signature_entity, const std::vector<Reference<Expression>>& argument_types, std::vector<Reference<Expression>>& unification_variables) {
-		if (signature_entity->get_arguments().size() != argument_types.size()) {
-			return false;
+		if (signature_entity->is_variadic()) {
+			if (argument_types.size() < signature_entity->get_arguments().size() - 1) {
+				return false;
+			}
+		}
+		else {
+			if (argument_types.size() != signature_entity->get_arguments().size()) {
+				return false;
+			}
 		}
 		VariableMap* previous_variables = variables;
 		VariableMap new_variables;
@@ -467,15 +474,21 @@ class Pass1 {
 		}
 		unification_variables.resize(signature_entity->get_template_arguments().size());
 		variables = &new_variables;
-		for (std::size_t i = 0; i < argument_types.size(); ++i) {
-			if (signature_entity->get_arguments()[i].get_type() == nullptr) {
-				continue;
+		for (std::size_t i = 0, j = 0; i < signature_entity->get_arguments().size(); ++i, ++j) {
+			const Argument& argument = signature_entity->get_arguments()[i];
+			if (argument.is_variadic()) {
+				j = argument_types.size() - (signature_entity->get_arguments().size() - i);
 			}
-			// TODO: cache the result of this evaluation
-			Reference<Expression> argument_type = evaluate(signature_entity->get_arguments()[i].get_type());
-			if (!unification(argument_type, argument_types[i], unification_variables)) {
-				variables = previous_variables;
-				return false;
+			else {
+				if (argument.get_type() == nullptr) {
+					continue;
+				}
+				// TODO: cache the result of this evaluation
+				Reference<Expression> argument_type = evaluate(argument.get_type());
+				if (!unification(argument_type, argument_types[j], unification_variables)) {
+					variables = previous_variables;
+					return false;
+				}
 			}
 		}
 		variables = previous_variables;
@@ -635,16 +648,24 @@ class Pass1 {
 		return Reference<Expression>();
 	}
 	Reference<Expression> evaluate_function(Function* function, std::vector<Reference<Expression>>&& arguments) {
-		if (function->get_arguments().size() != arguments.size()) {
-			return Reference<Expression>();
-		}
 		VariableMap* previous_variables = variables;
 		Entity* previous_current_entity = current_entity;
 		VariableMap new_variables;
 		variables = &new_variables;
-		for (std::size_t i = 0; i < arguments.size(); ++i) {
-			const StringView argument_name = function->get_arguments()[i].get_name();
-			new_variables.set(argument_name, std::move(arguments[i]));
+		for (std::size_t i = 0, j = 0; i < function->get_arguments().size(); ++i, ++j) {
+			const Argument& argument = function->get_arguments()[i];
+			if (argument.is_variadic()) {
+				const std::size_t new_j = arguments.size() - (function->get_arguments().size() - i);
+				std::vector<Reference<Expression>> elements;
+				for (std::size_t k = j; k <= new_j; ++k) {
+					elements.push_back(std::move(arguments[k]));
+				}
+				new_variables.set(argument.get_name(), new TupleLiteral(std::move(elements)));
+				j = new_j;
+			}
+			else {
+				new_variables.set(argument.get_name(), std::move(arguments[j]));
+			}
 		}
 		current_entity = function;
 		evaluate(function->get_block());

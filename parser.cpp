@@ -527,6 +527,7 @@ constexpr auto import = collect<ImportCollector>(sequence(
 ));
 
 using ArgumentCollector = MapCollector<ConstructorMapper<Argument>, TupleCollector<std::string, Reference<Expression>>>;
+using VariadicArgumentCollector = MapCollector<CompositionMapper<ConstructorMapper<Argument>, TagMapper<Tag<Spread>>>, TupleCollector<std::string>>;
 
 using FunctionCollector = MapCollector<EntityMapper<Function>, TupleCollector<std::string, std::vector<std::string>, std::vector<Argument>, Reference<Expression>, Block>>;
 
@@ -550,17 +551,26 @@ constexpr auto signature = sequence(
 	expect("("),
 	whitespace,
 	collect<VectorCollector<Argument>>(comma_separated(
-		collect<ArgumentCollector>(sequence(
+		sequence(
 			not_(')'),
 			not_(end()),
-			expect_identifier,
-			whitespace,
-			optional(sequence(
-				ignore(':'),
-				whitespace,
-				expression
-			))
-		))
+			choice(
+				collect<VariadicArgumentCollector>(sequence(
+					ignore("..."),
+					whitespace,
+					expect_identifier
+				)),
+				collect<ArgumentCollector>(sequence(
+					expect_identifier,
+					whitespace,
+					optional(sequence(
+						ignore(':'),
+						whitespace,
+						expression
+					))
+				))
+			)
+		)
 	)),
 	whitespace,
 	expect(")"),

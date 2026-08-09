@@ -425,10 +425,15 @@ public:
 };
 
 class Argument {
+	bool variadic;
 	std::string name;
 	Reference<Expression> type;
 public:
-	Argument(std::string&& name, Reference<Expression>&& type): name(std::move(name)), type(std::move(type)) {}
+	Argument(std::string&& name, Reference<Expression>&& type): variadic(false), name(std::move(name)), type(std::move(type)) {}
+	Argument(Tag<Spread>, std::string&& name): variadic(true), name(std::move(name)) {}
+	bool is_variadic() const {
+		return variadic;
+	}
 	StringView get_name() const {
 		return name;
 	}
@@ -445,8 +450,15 @@ class SignatureEntity: public Entity {
 	std::vector<std::string> template_arguments;
 	std::vector<Argument> arguments;
 	Reference<Expression> return_type;
+	bool variadic;
 public:
-	SignatureEntity(int type_id, std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type): Entity(type_id), name(std::move(name)), template_arguments(std::move(template_arguments)), arguments(std::move(arguments)), return_type(std::move(return_type)) {}
+	SignatureEntity(int type_id, std::string&& name, std::vector<std::string>&& template_arguments, std::vector<Argument>&& arguments, Reference<Expression>&& return_type): Entity(type_id), name(std::move(name)), template_arguments(std::move(template_arguments)), arguments(std::move(arguments)), return_type(std::move(return_type)), variadic(false) {
+		for (const Argument& argument: this->arguments) {
+			if (argument.is_variadic()) {
+				this->variadic = true;
+			}
+		}
+	}
 	StringView get_name() const {
 		return name;
 	}
@@ -464,6 +476,9 @@ public:
 	}
 	const Expression* get_return_type() const {
 		return return_type;
+	}
+	bool is_variadic() const {
+		return variadic;
 	}
 };
 
