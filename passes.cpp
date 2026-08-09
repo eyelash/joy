@@ -692,6 +692,15 @@ class Pass1 {
 		else if (auto* e = as<StringLiteral>(expression)) {
 			return new StringLiteral(e->get_string().to_string());
 		}
+		else if (auto* e = as<CharLiteral>(expression)) {
+			StringView string_view = e->get_string();
+			const std::int32_t value = next_code_point(string_view);
+			if (!string_view.empty()) {
+				add_error(expression, "char literal contains more than one code point");
+				return Reference<Expression>();
+			}
+			return new IntLiteral(value);
+		}
 		else if (auto* e = as<TupleLiteral>(expression)) {
 			std::vector<Reference<Expression>> elements;
 			for (const Expression* element: e->get_elements()) {
