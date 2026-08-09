@@ -104,6 +104,7 @@ class TupleLiteral final: public Expression {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_TUPLE_LITERAL;
 	TupleLiteral(std::vector<Reference<Expression>>&& elements): Expression(TYPE_ID), elements(std::move(elements)) {}
+	TupleLiteral(): Expression(TYPE_ID) {}
 	const std::vector<Reference<Expression>>& get_elements() const {
 		return elements;
 	}

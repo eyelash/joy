@@ -631,8 +631,25 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() >= right->get_value());
 		}
+		else if (function->get_name() == "putchar") {
+			if (arguments.size() != 1) {
+				return Reference<Expression>();
+			}
+			IntLiteral* argument = as<IntLiteral>(arguments[0]);
+			if (argument == nullptr) {
+				return Reference<Expression>();
+			}
+			const char c = argument->get_value();
+			BufferedOutput& output = StandardOutput::get();
+			output.write(c);
+			if (c == '\n') {
+				output.flush();
+			}
+			return new TupleLiteral();
+		}
 		else if (function->get_name() == "print") {
 			println(print_separated<PrintValue>(arguments.begin(), arguments.end(), ' '));
+			return new TupleLiteral();
 		}
 		else {
 			add_error("invalid builtin function \"%\"", function->get_name());
