@@ -510,7 +510,8 @@ class Pass1 {
 		return match_entity;
 	}
 	Reference<Expression> evaluate_builtin_function(BuiltinFunction* function, std::vector<Reference<Expression>>&& arguments) {
-		if (function->get_name() == "add") {
+		const StringView name = function->get_name();
+		if (name == "add" || name == "__builtin_joy_add_int") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -521,7 +522,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() + right->get_value());
 		}
-		else if (function->get_name() == "subtract") {
+		else if (name == "subtract" || name == "__builtin_joy_subtract_int") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -532,7 +533,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() - right->get_value());
 		}
-		else if (function->get_name() == "multiply") {
+		else if (name == "multiply" || name == "__builtin_joy_multiply_int") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -543,7 +544,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() * right->get_value());
 		}
-		else if (function->get_name() == "divide") {
+		else if (name == "divide" || name == "__builtin_joy_divide_int") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -554,7 +555,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() / right->get_value());
 		}
-		else if (function->get_name() == "remainder") {
+		else if (name == "remainder" || name == "__builtin_joy_remainder_int") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -565,7 +566,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() % right->get_value());
 		}
-		else if (function->get_name() == "equal") {
+		else if (name == "equal" || name == "__builtin_joy_equal_int") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -576,7 +577,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() == right->get_value());
 		}
-		else if (function->get_name() == "not_equal") {
+		else if (name == "not_equal" || name == "__builtin_joy_not_equal_int") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -587,7 +588,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() != right->get_value());
 		}
-		else if (function->get_name() == "less_than") {
+		else if (name == "less_than" || name == "__builtin_joy_less_than_int") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -598,7 +599,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() < right->get_value());
 		}
-		else if (function->get_name() == "less_than_or_equal") {
+		else if (name == "less_than_or_equal" || name == "__builtin_joy_less_than_or_equal_int") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -609,29 +610,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() <= right->get_value());
 		}
-		else if (function->get_name() == "greater_than") {
-			if (arguments.size() != 2) {
-				return Reference<Expression>();
-			}
-			IntLiteral* left = as<IntLiteral>(arguments[0]);
-			IntLiteral* right = as<IntLiteral>(arguments[1]);
-			if (left == nullptr || right == nullptr) {
-				return Reference<Expression>();
-			}
-			return new IntLiteral(left->get_value() > right->get_value());
-		}
-		else if (function->get_name() == "greater_than_or_equal") {
-			if (arguments.size() != 2) {
-				return Reference<Expression>();
-			}
-			IntLiteral* left = as<IntLiteral>(arguments[0]);
-			IntLiteral* right = as<IntLiteral>(arguments[1]);
-			if (left == nullptr || right == nullptr) {
-				return Reference<Expression>();
-			}
-			return new IntLiteral(left->get_value() >= right->get_value());
-		}
-		else if (function->get_name() == "putchar") {
+		else if (name == "putchar" || name == "__builtin_joy_putchar") {
 			if (arguments.size() != 1) {
 				return Reference<Expression>();
 			}
@@ -647,12 +626,12 @@ class Pass1 {
 			}
 			return new TupleLiteral();
 		}
-		else if (function->get_name() == "print") {
+		else if (name == "print" || name == "__builtin_joy_debug_print") {
 			println(print_separated<PrintValue>(arguments.begin(), arguments.end(), ' '));
 			return new TupleLiteral();
 		}
 		else {
-			add_error("invalid builtin function \"%\"", function->get_name());
+			add_error("invalid builtin function \"%\"", name);
 		}
 		return Reference<Expression>();
 	}
