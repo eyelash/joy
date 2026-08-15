@@ -486,7 +486,7 @@ class Pass1 {
 	}
 	Reference<Expression> evaluate_builtin_function(BuiltinFunction* function, std::vector<Reference<Expression>>&& arguments) {
 		const StringView name = function->get_name();
-		if (name == "add" || name == "__builtin_joy_add_int") {
+		if (name == "__builtin_joy_int_add") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -497,7 +497,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() + right->get_value());
 		}
-		else if (name == "subtract" || name == "__builtin_joy_subtract_int") {
+		else if (name == "__builtin_joy_int_subtract") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -508,7 +508,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() - right->get_value());
 		}
-		else if (name == "multiply" || name == "__builtin_joy_multiply_int") {
+		else if (name == "__builtin_joy_int_multiply") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -519,7 +519,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() * right->get_value());
 		}
-		else if (name == "divide" || name == "__builtin_joy_divide_int") {
+		else if (name == "__builtin_joy_int_divide") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -530,7 +530,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() / right->get_value());
 		}
-		else if (name == "remainder" || name == "__builtin_joy_remainder_int") {
+		else if (name == "__builtin_joy_int_remainder") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -541,7 +541,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() % right->get_value());
 		}
-		else if (name == "equal" || name == "__builtin_joy_equal_int") {
+		else if (name == "__builtin_joy_int_equal") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -552,7 +552,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() == right->get_value());
 		}
-		else if (name == "not_equal" || name == "__builtin_joy_not_equal_int") {
+		else if (name == "__builtin_joy_int_not_equal") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -563,7 +563,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() != right->get_value());
 		}
-		else if (name == "less_than" || name == "__builtin_joy_less_than_int") {
+		else if (name == "__builtin_joy_int_less_than") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -574,7 +574,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() < right->get_value());
 		}
-		else if (name == "less_than_or_equal" || name == "__builtin_joy_less_than_or_equal_int") {
+		else if (name == "__builtin_joy_int_less_than_or_equal") {
 			if (arguments.size() != 2) {
 				return Reference<Expression>();
 			}
@@ -585,7 +585,7 @@ class Pass1 {
 			}
 			return new IntLiteral(left->get_value() <= right->get_value());
 		}
-		else if (name == "putchar" || name == "__builtin_joy_putchar") {
+		else if (name == "__builtin_joy_putchar") {
 			if (arguments.size() != 1) {
 				return Reference<Expression>();
 			}
@@ -601,7 +601,7 @@ class Pass1 {
 			}
 			return new TupleLiteral();
 		}
-		else if (name == "print" || name == "__builtin_joy_debug_print") {
+		else if (name == "__builtin_joy_debug_print") {
 			println(print_separated<PrintValue>(arguments.begin(), arguments.end(), ' '));
 			return new TupleLiteral();
 		}
