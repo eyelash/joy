@@ -50,6 +50,8 @@ func greater_than_or_equal(lhs: Int(), rhs: Int()): Bool() => __builtin_joy_int_
 
 func putchar(c: Int()): Unit() => __builtin_joy_putchar(c);
 
+func debug_print(...args) => __builtin_joy_debug_print(...args);
+
 func print(c: Char()): Unit() {
 	__builtin_joy_putchar(c.c);
 }

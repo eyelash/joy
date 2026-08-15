@@ -675,7 +675,20 @@ class Pass1 {
 		else if (auto* e = as<TupleLiteral>(expression)) {
 			std::vector<Reference<Expression>> elements;
 			for (const Expression* element: e->get_elements()) {
-				elements.push_back(evaluate(element));
+				if (const Spread* spread = as<Spread>(element)) {
+					Reference<Expression> tuple = evaluate(spread->get_expression());
+					TupleLiteral* tuple_literal = as<TupleLiteral>(tuple);
+					if (tuple_literal == nullptr) {
+						add_error(spread, "spread expression is not a tuple literal");
+						return Reference<Expression>();
+					}
+					for (Reference<Expression>& element: tuple_literal->get_elements()) {
+						elements.push_back(std::move(element));
+					}
+				}
+				else {
+					elements.push_back(evaluate(element));
+				}
 			}
 			return new TupleLiteral(std::move(elements));
 		}
@@ -705,6 +718,10 @@ class Pass1 {
 			}
 			return expression;
 		}
+		else if (auto* e = as<Spread>(expression)) {
+			add_error(expression, "invalid spread");
+			return Reference<Expression>();
+		}
 		else if (auto* e = as<Call>(expression)) {
 			Reference<Expression> function = evaluate(e->get_expression());
 			StringView name;
@@ -720,7 +737,20 @@ class Pass1 {
 				arguments.push_back(std::move(function));
 			}
 			for (const Expression* argument: e->get_arguments()) {
-				arguments.push_back(evaluate(argument));
+				if (const Spread* spread = as<Spread>(argument)) {
+					Reference<Expression> tuple = evaluate(spread->get_expression());
+					TupleLiteral* tuple_literal = as<TupleLiteral>(tuple);
+					if (tuple_literal == nullptr) {
+						add_error(spread, "spread expression is not a tuple literal");
+						return Reference<Expression>();
+					}
+					for (Reference<Expression>& element: tuple_literal->get_elements()) {
+						arguments.push_back(std::move(element));
+					}
+				}
+				else {
+					arguments.push_back(evaluate(argument));
+				}
 			}
 			return evaluate_call(name, std::move(arguments));
 		}
