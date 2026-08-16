@@ -373,6 +373,8 @@ static constexpr auto block = collect<BlockCollector>(sequence(
 using EmptyStatementCollector = MapCollector<StatementMapper<BlockStatement>, TupleCollector<>>;
 using LetStatementCollector = MapCollector<StatementMapper<LetStatement>, TupleCollector<Reference<Expression>, Reference<Expression>, Reference<Expression>>>;
 using IfStatementCollector = MapCollector<StatementMapper<IfStatement>, TupleCollector<Reference<Expression>, Block, Block>>;
+using CaseCollector = MapCollector<ConstructorMapper<SwitchStatement::Case>, TupleCollector<std::string, Block>>;
+using SwitchStatementCollector = MapCollector<StatementMapper<SwitchStatement>, TupleCollector<Reference<Expression>, std::vector<SwitchStatement::Case>>>;
 using WhileStatementCollector = MapCollector<StatementMapper<WhileStatement>, TupleCollector<Reference<Expression>, Block>>;
 using ForStatementCollector = MapCollector<StatementMapper<ForStatement>, TupleCollector<std::string, Reference<Expression>, Block>>;
 using ReturnStatementCollector = MapCollector<StatementMapper<ReturnStatement>, TupleCollector<Reference<Expression>>>;
@@ -416,6 +418,32 @@ constexpr auto if_statement = collect<IfStatementCollector>(sequence(
 		whitespace,
 		tag<TupleIndex<2>>(branch)
 	))
+));
+
+constexpr auto switch_statement = collect<SwitchStatementCollector>(sequence(
+	keyword("switch"),
+	whitespace,
+	expect("("),
+	whitespace,
+	expression,
+	whitespace,
+	expect(")"),
+	whitespace,
+	expect("{"),
+	whitespace,
+	collect<VectorCollector<SwitchStatement::Case>>(zero_or_more(
+		collect<CaseCollector>(sequence(
+			not_('}'),
+			not_(end()),
+			expect_identifier,
+			whitespace,
+			expect("=>"),
+			whitespace,
+			branch,
+			whitespace
+		))
+	)),
+	expect("}")
 ));
 
 constexpr auto while_statement = collect<WhileStatementCollector>(sequence(
@@ -484,6 +512,7 @@ DEFINE_PARSER(statement, collect<StatementCollector>(collect_location(choice(
 	empty_statement,
 	let_statement,
 	if_statement,
+	switch_statement,
 	while_statement,
 	for_statement,
 	return_statement,
@@ -497,6 +526,7 @@ DEFINE_PARSER(branch, choice(
 	map<ConstructorMapper<Block>>(collect<StatementCollector>(collect_location(choice(
 		empty_statement,
 		if_statement,
+		switch_statement,
 		while_statement,
 		for_statement,
 		return_statement,

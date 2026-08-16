@@ -22,6 +22,7 @@ enum {
 	TYPE_ID_BLOCK_STATEMENT,
 	TYPE_ID_LET_STATEMENT,
 	TYPE_ID_IF_STATEMENT,
+	TYPE_ID_SWITCH_STATEMENT,
 	TYPE_ID_WHILE_STATEMENT,
 	TYPE_ID_FOR_STATEMENT,
 	TYPE_ID_RETURN_STATEMENT,
@@ -349,6 +350,34 @@ public:
 	}
 	const Block* get_else_block() const {
 		return &else_block;
+	}
+};
+
+class SwitchStatement final: public Statement {
+public:
+	class Case {
+		std::string name;
+		Block block;
+	public:
+		Case(std::string&& name, Block&& block): name(std::move(name)), block(std::move(block)) {}
+		StringView get_name() const {
+			return name;
+		}
+		const Block* get_block() const {
+			return &block;
+		}
+	};
+private:
+	Reference<Expression> expression;
+	std::vector<Case> cases;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_SWITCH_STATEMENT;
+	SwitchStatement(Reference<Expression>&& expression, std::vector<Case>&& cases): Statement(TYPE_ID), expression(std::move(expression)), cases(std::move(cases)) {}
+	const Expression* get_expression() const {
+		return expression;
+	}
+	const std::vector<Case>& get_cases() const {
+		return cases;
 	}
 };
 
