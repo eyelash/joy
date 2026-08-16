@@ -484,6 +484,13 @@ class Pass1 {
 		}
 		return match_entity;
 	}
+	static std::string concatenate(const StringView& left, const StringView& right) {
+		std::string result;
+		result.reserve(left.size() + right.size());
+		result.append(left.data(), left.size());
+		result.append(right.data(), right.size());
+		return result;
+	}
 	Reference<Expression> evaluate_builtin_function(BuiltinFunction* function, std::vector<Reference<Expression>>&& arguments) {
 		const StringView name = function->get_name();
 		if (name == "__builtin_joy_int_add") {
@@ -584,6 +591,40 @@ class Pass1 {
 				return Reference<Expression>();
 			}
 			return new IntLiteral(left->get_value() <= right->get_value());
+		}
+		else if (name == "__builtin_joy_string_length") {
+			if (arguments.size() != 1) {
+				return Reference<Expression>();
+			}
+			StringLiteral* string = as<StringLiteral>(arguments[0]);
+			if (string == nullptr) {
+				return Reference<Expression>();
+			}
+			return new IntLiteral(string->get_string().size());
+		}
+		else if (name == "__builtin_joy_string_push") {
+			if (arguments.size() != 2) {
+				return Reference<Expression>();
+			}
+			StringLiteral* left = as<StringLiteral>(arguments[0]);
+			IntLiteral* right = as<IntLiteral>(arguments[1]);
+			if (left == nullptr || right == nullptr) {
+				return Reference<Expression>();
+			}
+			std::string result = left->get_string().to_string();
+			result.push_back(right->get_value());
+			return new StringLiteral(std::move(result));
+		}
+		else if (name == "__builtin_joy_string_concatenate") {
+			if (arguments.size() != 2) {
+				return Reference<Expression>();
+			}
+			StringLiteral* left = as<StringLiteral>(arguments[0]);
+			StringLiteral* right = as<StringLiteral>(arguments[1]);
+			if (left == nullptr || right == nullptr) {
+				return Reference<Expression>();
+			}
+			return new StringLiteral(concatenate(left->get_string(), right->get_string()));
 		}
 		else if (name == "__builtin_joy_putchar") {
 			if (arguments.size() != 1) {
@@ -756,8 +797,16 @@ class Pass1 {
 		}
 		else if (auto* e = as<Accessor>(expression)) {
 			Reference<Expression> left = evaluate(e->get_left());
-			if (auto* tuple_literal = as<TupleLiteral>(left)) {
-				const std::int32_t* index = get_constant_int(e->get_right());
+			if (auto* string_literal = as<StringLiteral>(left)) {
+				Reference<Expression> right = evaluate(e->get_right());
+				const std::int32_t* index = get_constant_int(right);
+				if (index && *index >= 0 && *index < string_literal->get_string().size()) {
+					return new IntLiteral(string_literal->get_string()[*index]);
+				}
+			}
+			else if (auto* tuple_literal = as<TupleLiteral>(left)) {
+				Reference<Expression> right = evaluate(e->get_right());
+				const std::int32_t* index = get_constant_int(right);
 				if (index && *index >= 0 && *index < tuple_literal->get_elements().size()) {
 					return copy_value(tuple_literal->get_elements()[*index]);
 				}

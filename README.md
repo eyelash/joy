@@ -7,7 +7,7 @@
 - [x] variadic functions
 - [x] first-class types
 - [x] integers
-- [ ] strings
+- [x] strings
 - [x] tuples
 - [ ] arrays
 - [x] structs (product types)
