@@ -11,7 +11,9 @@ enum {
 	TYPE_ID_STRING_LITERAL,
 	TYPE_ID_TUPLE_LITERAL,
 	TYPE_ID_STRUCT_LITERAL,
+	TYPE_ID_ENUM_LITERAL,
 	TYPE_ID_FUNCTION_LITERAL,
+	TYPE_ID_ENUM_CONSTRUCTOR,
 	TYPE_ID_NAME,
 	TYPE_ID_VARIABLE,
 	TYPE_ID_ASSIGNMENT,
@@ -142,6 +144,24 @@ public:
 	}
 };
 
+class EnumLiteral final: public Expression {
+	Reference<Expression> type;
+	std::string tag;
+	Reference<Expression> value;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_ENUM_LITERAL;
+	EnumLiteral(Reference<Expression>&& type, std::string&& tag, Reference<Expression>&& value): Expression(TYPE_ID), type(std::move(type)), tag(std::move(tag)), value(std::move(value)) {}
+	const Expression* get_type() const {
+		return type;
+	}
+	StringView get_tag() const {
+		return tag;
+	}
+	const Expression* get_value() const {
+		return value;
+	}
+};
+
 class FunctionLiteral final: public Expression {
 	std::string name;
 	std::vector<Reference<Expression>> arguments;
@@ -157,6 +177,20 @@ public:
 	}
 	const std::vector<Reference<Expression>>& get_arguments() const {
 		return arguments;
+	}
+};
+
+class EnumConstructor final: public Expression {
+	Reference<Expression> type;
+	std::string tag;
+public:
+	static constexpr int TYPE_ID = TYPE_ID_ENUM_CONSTRUCTOR;
+	EnumConstructor(Reference<Expression>&& type, std::string&& tag): Expression(TYPE_ID), type(std::move(type)), tag(std::move(tag)) {}
+	const Expression* get_type() const {
+		return type;
+	}
+	StringView get_tag() const {
+		return tag;
 	}
 };
 

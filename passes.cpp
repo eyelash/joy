@@ -248,6 +248,9 @@ public:
 		else if (auto* e = as<StructLiteral>(expression)) {
 			print_impl(format("{%}", comma_separated<PrintMember>(e->get_members())), context);
 		}
+		else if (auto* e = as<EnumLiteral>(expression)) {
+			print_impl(format("<enum literal>"), context);
+		}
 		else if (auto* e = as<FunctionLiteral>(expression)) {
 			if (e->get_arguments().empty()) {
 				print_impl(format("<function \"%\">", e->get_name()), context);
@@ -255,6 +258,9 @@ public:
 			else {
 				print_impl(format("<function \"%\" with arguments (%)>", e->get_name(), comma_separated<PrintValue>(e->get_arguments())), context);
 			}
+		}
+		else if (auto* e = as<EnumConstructor>(expression)) {
+			print_impl(format("<enum constructor>"), context);
 		}
 		else if (auto* e = as<Call>(expression)) {
 			print_impl(format("%(%)", get_name(e), comma_separated<PrintValue>(e->get_arguments())), context);
@@ -331,12 +337,18 @@ class Pass1 {
 			}
 			return new StructLiteral(copy_value(e->get_type()), std::move(members));
 		}
+		else if (auto* e = as<EnumLiteral>(expression)) {
+			return new EnumLiteral(copy_value(e->get_type()), e->get_tag().to_string(), copy_value(e->get_value()));
+		}
 		else if (auto* e = as<FunctionLiteral>(expression)) {
 			std::vector<Reference<Expression>> arguments;
 			for (const Expression* argument: e->get_arguments()) {
 				arguments.push_back(copy_value(argument));
 			}
 			return new FunctionLiteral(e->get_name().to_string(), std::move(arguments));
+		}
+		else if (auto* e = as<EnumConstructor>(expression)) {
+			return new EnumConstructor(copy_value(e->get_type()), e->get_tag().to_string());
 		}
 		else if (auto* e = as<Call>(expression)) {
 			Reference<Expression> expression = new EntityReference(get_entity(e->get_expression()));
@@ -377,6 +389,9 @@ class Pass1 {
 		else if (auto* e = as<StructLiteral>(expression)) {
 			return copy_value(e->get_type());
 		}
+		else if (auto* e = as<EnumLiteral>(expression)) {
+			return copy_value(e->get_type());
+		}
 		else if (auto* e = as<FunctionLiteral>(expression)) {
 			std::vector<Reference<Expression>> arguments;
 			arguments.push_back(new StringLiteral(e->get_name().to_string()));
@@ -384,6 +399,12 @@ class Pass1 {
 				arguments.push_back(get_type(argument));
 			}
 			return evaluate_call("Function", std::move(arguments));
+		}
+		else if (auto* e = as<EnumConstructor>(expression)) {
+			std::vector<Reference<Expression>> arguments;
+			arguments.push_back(copy_value(e->get_type()));
+			arguments.push_back(new StringLiteral(e->get_tag().to_string()));
+			return evaluate_call("EnumConstructor", std::move(arguments));
 		}
 		else if (auto* e = as<Call>(expression)) {
 			return evaluate_call("Type", {});
@@ -765,6 +786,14 @@ class Pass1 {
 		}
 		else if (auto* e = as<Call>(expression)) {
 			Reference<Expression> function = evaluate(e->get_expression());
+			if (auto* enum_constructor = as<EnumConstructor>(function)) {
+				if (e->get_arguments().size() != 1) {
+					add_error(expression, "invalid number of arguments, expected 1 argument");
+					return Reference<Expression>();
+				}
+				Reference<Expression> value = evaluate(e->get_arguments()[0]);
+				return new EnumLiteral(copy_value(enum_constructor->get_type()), enum_constructor->get_tag().to_string(), std::move(value));
+			}
 			StringView name;
 			std::vector<Reference<Expression>> arguments;
 			if (auto* function_literal = as<FunctionLiteral>(function)) {
@@ -817,6 +846,12 @@ class Pass1 {
 					if (member.get_name() == name) {
 						return copy_value(member.get_expression());
 					}
+				}
+			}
+			else if (auto* call = as<Call>(left)) {
+				if (as<Enumeration>(get_entity(call->get_expression()))) {
+					const StringView name = get_constant_string(e->get_right());
+					return new EnumConstructor(std::move(left), name.to_string());
 				}
 			}
 			if (const StringView name = get_constant_string(e->get_right())) {

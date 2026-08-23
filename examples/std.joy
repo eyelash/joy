@@ -4,6 +4,7 @@ builtin type String();
 builtin type Tuple(...Types);
 builtin type Array(T: Type());
 builtin type Function(name: String(), ...arguments);
+builtin type EnumConstructor(type: Type(), tag: String());
 
 func Unit(): Type() => Tuple();
 
