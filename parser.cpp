@@ -622,7 +622,7 @@ using MemberCollector = MapCollector<ConstructorMapper<Member>, TupleCollector<s
 
 using StructureCollector = MapCollector<EntityMapper<Structure>, TupleCollector<std::string, std::vector<Argument>, Reference<Expression>, std::vector<Member>>>;
 
-using EnumerationCollector = MapCollector<EntityMapper<Structure>, TupleCollector<std::string, std::vector<Argument>, Reference<Expression>, std::vector<Member>>>;
+using EnumerationCollector = MapCollector<EntityMapper<Enumeration>, TupleCollector<std::string, std::vector<Argument>, Reference<Expression>, std::vector<Member>>>;
 
 constexpr auto structure = collect<StructureCollector>(sequence(
 	keyword("struct"),

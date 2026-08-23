@@ -892,6 +892,30 @@ class Pass1 {
 					return result;
 				}
 			}
+			else if (auto* s = as<SwitchStatement>(statement)) {
+				Reference<Expression> switch_expression = evaluate(s->get_expression());
+				EnumLiteral* enum_literal = as<EnumLiteral>(switch_expression);
+				if (enum_literal == nullptr) {
+					add_error(s->get_expression(), "switch expression is not an enum");
+					continue;
+				}
+				VariableMap* previous_variables2 = variables;
+				VariableMap new_variables2(variables);
+				variables = &new_variables2;
+				if (auto* name = as<Name>(s->get_expression())) {
+					variables->set(name->get_name(), copy_value(enum_literal->get_value()));
+				}
+				for (const SwitchStatement::Case& c: s->get_cases()) {
+					if (c.get_name() == enum_literal->get_tag()) {
+						const Result result = evaluate(c.get_block());
+						if (result != Result::OK) {
+							variables = previous_variables;
+							return result;
+						}
+					}
+				}
+				variables = previous_variables2;
+			}
 			else if (auto* s = as<WhileStatement>(statement)) {
 				while (true) {
 					Reference<Expression> condition = evaluate(s->get_condition());

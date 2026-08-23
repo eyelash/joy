@@ -11,6 +11,6 @@
 - [x] tuples
 - [ ] arrays
 - [x] structs (product types)
-- [ ] enums (sum types)
+- [x] enums (sum types)
 - [ ] lambdas
 - [ ] template strings
