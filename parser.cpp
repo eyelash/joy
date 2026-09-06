@@ -291,6 +291,9 @@ DEFINE_PARSER(expression, pratt<ExpressionCollector>(
 		prefix<SpreadCollector>(operator_("..."))
 	),
 	pratt_level(
+		infix_ltr<InfixOperatorCollector<Operator_range>>(operator_(".."))
+	),
+	pratt_level(
 		infix_ltr<InfixOperatorCollector<Operator_equal>>(operator_("==")),
 		infix_ltr<InfixOperatorCollector<Operator_not_equal>>(operator_("!="))
 	),
@@ -327,7 +330,7 @@ DEFINE_PARSER(expression, pratt<ExpressionCollector>(
 		)),
 		postfix<AccessorCollector>(sequence(
 			whitespace,
-			ignore('.'),
+			ignore(sequence('.', not_('.'))),
 			whitespace,
 			map<ExpressionMapper<StringLiteral>>(expect_identifier)
 		)),

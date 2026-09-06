@@ -228,6 +228,7 @@ DEFINE_OPERATOR(less_than)
 DEFINE_OPERATOR(less_than_or_equal)
 DEFINE_OPERATOR(greater_than)
 DEFINE_OPERATOR(greater_than_or_equal)
+DEFINE_OPERATOR(range)
 
 class Assignment final: public Expression {
 	Reference<Expression> left;
