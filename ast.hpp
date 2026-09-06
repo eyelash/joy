@@ -314,6 +314,9 @@ public:
 			statements.push_back(std::move(statement));
 		}
 	}
+	std::vector<Reference<Statement>>& get_statements() {
+		return statements;
+	}
 	const std::vector<Reference<Statement>>& get_statements() const {
 		return statements;
 	}
@@ -349,6 +352,7 @@ class LetStatement final: public Statement {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_LET_STATEMENT;
 	LetStatement(Reference<Expression>&& variable, Reference<Expression>&& type, Reference<Expression>&& expression): Statement(TYPE_ID), variable(std::move(variable)), type(std::move(type)), expression(std::move(expression)) {}
+	LetStatement(std::string&& name, Reference<Expression>&& expression): Statement(TYPE_ID), variable(new Name(std::move(name))), expression(std::move(expression)) {}
 	const Expression* get_variable() const {
 		return variable;
 	}
@@ -397,6 +401,9 @@ public:
 		StringView get_name() const {
 			return name;
 		}
+		Block* get_block() {
+			return &block;
+		}
 		const Block* get_block() const {
 			return &block;
 		}
@@ -409,6 +416,9 @@ public:
 	SwitchStatement(Reference<Expression>&& expression, std::vector<Case>&& cases): Statement(TYPE_ID), expression(std::move(expression)), cases(std::move(cases)) {}
 	const Expression* get_expression() const {
 		return expression;
+	}
+	std::vector<Case>& get_cases() {
+		return cases;
 	}
 	const std::vector<Case>& get_cases() const {
 		return cases;
@@ -444,6 +454,9 @@ public:
 	}
 	const Expression* get_expression() const {
 		return expression;
+	}
+	Block* get_block() {
+		return &block;
 	}
 	const Block* get_block() const {
 		return &block;
@@ -575,6 +588,9 @@ class Function final: public SignatureEntity {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_FUNCTION;
 	Function(std::string&& name, std::vector<Argument>&& arguments, Reference<Expression>&& return_type, Block&& block): SignatureEntity(TYPE_ID, std::move(name), std::move(arguments), std::move(return_type)), block(std::move(block)) {}
+	Block* get_block() {
+		return &block;
+	}
 	const Block* get_block() const {
 		return &block;
 	}

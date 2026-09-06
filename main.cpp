@@ -22,6 +22,7 @@ static void compile(int argc, const char** argv, Diagnostics& diagnostics) {
 	if (diagnostics.has_error()) {
 		return;
 	}
+	desugaring(program);
 	pass1(program, diagnostics);
 	if (diagnostics.has_error()) {
 		return;

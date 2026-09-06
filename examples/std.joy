@@ -35,6 +35,11 @@ func char(c: Int()): Char() {
 	};
 }
 
+enum Optional(T: Type()) {
+	none: Unit(),
+	some: T,
+}
+
 // Int arithmetic operators
 func add      (lhs: Int(), rhs: Int()): Int() => __builtin_joy_int_add      (lhs, rhs);
 func subtract (lhs: Int(), rhs: Int()): Int() => __builtin_joy_int_subtract (lhs, rhs);
@@ -59,6 +64,30 @@ func add(lhs: String(), rhs: String()): String() => __builtin_joy_string_concate
 func putchar(c: Int()): Unit() => __builtin_joy_putchar(c);
 
 func debug_print(...args) => __builtin_joy_debug_print(...args);
+
+struct Range(T: Type()) {
+	start: T,
+	end: T,
+}
+
+func range(start: Int(), end: Int()): Range(Int()) {
+	return new Range(Int()) {
+		start = start,
+		end = end,
+	};
+}
+func range(end: Int()): Range(Int()) => range(0, end);
+
+func get_iterator(range: Range(Int())): Int() => range.start;
+
+func get_next(range: Range(Int()), iterator: Int()) {
+	let iterator_type = Optional(Tuple(Int(), Int()));
+	if (iterator < range.end) {
+		return iterator_type.some([iterator, iterator + 1]);
+	} else {
+		return iterator_type.none([]);
+	}
+}
 
 func print(c: Char()): Unit() {
 	__builtin_joy_putchar(c.c);

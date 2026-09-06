@@ -97,6 +97,9 @@ public:
 		else if (auto* e = as<StringLiteral>(expression)) {
 			return new StringLiteral(e->get_string().to_string());
 		}
+		else if (auto* e = as<TupleLiteral>(expression)) {
+			return new TupleLiteral(copy_expressions(e->get_elements()));
+		}
 		else if (auto* e = as<StructLiteral>(expression)) {
 			std::vector<StructLiteral::Member> new_members;
 			for (const StructLiteral::Member& member: e->get_members()) {
@@ -104,8 +107,14 @@ public:
 			}
 			return new StructLiteral(copy_expression(e->get_type()), std::move(new_members));
 		}
-		else if (auto* e = as<TupleLiteral>(expression)) {
-			return new TupleLiteral(copy_expressions(e->get_elements()));
+		else if (auto* e = as<EnumLiteral>(expression)) {
+			return new EnumLiteral(copy_expression(e->get_type()), e->get_tag().to_string(), copy_expression(e->get_value()));
+		}
+		else if (auto* e = as<FunctionLiteral>(expression)) {
+			return new FunctionLiteral(e->get_name().to_string(), copy_expressions(e->get_arguments()));
+		}
+		else if (auto* e = as<EnumConstructor>(expression)) {
+			return new EnumConstructor(copy_expression(e->get_type()), e->get_tag().to_string());
 		}
 		else if (auto* e = as<Name>(expression)) {
 			return new Name(e->get_name().to_string());
@@ -164,10 +173,20 @@ public:
 			Block else_block = copy_block(s->get_else_block());
 			return new IfStatement(std::move(condition), std::move(then_block), std::move(else_block));
 		}
+		else if (auto* s = as<SwitchStatement>(statement)) {
+			std::vector<SwitchStatement::Case> cases;
+			for (const SwitchStatement::Case& c: s->get_cases()) {
+				cases.emplace_back(c.get_name().to_string(), copy_block(c.get_block()));
+			}
+			return new SwitchStatement(copy_expression(s->get_expression()), std::move(cases));
+		}
 		else if (auto* s = as<WhileStatement>(statement)) {
 			Reference<Expression> condition = copy_expression(s->get_condition());
 			Block block = copy_block(s->get_block());
 			return new WhileStatement(std::move(condition), std::move(block));
+		}
+		else if (auto* s = as<ForStatement>(statement)) {
+			return new ForStatement(s->get_variable().to_string(), copy_expression(s->get_expression()), copy_block(s->get_block()));
 		}
 		else if (auto* s = as<ReturnStatement>(statement)) {
 			Reference<Expression> expression = copy_expression(s->get_expression());
@@ -210,6 +229,64 @@ static SignatureEntity* get_signature_entity(Entity* entity) {
 		return enumeration;
 	}
 	return nullptr;
+}
+
+class Desugaring {
+	Program* program;
+	void run(Block* block) {
+		std::vector<Reference<Statement>>& statements = block->get_statements();
+		for (std::size_t i = 0; i < statements.size(); ++i) {
+			Statement* statement = statements[i];
+			if (auto* s = as<BlockStatement>(statement)) {
+				run(s->get_block());
+			}
+			else if (auto* s = as<IfStatement>(statement)) {
+				run(s->get_then_block());
+				run(s->get_else_block());
+			}
+			else if (auto* s = as<SwitchStatement>(statement)) {
+				for (SwitchStatement::Case& c: s->get_cases()) {
+					run(c.get_block());
+				}
+			}
+			else if (auto* s = as<WhileStatement>(statement)) {
+				run(s->get_block());
+			}
+			else if (auto* s = as<ForStatement>(statement)) {
+				run(s->get_block());
+				statements[i] = new BlockStatement(Block(make_vector<Reference<Statement>>(
+					new LetStatement("__iterable", Copy::copy_expression(s->get_expression())),
+					new LetStatement("__iterator", new Call("get_iterator", make_vector<Reference<Expression>>(new Name("__iterable")))),
+					new WhileStatement(new IntLiteral(1), Block(make_vector<Reference<Statement>>(
+						new LetStatement("__value", new Call("get_next", make_vector<Reference<Expression>>(new Name("__iterable"), new Name("__iterator")))),
+						new SwitchStatement(new Name("__value"), make_vector<SwitchStatement::Case>(
+							SwitchStatement::Case("none", Block(new BreakStatement())),
+							SwitchStatement::Case("some", Block(make_vector<Reference<Statement>>(
+								new LetStatement(s->get_variable().to_string(), new Accessor(new Name("__value"), new IntLiteral(0))),
+								new BlockStatement(Copy::copy_block(s->get_block())),
+								new ExpressionStatement(new Assignment(new Name("__iterator"), new Accessor(new Name("__value"), new IntLiteral(1)))),
+								new ContinueStatement()
+							)))
+						)),
+						new BreakStatement()
+					)))
+				)));
+			}
+		}
+	}
+public:
+	Desugaring(Program* program): program(program) {}
+	void run() {
+		for (Entity* entity: program->get_entities()) {
+			if (Function* function = as<Function>(entity)) {
+				run(function->get_block());
+			}
+		}
+	}
+};
+
+void desugaring(Program* program) {
+	Desugaring(program).run();
 }
 
 class PrintMember {
