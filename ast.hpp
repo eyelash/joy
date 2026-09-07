@@ -126,6 +126,9 @@ public:
 		StringView get_name() const {
 			return name;
 		}
+		Reference<Expression>& get_expression() {
+			return expression;
+		}
 		const Expression* get_expression() const {
 			return expression;
 		}
@@ -138,6 +141,9 @@ public:
 	StructLiteral(Reference<Expression>&& type, std::vector<Member>&& members): Expression(TYPE_ID), type(std::move(type)), members(std::move(members)) {}
 	const Expression* get_type() const {
 		return type;
+	}
+	std::vector<Member>& get_members() {
+		return members;
 	}
 	const std::vector<Member>& get_members() const {
 		return members;
@@ -157,6 +163,9 @@ public:
 	StringView get_tag() const {
 		return tag;
 	}
+	Reference<Expression>& get_value() {
+		return value;
+	}
 	const Expression* get_value() const {
 		return value;
 	}
@@ -175,6 +184,9 @@ public:
 	StringView get_name() const {
 		return name;
 	}
+	std::vector<Reference<Expression>>& get_arguments() {
+		return arguments;
+	}
 	const std::vector<Reference<Expression>>& get_arguments() const {
 		return arguments;
 	}
@@ -186,8 +198,14 @@ class EnumConstructor final: public Expression {
 public:
 	static constexpr int TYPE_ID = TYPE_ID_ENUM_CONSTRUCTOR;
 	EnumConstructor(Reference<Expression>&& type, std::string&& tag): Expression(TYPE_ID), type(std::move(type)), tag(std::move(tag)) {}
+	Reference<Expression>& get_type() {
+		return type;
+	}
 	const Expression* get_type() const {
 		return type;
+	}
+	std::string& get_tag() {
+		return tag;
 	}
 	StringView get_tag() const {
 		return tag;
@@ -453,11 +471,14 @@ public:
 	StringView get_variable() const {
 		return variable;
 	}
+	Reference<Expression>& get_expression() {
+		return expression;
+	}
 	const Expression* get_expression() const {
 		return expression;
 	}
-	Block* get_block() {
-		return &block;
+	Block& get_block() {
+		return block;
 	}
 	const Block* get_block() const {
 		return &block;

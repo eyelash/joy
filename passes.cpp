@@ -253,9 +253,9 @@ class Desugaring {
 				run(s->get_block());
 			}
 			else if (auto* s = as<ForStatement>(statement)) {
-				run(s->get_block());
+				run(&s->get_block());
 				statements[i] = new BlockStatement(Block(make_vector<Reference<Statement>>(
-					new LetStatement("__iterable", Copy::copy_expression(s->get_expression())),
+					new LetStatement("__iterable", std::move(s->get_expression())),
 					new LetStatement("__iterator", new Call("get_iterator", make_vector<Reference<Expression>>(new Name("__iterable")))),
 					new WhileStatement(new IntLiteral(1), Block(make_vector<Reference<Statement>>(
 						new LetStatement("__value", new Call("get_next", make_vector<Reference<Expression>>(new Name("__iterable"), new Name("__iterator")))),
@@ -263,7 +263,7 @@ class Desugaring {
 							SwitchStatement::Case("none", Block(new BreakStatement())),
 							SwitchStatement::Case("some", Block(make_vector<Reference<Statement>>(
 								new LetStatement(s->get_variable().to_string(), new Accessor(new Name("__value"), new IntLiteral(0))),
-								new BlockStatement(Copy::copy_block(s->get_block())),
+								new BlockStatement(std::move(s->get_block())),
 								new ExpressionStatement(new Assignment(new Name("__iterator"), new Accessor(new Name("__value"), new IntLiteral(1)))),
 								new ContinueStatement()
 							)))
@@ -869,14 +869,14 @@ class Pass1 {
 					return Reference<Expression>();
 				}
 				Reference<Expression> value = evaluate(e->get_arguments()[0]);
-				return new EnumLiteral(copy_value(enum_constructor->get_type()), enum_constructor->get_tag().to_string(), std::move(value));
+				return new EnumLiteral(std::move(enum_constructor->get_type()), std::move(enum_constructor->get_tag()), std::move(value));
 			}
 			StringView name;
 			std::vector<Reference<Expression>> arguments;
 			if (auto* function_literal = as<FunctionLiteral>(function)) {
 				name = function_literal->get_name();
-				for (const Expression* argument: function_literal->get_arguments()) {
-					arguments.push_back(copy_value(argument));
+				for (Reference<Expression>& argument: function_literal->get_arguments()) {
+					arguments.push_back(std::move(argument));
 				}
 			}
 			else {
@@ -914,14 +914,14 @@ class Pass1 {
 				Reference<Expression> right = evaluate(e->get_right());
 				const std::int32_t* index = get_constant_int(right);
 				if (index && *index >= 0 && *index < tuple_literal->get_elements().size()) {
-					return copy_value(tuple_literal->get_elements()[*index]);
+					return std::move(tuple_literal->get_elements()[*index]);
 				}
 			}
 			else if (auto* struct_literal = as<StructLiteral>(left)) {
 				const StringView name = get_constant_string(e->get_right());
-				for (const StructLiteral::Member& member: struct_literal->get_members()) {
+				for (StructLiteral::Member& member: struct_literal->get_members()) {
 					if (member.get_name() == name) {
-						return copy_value(member.get_expression());
+						return std::move(member.get_expression());
 					}
 				}
 			}
@@ -980,7 +980,7 @@ class Pass1 {
 				VariableMap new_variables2(variables);
 				variables = &new_variables2;
 				if (auto* name = as<Name>(s->get_expression())) {
-					variables->set(name->get_name(), copy_value(enum_literal->get_value()));
+					variables->set(name->get_name(), std::move(enum_literal->get_value()));
 				}
 				for (const SwitchStatement::Case& c: s->get_cases()) {
 					if (c.get_name() == enum_literal->get_tag()) {
