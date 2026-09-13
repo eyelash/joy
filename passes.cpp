@@ -750,10 +750,7 @@ class Pass1 {
 		return Reference<Expression>();
 	}
 	Reference<Expression> evaluate_function(Function* function, std::vector<Reference<Expression>>&& arguments) {
-		VariableMap* previous_variables = variables;
-		Entity* previous_current_entity = current_entity;
 		VariableMap new_variables;
-		variables = &new_variables;
 		for (std::size_t i = 0, j = 0; i < function->get_arguments().size(); ++i, ++j) {
 			const Argument& argument = function->get_arguments()[i];
 			if (argument.is_variadic()) {
@@ -769,9 +766,9 @@ class Pass1 {
 				new_variables.set(argument.get_name(), std::move(arguments[j]));
 			}
 		}
+		Entity* previous_current_entity = current_entity;
 		current_entity = function;
-		evaluate(function->get_block());
-		variables = previous_variables;
+		evaluate(function->get_block(), &new_variables);
 		current_entity = previous_current_entity;
 		return std::move(return_value);
 	}
@@ -791,6 +788,24 @@ class Pass1 {
 			return new Call(new EntityReference(entity), std::move(arguments));
 		}
 		return Reference<Expression>();
+	}
+	void evaluate(const std::vector<Reference<Expression>>& expressions, std::vector<Reference<Expression>>& new_expressions) {
+		for (const Expression* expression: expressions) {
+			if (const Spread* spread = as<Spread>(expression)) {
+				Reference<Expression> tuple = evaluate(spread->get_expression());
+				TupleLiteral* tuple_literal = as<TupleLiteral>(tuple);
+				if (tuple_literal == nullptr) {
+					add_error(spread, "spread expression is not a tuple literal");
+					continue;
+				}
+				for (Reference<Expression>& element: tuple_literal->get_elements()) {
+					new_expressions.push_back(std::move(element));
+				}
+			}
+			else {
+				new_expressions.push_back(evaluate(expression));
+			}
+		}
 	}
 	Reference<Expression> evaluate(const Expression* expression) {
 		if (expression == nullptr) {
@@ -813,22 +828,7 @@ class Pass1 {
 		}
 		else if (auto* e = as<TupleLiteral>(expression)) {
 			std::vector<Reference<Expression>> elements;
-			for (const Expression* element: e->get_elements()) {
-				if (const Spread* spread = as<Spread>(element)) {
-					Reference<Expression> tuple = evaluate(spread->get_expression());
-					TupleLiteral* tuple_literal = as<TupleLiteral>(tuple);
-					if (tuple_literal == nullptr) {
-						add_error(spread, "spread expression is not a tuple literal");
-						return Reference<Expression>();
-					}
-					for (Reference<Expression>& element: tuple_literal->get_elements()) {
-						elements.push_back(std::move(element));
-					}
-				}
-				else {
-					elements.push_back(evaluate(element));
-				}
-			}
+			evaluate(e->get_elements(), elements);
 			return new TupleLiteral(std::move(elements));
 		}
 		else if (auto* e = as<StructLiteral>(expression)) {
@@ -883,22 +883,7 @@ class Pass1 {
 				name = "call";
 				arguments.push_back(std::move(function));
 			}
-			for (const Expression* argument: e->get_arguments()) {
-				if (const Spread* spread = as<Spread>(argument)) {
-					Reference<Expression> tuple = evaluate(spread->get_expression());
-					TupleLiteral* tuple_literal = as<TupleLiteral>(tuple);
-					if (tuple_literal == nullptr) {
-						add_error(spread, "spread expression is not a tuple literal");
-						return Reference<Expression>();
-					}
-					for (Reference<Expression>& element: tuple_literal->get_elements()) {
-						arguments.push_back(std::move(element));
-					}
-				}
-				else {
-					arguments.push_back(evaluate(argument));
-				}
-			}
+			evaluate(e->get_arguments(), arguments);
 			return evaluate_call(name, std::move(arguments));
 		}
 		else if (auto* e = as<Accessor>(expression)) {
@@ -938,15 +923,11 @@ class Pass1 {
 		}
 		return Reference<Expression>();
 	}
-	Result evaluate(const Block* block) {
-		VariableMap* previous_variables = variables;
-		VariableMap new_variables(variables);
-		variables = &new_variables;
+	Result evaluate_(const Block* block) {
 		for (const Statement* statement: block->get_statements()) {
 			if (auto* s = as<BlockStatement>(statement)) {
 				const Result result = evaluate(s->get_block());
 				if (result != Result::OK) {
-					variables = previous_variables;
 					return result;
 				}
 			}
@@ -965,7 +946,6 @@ class Pass1 {
 				}
 				const Result result = evaluate(block);
 				if (result != Result::OK) {
-					variables = previous_variables;
 					return result;
 				}
 			}
@@ -976,22 +956,18 @@ class Pass1 {
 					add_error(s->get_expression(), "switch expression is not an enum");
 					continue;
 				}
-				VariableMap* previous_variables2 = variables;
-				VariableMap new_variables2(variables);
-				variables = &new_variables2;
+				VariableMap new_variables(variables);
 				if (auto* name = as<Name>(s->get_expression())) {
-					variables->set(name->get_name(), std::move(enum_literal->get_value()));
+					new_variables.set(name->get_name(), std::move(enum_literal->get_value()));
 				}
 				for (const SwitchStatement::Case& c: s->get_cases()) {
 					if (c.get_name() == enum_literal->get_tag()) {
-						const Result result = evaluate(c.get_block());
+						const Result result = evaluate(c.get_block(), &new_variables);
 						if (result != Result::OK) {
-							variables = previous_variables;
 							return result;
 						}
 					}
 				}
-				variables = previous_variables2;
 			}
 			else if (auto* s = as<WhileStatement>(statement)) {
 				while (true) {
@@ -1007,30 +983,36 @@ class Pass1 {
 						continue;
 					}
 					if (result != Result::OK) {
-						variables = previous_variables;
 						return result;
 					}
 				}
 			}
 			else if (auto* s = as<ReturnStatement>(statement)) {
 				return_value = evaluate(s->get_expression());
-				variables = previous_variables;
 				return Result::RETURN;
 			}
 			else if (auto* s = as<BreakStatement>(statement)) {
-				variables = previous_variables;
 				return Result::BREAK;
 			}
 			else if (auto* s = as<ContinueStatement>(statement)) {
-				variables = previous_variables;
 				return Result::CONTINUE;
 			}
 			else if (auto* s = as<ExpressionStatement>(statement)) {
 				evaluate(s->get_expression());
 			}
 		}
-		variables = previous_variables;
 		return Result::OK;
+	}
+	Result evaluate(const Block* block, VariableMap* new_variables) {
+		VariableMap* previous_variables = variables;
+		variables = new_variables;
+		const Result result = evaluate_(block);
+		variables = previous_variables;
+		return result;
+	}
+	Result evaluate(const Block* block) {
+		VariableMap new_variables(variables);
+		return evaluate(block, &new_variables);
 	}
 public:
 	Pass1(Program* program, Diagnostics& diagnostics): program(program), diagnostics(diagnostics) {}

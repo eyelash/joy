@@ -3,7 +3,7 @@
 
 struct Success {
 	static constexpr const char* severity = "success";
-	using Color = printer::Green;
+	static constexpr auto& color = printer::green;
 };
 
 template <class... A> void print_success(A&&... a) {

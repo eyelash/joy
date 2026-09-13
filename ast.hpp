@@ -31,7 +31,6 @@ enum {
 	TYPE_ID_BREAK_STATEMENT,
 	TYPE_ID_CONTINUE_STATEMENT,
 	TYPE_ID_EXPRESSION_STATEMENT,
-	TYPE_ID_DESTROY_STATEMENT,
 	TYPE_ID_IMPORT,
 	TYPE_ID_BUILTIN_FUNCTION,
 	TYPE_ID_FUNCTION,
@@ -522,16 +521,6 @@ public:
 	ExpressionStatement(Reference<Expression>&& expression): Statement(TYPE_ID), expression(std::move(expression)) {}
 	const Expression* get_expression() const {
 		return expression;
-	}
-};
-
-class DestroyStatement final: public Statement {
-	unsigned int index;
-public:
-	static constexpr int TYPE_ID = TYPE_ID_DESTROY_STATEMENT;
-	DestroyStatement(unsigned int index): Statement(TYPE_ID), index(index) {}
-	unsigned int get_index() const {
-		return index;
 	}
 };
 
