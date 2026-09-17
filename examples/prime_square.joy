@@ -1,0 +1,48 @@
+import "std.joy";
+
+// print the first 100 primes in a 10 by 10 square
+func main() {
+	let n = 2;
+	let count = 0;
+	while (count < 100) {
+		if (n.is_prime()) {
+			print_number(n);
+			count = count + 1;
+			if (count % 10 == 0) {
+				putchar('\n');
+			} else {
+				putchar(' ');
+			}
+		}
+		n = n + 1;
+	}
+}
+
+func is_prime(n: Int()): Bool() {
+	let i = 2;
+	while (i * i <= n) {
+		if (n % i == 0) {
+			return false;
+		}
+		i = i + 1;
+	}
+	return true;
+}
+
+func print_number(n: Int()): Unit() {
+	print_digit(n / 100);
+	print_digit(n / 10);
+	print_last_digit(n);
+}
+
+func print_digit(n: Int()): Unit() {
+	if (n > 0) {
+		putchar('0' + n % 10);
+	} else {
+		putchar(' ');
+	}
+}
+
+func print_last_digit(n: Int()): Unit() {
+	putchar('0' + n % 10);
+}
