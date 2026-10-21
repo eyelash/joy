@@ -443,8 +443,20 @@ class Pass1 {
 		}
 		return false;
 	}
+	static SourceLocation get_location(const Expression* expression) {
+		if (expression == nullptr) {
+			return SourceLocation();
+		}
+		return expression->get_location();
+	}
+	const char* get_current_path() {
+		if (current_entity == nullptr) {
+			return nullptr;
+		}
+		return current_entity->get_path();
+	}
 	template <class... T> void add_error(const Expression* expression, const char* s, T... t) {
-		diagnostics.add_error(current_entity->get_path(), expression->get_location(), printer::format(s, t...));
+		diagnostics.add_error(get_current_path(), get_location(expression), printer::format(s, t...));
 	}
 	template <class... T> void add_error(const char* s, T... t) {
 		diagnostics.add_error(printer::format(s, t...));
@@ -556,7 +568,7 @@ class Pass1 {
 		}
 		return true;
 	}
-	Entity* find_entity(const StringView& name, const std::vector<Reference<Expression>>& argument_types) {
+	Entity* find_entity(const StringView& name, const std::vector<Reference<Expression>>& argument_types, const Expression* expression = nullptr) {
 		Entity* match_entity = nullptr;
 		unsigned int match_count = 0;
 		VariableMap* previous_variables = variables;
@@ -573,10 +585,10 @@ class Pass1 {
 		variables = previous_variables;
 		if (match_count != 1) {
 			if (match_count == 0) {
-				add_error("no matching function \"%\" found", name);
+				add_error(expression, "no matching function \"%\" found", name);
 			}
 			else {
-				add_error("% matching functions \"%\" found", printer::print_number(match_count), name);
+				add_error(expression, "% matching functions \"%\" found", printer::print_number(match_count), name);
 			}
 			return nullptr;
 		}
@@ -772,12 +784,16 @@ class Pass1 {
 		current_entity = previous_current_entity;
 		return std::move(return_value);
 	}
-	Reference<Expression> evaluate_call(const StringView& name, std::vector<Reference<Expression>>&& arguments) {
+	Reference<Expression> evaluate_call(const StringView& name, std::vector<Reference<Expression>>&& arguments, const Expression* expression = nullptr) {
 		std::vector<Reference<Expression>> argument_types;
 		for (const Expression* argument: arguments) {
-			argument_types.push_back(get_type(argument));
+			Reference<Expression> argument_type = get_type(argument);
+			if (argument_type == nullptr) {
+				return Reference<Expression>();
+			}
+			argument_types.push_back(std::move(argument_type));
 		}
-		Entity* entity = find_entity(name, argument_types);
+		Entity* entity = find_entity(name, argument_types, expression);
 		if (Function* function = as<Function>(entity)) {
 			return evaluate_function(function, std::move(arguments));
 		}
@@ -884,7 +900,7 @@ class Pass1 {
 				arguments.push_back(std::move(function));
 			}
 			evaluate(e->get_arguments(), arguments);
-			return evaluate_call(name, std::move(arguments));
+			return evaluate_call(name, std::move(arguments), expression);
 		}
 		else if (auto* e = as<Accessor>(expression)) {
 			Reference<Expression> left = evaluate(e->get_left());
