@@ -57,6 +57,10 @@ func less_than_or_equal   (lhs: Int(), rhs: Int()): Bool() => __builtin_joy_int_
 func greater_than         (lhs: Int(), rhs: Int()): Bool() => __builtin_joy_int_less_than         (rhs, lhs);
 func greater_than_or_equal(lhs: Int(), rhs: Int()): Bool() => __builtin_joy_int_less_than_or_equal(rhs, lhs);
 
+func or (lhs: Bool(), rhs: Bool()): Bool() => lhs + rhs != 0;
+func and(lhs: Bool(), rhs: Bool()): Bool() => lhs + rhs == 2;
+func not(bool: Bool()): Bool() => bool == 0;
+
 func length(string: String()): Int() => __builtin_joy_string_length(string);
 func push(string: String(), character: Int()): String() => __builtin_joy_string_push(string, character);
 func add(lhs: String(), rhs: String()): String() => __builtin_joy_string_concatenate(lhs, rhs);

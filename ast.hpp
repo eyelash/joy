@@ -245,6 +245,9 @@ DEFINE_OPERATOR(less_than)
 DEFINE_OPERATOR(less_than_or_equal)
 DEFINE_OPERATOR(greater_than)
 DEFINE_OPERATOR(greater_than_or_equal)
+DEFINE_OPERATOR(or)
+DEFINE_OPERATOR(and)
+DEFINE_OPERATOR(not)
 DEFINE_OPERATOR(range)
 
 class Assignment final: public Expression {

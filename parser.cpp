@@ -294,6 +294,12 @@ DEFINE_PARSER(expression, pratt<ExpressionCollector>(
 		infix_ltr<InfixOperatorCollector<Operator_range>>(operator_(".."))
 	),
 	pratt_level(
+		infix_ltr<InfixOperatorCollector<Operator_or>>(operator_('|'))
+	),
+	pratt_level(
+		infix_ltr<InfixOperatorCollector<Operator_and>>(operator_('&'))
+	),
+	pratt_level(
 		infix_ltr<InfixOperatorCollector<Operator_equal>>(operator_("==")),
 		infix_ltr<InfixOperatorCollector<Operator_not_equal>>(operator_("!="))
 	),
@@ -313,7 +319,8 @@ DEFINE_PARSER(expression, pratt<ExpressionCollector>(
 		infix_ltr<InfixOperatorCollector<Operator_remainder>>(operator_('%'))
 	),
 	pratt_level(
-		prefix<PrefixOperatorCollector<Operator_negate>>(operator_('-'))
+		prefix<PrefixOperatorCollector<Operator_negate>>(operator_('-')),
+		prefix<PrefixOperatorCollector<Operator_not>>(operator_('!'))
 	),
 	pratt_level(
 		postfix<CallCollector>(sequence(
